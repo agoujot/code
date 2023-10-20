@@ -1,3 +1,4 @@
+#finding, with description of a graph, whether it is an eulerian graph. and, yes, it it not clean.
 def trouver(cpris, c):
     global nbsolutions
     C, cpris_ = c[0], []
