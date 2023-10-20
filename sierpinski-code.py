@@ -1,3 +1,4 @@
+# a representation of a sierpinski triangle using turtle
 from turtle import *
 from math import *
 reset() 
