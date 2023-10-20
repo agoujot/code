@@ -1,3 +1,4 @@
+# the game of go
 import copy
 l = int(input("Plateau de côté: "))
 b = [[2 for _ in range(l)] for _ in range(l)] # b pour Board. définition du plateau vide
