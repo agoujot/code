@@ -80,18 +80,18 @@ def legal(xd, yd, xe, ye, tour, v):
 			if bbb[0] == tour:
 				p.remove(bbb) # on enleve de p les pions qui ont avance de 2 il y a 2 tours, car on ne peut plus les prendre en passant
 	if not (a[0] < ord(b[xd][yd]) < a[1] or b[xd][yd] == ".") and (a[0] < ord(b[xe][ye]) < a[1] or b[xe][ye] == "."): # si la case de fin est vide ou ennemie
-		if b[xd][yd] == "p" or b[xd][yd] == "P": # si c'est un pion
+		if b[xd][yd] == "p" or b[xd][yd] == "P": # si la case de depart est un pion
 			if tour == 10:
 				d = 1
 			else:
-				d = -1 # une case, car les 10 et les 20 n'avancent pas dans le même
+				d = -1 # une case, car les 10 et les 20 n'avancent pas dans le même sens
 			if xd + d == xe: # si le pion avance d'une case
 				if yd == ye and b[xe][ye] == ".": # si c'est dans la même colonne et la case de fin(cf) est vide
 					myl = ltc(xd, yd, xe, ye, tour, v) # on appelle ltc pour vérifier si ça mène à un échec
 					if myl == 1: # pour les résultats de myl, voir ltc
 						if [xd, yd] in p:
 							p.remove([xd, yd]) # un pion qui avance d'une case ne peut plus être pris en passant
-						return # pour ne pas retomber sur le return False tout à la fin. Info, au cas ou: l (voir vers la fin) est avec ceci égal à None (peut être bon à savoir)
+						return # pour ne pas retomber sur le return False tout à la fin. Info, au cas ou: l est avec ceci égal à None != "interdit" (peut être bon à savoir)
 					elif myl == 2: # c'est bon donc on return True
 						return(True)
 					elif myl == 4:
@@ -127,7 +127,7 @@ def legal(xd, yd, xe, ye, tour, v):
 				elif myl == 4:
 					return(False)
 		elif b[xd][yd] == "R" or b[xd][yd] == "r": # si c'est une tour (j'utilise les abréviations anglaises)
-			ok = True # si les cases sur le chemin sont vide (il faut vérifier avec plusieurs cas):
+			ok = True # si les cases sur le chemin sont vides (il faut vérifier avec plusieurs cas):
 			if xd == xe: # pour aller a l'horizontale: 
 				if yd < ye: # si on va a droite
 					d = 1
@@ -144,7 +144,7 @@ def legal(xd, yd, xe, ye, tour, v):
 				for c in range(xd+d, xe, d):
 					if b[c][yd] != ".":
 						ok = False
-			else: # si on ne va ni a la verticale ni à l'horizontale. il pourrait encore avoir quelaue trous dans mon code avec des mouvement illégaux auquels e n'ai pas penseé
+			else: # si on ne va ni a la verticale ni à l'horizontale. il pourrait encore avoir quelaue trous dans mon code avec des mouvement illégaux auquels je n'ai pas penseé
 				ok = False 
 			if ok:
 				myl = ltc(xd, yd, xe, ye, tour, v)
@@ -157,7 +157,7 @@ def legal(xd, yd, xe, ye, tour, v):
 				elif myl == 4:
 					return(False)
 		elif b[xd][yd] == "N" or b[xd][yd] == "n": # si c'est un cavalier
-			for c in nt: # pur chaque mouvement de cavalier
+			for c in nt: # pour chaque mouvement de cavalier
 				if xe == xd + c[0] and ye == yd + c[1]: # si ça correspond
 					myl = ltc(xd, yd, xe, ye, tour, v)
 					if myl == 1:
@@ -244,7 +244,7 @@ def legal(xd, yd, xe, ye, tour, v):
 					return(True)
 				elif myl == 4:
 					return(False)
-		elif b[xd][yd] == "K" or b[xd][yd] == "k": # si c'est un roi
+		elif b[xd][yd] == "K" or b[xd][yd] == "k": # si c'est un roi (side note: on ne peut pas utiliser ltc avec le roi pour je ne sais plus quelle raison mais ça s'enmêle
 			if xd-2 < xe < xd+2 and yd-2 < ye < yd+2: # si il ne fait que bouger d'une case
 				b_ = copy.deepcopy(b) # une copie de b pour tester un coup
 				move(xd, yd, xe, ye)
@@ -295,7 +295,7 @@ def check(xr, yr, tour, rep):
 		for j in range(8):
 			if legal(i, j, xr, yr, tour, False):
 				c = 1
-				break # pour chaque case, si elle peut prendre la case, on met c a 1
+				break # pour chaque case, si elle peut prendre la case xr yr, on met c a 1
 		if c == 1:
 			break
 	if c == 1 and not rep: # parce que ça c'est pour l'échec et mat
@@ -310,14 +310,14 @@ def check(xr, yr, tour, rep):
 							break# si ce coup sort le roi d'échec, c'est bon
 			if c == 1:
 				break
-		if c == 2: # si le roi lui-même ne peut sortir d'échec, il faut se donner la peine de véifier les autres pièces
+		if c == 2: # si le roi lui-même ne peut sortir d'échec, il faut se donner la peine de vérifier les autres pièces alliées
 			for i in range(8):
 				for j in range(8):
 					for x in range(8):
 						for y in range(8): # pour chaque couple de co
 							if legal(i, j, x, y, (20 if tour == 10 else 10), False):
 								c = 1
-								break # si aller des premières co aux deuxièmes sert le roi d'échec, c'est bon
+								break # si aller des premières co aux deuxièmes sort le roi d'échec, c'est bon (et oui c'est légèrement bourrin et après ne vous étonnez pas que je mette quatres break)
 						if c == 1:
 							break
 					if c == 1:
@@ -366,7 +366,7 @@ while not fin:
 	for x in range(8):
 		for y in range(8):
 			b_+=b[x][y] # on forme b_ copie de b sauf que c'est une string pour pouvoir l'utiliser comme clé de dictionnaire
-	if b_ in der.keys(): # si on a déjà vu ce plateau on le dit dqns der
+	if b_ in der.keys(): # si on a déjà vu ce plateau on le dit dans der
 		der[b_] += 1
 		if der[b_] == 3: # et si ça fait 3, c'est bon
 			afficher()
