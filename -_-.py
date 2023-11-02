@@ -1,9 +1,8 @@
 #finding, with description of a graph, whether it is an eulerian graph. and, yes, it it not clean.
+import copy
 def trouver(cpris, c):
     global nbsolutions
-    C, cpris_ = c[0], []
-    for i in range(len(cpris)):
-        cpris_.append(cpris[i])
+    C, cpris_ = c[0], copy.deepcopy(cpris)
     if C not in cpris_:
         cpris_.append(C)
         if len(cpris_) == (nbnoeuds):
