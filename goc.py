@@ -1,6 +1,6 @@
 # the game of go
-import copy
-l = int(input("Plateau de côté: "))
+import copy 
+l = int(input("Plateau de côté: ")) # l pour largeur
 b = [[2 for _ in range(l)] for _ in range(l)] # b pour Board. définition du plateau vide
 pa = 0 # pa pour passé. le nombre de joueaurs ayant passé à la suite
 t = 0 # le tour, 0 pour noir et 1 pour blanc. Les pierres noires et blanches seront représentées avec les même chiffres.
@@ -51,7 +51,7 @@ def afficher():
 afficher() # le jeu en lui-même
 while pa < 2: # tant que les deux joueurs n'ont pas passé de suite:
 	k = True
-	while k: # une première fois, puis tant que le coup est illégal:				L = -1				C = randint(0, l-1)
+	while k: # une première fois, puis tant que le coup est illégal:
 		L = int(input("Ligne "))-1
 		C = int(input("Colonne "))-1
 		if 0 <= L <= l-1 and 0 <= C <= l-1: # si le joueur ne passe pas:
