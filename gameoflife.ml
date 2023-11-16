@@ -1,12 +1,14 @@
 #load "graphics.cma"
 #load "unix.cma"
 open Graphics 
-let () =if (print_endline "Do you want the info page ? [N/y]"; read_line())="y" then (print_endline "Welcome to the Game Of Life simulator."; print_endline "For more info about the Game Of Life, see the wikipedia page 'Conway's Game of Life' or the wiki conwaylife.com.";print_endline "Once you have entered the settings, it will start. "; print_endline "When the sim is running, you can pause it by clicking (keep the mouse button down until it stops).";print_endline "In pause, press keys to do the following:";print_endline"- p (Play) : restarts the sim.";print_endline "- e (Edit) : click on a cell to change it state, then the sim will go back to pause.";print_endline "- m (Manual Mode) : lets you change the state of any cells you click. To exit manual mode and go back to pause, click outside the window.";print_endline "- n (New) : reboots the sim from another random grid."; print_endline "- c (Change) : lets you change the settings.";print_endline "- d (Delete) : empties the grid (useful with Manual Mode).";print_endline "- r (Recognition) : toggles pattern recognition (slower).";print_endline "- x (EXit) : closes the sim.";print_endline "For pattern recognition, the most common stables, oscillators and ships are colored, respectively, in green, blue, and red.";print_newline() ;print_endline "About the settings : ";print_endline " - if you take size > 100, beware of slowness, even more if in pattern recognition mode, and even more if editing manually.";print_endline " - the size times the width of a cell should be less than your screen size, as you cannot zoom or un-zoom.";print_endline " - density 1 is useful to start with an already empty board.";print_endline" - you also need to take into account the calculation time if you took a large size. And, although it is fun to have 0.0 delay, be nice to your computer."; print_newline(); print_endline"Have fun :) !")
-let si = print_endline "Size of the grid in cells ? "; read_int()
-let z = print_endline "Width of a cell in pixels ? "; read_int()
-let d = print_endline "Start density of life ? "; print_string "1/"; read_int()
-let time = print_endline "Delay between frames ? (float)"; read_float()
-let () = Random.self_init(); open_graph ""; resize_window (si*z+1) (si*z+1); set_color black; fill_rect 0 0 (si*z) (si*z) 
+let () =if (print_endline "Do you want the info page ? [N/y]"; read_line())="y" then (print_endline "Welcome to the Game Of Life simulator."; print_endline "For more info about the Game Of Life, see the wikipedia page 'Conway's Game of Life' or the wiki conwaylife.com.";print_endline "Once you have entered the settings, it will start. "; print_endline "When the sim is running, you can pause it by clicking (keep the mouse button down until it stops).";print_endline "In pause, press keys to do the following:";print_endline"- p (Play) : restarts the sim.";print_endline "- e (Edit) : click on a cell to change it state, then the sim will go back to pause.";print_endline "- m (Manual Mode) : lets you change the state of any cells you click. To exit manual mode and go back to pause, click outside the window.";print_endline "- n (New) : reboots the sim from another random grid."; print_endline "- c (Change) : lets you change the settings.";print_endline "- d (Delete) : empties the grid (useful with Manual Mode).";print_endline "- r (Recognition) : toggles pattern recognition (slower).";print_endline "- x (EXit) : closes the sim.";print_endline "For pattern recognition, the most common stables, oscillators and ships are colored, respectively, in green, blue, and red.";print_newline() ;print_endline "About the settings : ";print_endline " - if you take size > 100, it will not be instant, especially with pattern coloring.";print_endline " - the size times the width of a cell should be less than your screen size, as you cannot zoom or un-zoom.";print_endline " - density 1 is useful to start with an already empty board.";print_endline" - you also need to take into account the calculation time if you took a large size."; print_newline(); print_endline"Have fun :) !")
+let si = let x = (print_endline "Size of the grid in cells ? [100]"; read_line()) in if x = "" then 100 else int_of_string x
+let z = let x = (print_endline "Width of a cell in pixels ? [10]"; read_line()) in if x = "" then 10 else int_of_string x
+let d = let x = (print_endline "Start density of life ? [2]"; print_string "1/"; read_line()) in if x = "" then 2 else int_of_string x
+let time = let x = (print_endline "Delay between frames ? (float) [0.0]"; read_line()) in if x = "" then 0.0 else float_of_string x
+let neighbours = if (print_endline "Change neighbours ? [N/y]"; read_line()) = "y" then (print_endline "Enter the tuples of variations you want, with one value per line. Put 0 0 to stop."; let rec ed l = let x = read_int() and y = read_int() in if x = 0 && y=0 then l else ed [(x,y)]@l in ed []) else [(-1,-1);(-1,0);(-1,1);(0,-1);(0,1);(1,-1);(1,0);(1,1)]
+let counts = if (print_endline "Change counts ? [N/y]"; read_line()) = "y" then let rec ed l = let x = read_int() in if x = (-1) then l else ed ([x]@l) in ((print_endline "And do the same for becoming alive. Counts in neither of those lists will be considered as 'do nothing'."; ed []), (print_endline "First, enter the counts on which a cell will become dead. One value per line, -1 to stop."; ed [])) else ([3], [0; 1; 4; 5; 6; 7; 8])
+let () = Random.self_init(); open_graph ""; resize_window (si*z+1) (si*z+1); set_color black; fill_rect 0 0 (si*z) (si*z)
 let rec build x y l b =
         if x = si
         then b
@@ -30,10 +32,10 @@ let turn a =
         in bu 0 (Array.length a - 1) [||]
 let flip a =
         let rec it i =
-                match i with
-                | -1 -> [||]
-                | _ -> Array.append [|a.(i)|] (it (i-1))
-        in it (Array.length a -1)
+                if i = Array.length a
+                then [||]
+                else Array.append [|Array.of_list(List.rev (Array.to_list a.(i)))|] (it (i+1))
+        in it (0)
 let gs=
  let ga=[|[|2; 0; 0; 0; 0; 2|];
           [|0; 0; 1; 1; 0; 0|];
@@ -91,8 +93,20 @@ let bs=
  and bc=[|[|2; 0; 0; 0; 0; 0|];
           [|0; 0; 1; 1; 1; 0|];
           [|0; 1; 1; 1; 0; 0|];
-          [|0; 0; 0; 0; 0; 2|]|] in let bb_ = flip bb and bc_ = flip bc
-          in [ba; turn ba; bb; bc; turn bb; turn bc; bb_; turn bb_; bc_; turn bc_]
+          [|0; 0; 0; 0; 0; 2|]|] 
+ and bd=[|[|0; 0; 0; 0; 0; 0|];
+          [|0; 1; 1; 0; 0; 0|];
+          [|0; 1; 1; 0; 0; 0|];
+          [|0; 0; 0; 1; 1; 0|];
+          [|0; 0; 0; 1; 1; 0|];
+          [|0; 0; 0; 0; 0; 0|]|] 
+ and be=[|[|0; 0; 0; 0; 0; 0|];
+          [|0; 1; 1; 0; 0; 0|];
+          [|0; 1; 0; 0; 0; 0|];
+          [|0; 0; 0; 0; 1; 0|];
+          [|0; 0; 0; 1; 1; 0|];
+          [|0; 0; 0; 0; 0; 0|]|] in let bb_ = flip bb and bc_ = flip bc
+    in [ba; turn ba; bb; bc; turn bb; turn bc; bd; turn bd; be; turn be; bb_; bc_; turn bb_; turn bc_]
 let rs=
  let ra=[|[|2; 2; 0; 0; 0|];
           [|0; 0; 0; 1; 0|];
@@ -123,8 +137,8 @@ let rec doitfast g =
                 let rec c_ l =
                         match l with
                         | [] -> 0
-                        | i::s -> (let nx = x+fst(i) and ny = y+snd(i) in (if nx = -1 then if ny = -1 then g.(si-1).(si-1) else if ny = si then g.(si-1).(0) else g.(si-1).(ny) else if nx = si then if ny = -1 then g.(0).(si-1) else if ny=si then g.(0).(0) else g.(0).(ny) else if ny = -1 then g.(nx).(si-1) else if ny = si then g.(nx).(0) else g.(nx).(ny)) + c_ s)
-                in c_ [(-1,-1);(0,-1);(1,-1);(-1,0);(1,0);(-1,1);(0,1);(1,1)]
+                        | i::s -> (let nx = x+fst(i) and ny = y+snd(i) in (if nx < 0 then if ny < 0 then g.(si+nx).(si+ny) else if ny >= si then g.(si+nx).(ny-si) else g.(si+nx).(ny) else if nx >= si then if ny < 0 then g.(nx-si).(si+ny) else if ny>=si then g.(nx-si).(ny-si) else g.(nx-si).(ny) else if ny <0 then g.(nx).(si+ny) else if ny >= si then g.(nx).(ny-si) else g.(nx).(ny)) + c_ s)
+                in c_ neighbours
         in let rec update x y =
                 if x < si
                 then
@@ -132,10 +146,10 @@ let rec doitfast g =
                         then update (x+1) 0
                         else
                                 ((let v = c x y in
-                                if v = 3
+                                if List.mem v (fst(counts))
                                 then (g_.(x).(y) <- 1; set_color white; fill_rect (z*x) (z*y) (z-1) (z-1))
                                 else
-                                if v <> 2
+                                if List.mem v (snd(counts))
                                 then (g_.(x).(y) <- 0; set_color black; fill_rect (z*x) (z*y) (z-1) (z-1)));
                                 update x (y+1))
         in update 0 0;Unix.sleepf time; if not (button_down()) then doitfast g_ else (let n = read_key() in 
@@ -153,7 +167,7 @@ let rec doitfast g =
                             else choose(read_key())))
                         else wait() in wait()
                 | 'd' -> let rec empty x y = if x < si then (if y = si then empty (x+1) 0 else (g_.(x).(y) <- 0; fill_rect (z*x) (z*y) (z-1) (z-1);empty x (y+1))) in set_color black; empty 0 0; choose(read_key())
-                | 'c' -> print_endline "Enter new settings :";close_graph(); ignore(Unix.system "ocaml gameoflife.ml")
+                | 'c' -> print_endline "Enter new settings :"; close_graph(); ignore(Unix.system "ocaml gameoflife.ml")
                 | 'r' -> doit g_
                 | _ -> print_endline "Closed."
         in choose n)
@@ -163,8 +177,8 @@ and doit g =
                 let rec c_ l =
                         match l with
                         | [] -> 0
-                        | i::s -> (let nx = x+fst(i) and ny = y+snd(i) in (if nx = -1 then if ny = -1 then g.(si-1).(si-1) else if ny = si then g.(si-1).(0) else g.(si-1).(ny) else if nx = si then if ny = -1 then g.(0).(si-1) else if ny=si then g.(0).(0) else g.(0).(ny) else if ny = -1 then g.(nx).(si-1) else if ny = si then g.(nx).(0) else g.(nx).(ny)) + c_ s)
-                in c_ [(-1,-1);(0,-1);(1,-1);(-1,0);(1,0);(-1,1);(0,1);(1,1)]
+                        | i::s -> (let nx = x+fst(i) and ny = y+snd(i) in (if nx < 0 then if ny < 0 then g.(si+nx).(si+ny) else if ny >= si then g.(si+nx).(ny-si) else g.(si+nx).(ny) else if nx >= si then if ny < 0 then g.(nx-si).(si+ny) else if ny>=si then g.(nx-si).(ny-si) else g.(nx-si).(ny) else if ny <0 then g.(nx).(si+ny) else if ny >= si then g.(nx).(ny-si) else g.(nx).(ny)) + c_ s)
+                in c_ neighbours
         in let col x y =
                 let rec test p v =
                         let rec itest i j =
@@ -198,10 +212,10 @@ and doit g =
                         then update (x+1) 0
                         else
                                 ((let v = c x y in
-                                if v = 3
+                                if List.mem v (fst(counts))
                                 then g_.(x).(y) <- 1
                                 else
-                                if v <> 2
+                                if List.mem v (snd(counts))
                                 then g_.(x).(y) <- 0);
                                 update x (y+1))
         in let rec show x y =
@@ -230,9 +244,8 @@ and doit g =
                             else choose(read_key())))
                         else wait() in wait()
                 | 'd' -> let rec empty x y = if x < si then (if y = si then empty (x+1) 0 else (g_.(x).(y) <- 0; empty x (y+1))) in empty 0 0; show 0 0;choose(read_key())
-                | 'c' -> print_endline "Enter new settings :";close_graph(); ignore(Unix.system "ocaml gameoflife.ml")
+                | 'c' -> print_endline "Enter new settings:";close_graph(); ignore(Unix.system "ocaml gameoflife.ml")
                 | 'r' -> let rec o x y = if x < si then (if y = si then o (x+1) 0 else (if g_.(x).(y) = 1 then (set_color white;fill_rect (z*x) (z*y) (z-1) (z-1)) else (set_color black;fill_rect (z*x) (z*y) (z-1) (z-1)); o x (y+1))) in (o 0 0; doitfast g_)
                 | _ -> print_endline "Closed."
         in choose n)
 let () = doitfast(build 0 0 [] [||])
-
