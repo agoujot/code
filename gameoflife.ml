@@ -1,7 +1,8 @@
 #load "graphics.cma"
 #load "unix.cma"
 open Graphics 
-let () =if (print_endline "Do you want the info page ? [N/y]"; read_line())="y" then (print_endline "Welcome to the Game Of Life simulator."; print_endline "For more info about the Game Of Life, see the wikipedia page 'Conway's Game of Life' or the wiki conwaylife.com.";print_endline "Once you have entered the settings, it will start. "; print_endline "When the sim is running, you can pause it by clicking (keep the mouse button down until it stops).";print_endline "In pause, press keys to do the following:";print_endline"- p (Play) : restarts the sim.";print_endline "- e (Edit) : click on a cell to change it state, then the sim will go back to pause.";print_endline "- m (Manual Mode) : lets you change the state of any cells you click. To exit manual mode and go back to pause, click outside the window.";print_endline "- n (New) : reboots the sim from another random grid."; print_endline "- c (Change) : lets you change the settings.";print_endline "- d (Delete) : empties the grid (useful with Manual Mode).";print_endline "- r (Recognition) : toggles pattern recognition (slower)."; print_endline "- o (One) : goes one frame further and then stops.";print_endline "- x (EXit) : closes the sim.";print_endline "For pattern recognition, the most common stables, oscillators and ships are colored, respectively, in green, blue, and red.";print_newline() ;print_endline "About the settings : ";print_endline " - if you take size > 100, it will not be instant, especially with pattern coloring.";print_endline " - the size times the width of a cell should be less than your screen size, as you cannot zoom or un-zoom.";print_endline " - density 1 is useful to start with an already empty board.";print_endline" - you also need to take into account the calculation time if you took a large size."; print_newline(); print_endline"Have fun :) !")
+let info() = (print_endline "Welcome to the Game Of Life simulator."; print_endline "For more info about the Game Of Life, see the wikipedia page 'Conway's Game of Life' or the wiki conwaylife.com.";print_endline "Once you have entered the settings, it will start. "; print_endline "When the sim is running, you can pause it by clicking (keep the mouse button down until it stops).";print_endline "In pause, press keys to do the following:";print_endline"- p (Play) : restarts the sim.";print_endline "- e (Edit) : click on a cell to change it state, then the sim will go back to pause.";print_endline "- m (Manual Mode) : lets you change the state of any cells you click. To exit manual mode and go back to pause, click outside the window.";print_endline "- n (New) : reboots the sim from another random grid."; print_endline "- c (Change) : lets you change the settings.";print_endline "- d (Delete) : empties the grid (useful with Manual Mode).";print_endline "- r (Recognition) : toggles pattern recognition (slower)."; print_endline "- i (Info) : shows this page.";print_endline "- x (EXit) : closes the sim.";print_endline "For pattern recognition, the most common stables, oscillators and ships are colored, respectively, in green, blue, and red.";print_newline() ;print_endline "About the settings : ";print_endline " - if you take size > 100, it will not be instant, especially with pattern coloring.";print_endline " - the size times the width of a cell should be less than your screen size, as you cannot zoom or un-zoom.";print_endline " - density 1 is useful to start with an already empty board.";print_endline" - you also need to take into account the calculation time if you took a large size."; print_newline(); print_endline"Have fun :) !")
+let () =if (print_endline "Do you want the info page ? [N/y]"; read_line())="y" then info() else print_endline "Ok. If you want to see it later, you can stop the sim by clicking and get it by pressing i."
 let si = let x = (print_endline "Size of the grid in cells ? [100]"; read_line()) in if x = "" then 100 else int_of_string x
 let z = let x = (print_endline "Width of a cell in pixels ? [10]"; read_line()) in if x = "" then 10 else int_of_string x
 let d = let x = (print_endline "Start density of life ? [2]"; print_string "1/"; read_line()) in if x = "" then 2 else int_of_string x
@@ -207,7 +208,7 @@ let rec doit g fast =
                             else choose(read_key())))
                         else wait() in wait()
                 | 'd' -> let rec empty x y = if x < si then (if y = si then empty (x+1) 0 else (g_.(x).(y) <- 0; fill x y;empty x (y+1))) in set_color black; empty 0 0; choose(read_key())
-                | 'c' -> print_endline "Enter new settings :"; close_graph(); ignore(Unix.system "ocaml gameofelife.ml")
+                | 'c' -> print_endline "Enter new settings :"; close_graph(); ignore(Unix.system "ocaml gameoflife.ml")
                 | 'r' -> (if not fast then (
                         let rec a x y =
                                 if x < si 
@@ -217,9 +218,10 @@ let rec doit g fast =
                                         else
                                                 (if g_.(x).(y) = 1
                                                 then set_color white
-                                                else set_color black; 
-                                                fill_rect (z*y) (z*y) (z-1) (z-1) )
+                                                else set_color black;
+                                                fill x y; a x (y+1))
                         in a 0 0)); doit g_ (not fast)
+		| 'i' -> info(); choose(read_key())
                 | _ -> print_endline "Closed."
         in choose n)
 let () = doit (build 0 0 [] [||]) true
