@@ -1,3 +1,5 @@
+#load "graphics.cma"
+#load "unix.cma"
 open Graphics 
 let info() = (print_endline "Welcome to the Game Of Life simulator."; print_endline "For more info about the Game Of Life, see the wikipedia page 'Conway's Game of Life' or the wiki conwaylife.com.";print_endline "Once you have entered the settings, it will start. "; print_endline "When the sim is running, you can pause it by clicking (keep the mouse button down until it stops).";print_endline "In pause, press keys to do the following:";print_endline"- p (Play) : restarts the sim.";print_endline "- e (Edit) : click on a cell to change it state, then the sim will go back to pause.";print_endline "- m (Manual Mode) : lets you change the state of any cells you click. To exit manual mode and go back to pause, click outside the window.";print_endline "- n (New) : reboots the sim from another random grid."; print_endline "- c (Change) : lets you change the settings.";print_endline "- d (Delete) : empties the grid (useful with Manual Mode).";print_endline "- r (Recognition) : toggles pattern recognition (slower)."; print_endline "- i (Info) : shows this page.";print_endline "- x (EXit) : closes the sim.";print_endline "For pattern recognition, the most common stables, oscillators and ships are colored, respectively, in green, blue, and red.";print_newline() ;print_endline "About the settings : "; print_endline "- for selection, [N/y] means that default is No and you need to enter y to change it, and a number between brackets means it is the default, and you can enter another number to change. For both, you can just press enter if the default is fine by you.";print_endline " - if you take size > 100, it may be not instant, especially with pattern coloring.";print_endline " - the size times the width of a cell should be less than your screen size, as you cannot zoom or un-zoom.";print_endline " - density 1 is useful to start with an already empty board.";print_endline" - you also need to take into account the calculation time if you took a large size."; print_newline(); print_endline"Have fun :) !")
 let () =if (print_endline "Do you want the info page ? [N/y]"; read_line())="y" then info() else print_endline "Ok. If you want to see it later, you can stop the sim by clicking and get it by pressing i."
@@ -205,7 +207,7 @@ let rec doit g fast par =
                                                 if g_.(wrap px).(wrap py) = p.(i).(j) || p.(i).(j) = 3
                                                 then itest i (j+1)
                                                 else 0
-                        in itest 0 0
+                        in (if p.(fst(v)).(snd(v)) <> 3 then itest 0 0 else 0)
                 in let rec iterco p x_ y_ =
                         if x_ = Array.length p
                         then false
@@ -268,7 +270,7 @@ let rec doit g fast par =
                             else choose(read_key())))
                         else wait() in wait())
                 | 'd' -> let rec empty x y = if x < si then (if y = si then empty (x+1) 0 else (g_.(x).(y) <- 0; fill x y;empty x (y+1))) in set_color black; empty 0 0; choose(read_key())
-                | 'c' -> print_endline "Enter new settings :"; close_graph(); ignore(Unix.system "./TheGameOfLife")
+                | 'c' -> print_endline "Enter new settings :"; close_graph(); ignore(Unix.system "gameoflife.ml")
                 | 'r' -> (if not fast then (
                         let rec a x y =
                                 if x < si 
