@@ -269,7 +269,7 @@ let rec doit g fast par =
 			    else choose(read_key())))
 			else wait() in wait())
 		| 'd' -> let rec empty x y = if x < si then (if y = si then empty (x+1) 0 else (g_.(x).(y) <- 0; fill x y;empty x (y+1))) in set_color black; empty 0 0; choose(read_key())
-		| 'c' -> print_endline "Enter new settings :"; close_graph(); ignore(Unix.system "./TheGameOfLife")
+		| 'c' -> print_endline "Enter new settings :"; close_graph(); ignore(Unix.system "ocaml gameoflife.ml")
 		| 'r' -> (if not fast then (
 			let rec a x y =
 				if x < si 
