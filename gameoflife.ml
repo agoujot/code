@@ -42,83 +42,83 @@ let () = Random.self_init(); open_graph ""; resize_window (si*z+1) (si*z+1); set
 let wrap co = if co < 0 then si+co else if co >= si then co-si else co
 let fill x y = fill_rect (z*x) (z*y) (z-1) (z-1)
 let rec build x y l b =
-        if x = si
-        then b
-        else
-                if y = si
-                then build (x+1) 0 [] (Array.append b [|Array.of_list(l)|])
-                else
-                        let i = Random.int d in
-                        if rule <> "it" then
-                        (if i = 0
-                        then (set_color white; fill x y; build x (y+1) (l@[1]) b)
-                        else (set_color black; fill x y; build x (y+1) (l@[0]) b))
-                        else
-                        (if i = 0
-                        then (set_color white; fill x y; build x (y+1) (l@[1]) b)
-                        else (if i = 1
-                        then (set_color (rgb 128 128 128); fill x y; build x (y+1) (l@[2]) b)
-                        else (set_color black; fill x y; build x (y+1) (l@[0]) b)))
+	if x = si
+	then b
+	else
+		if y = si
+		then build (x+1) 0 [] (Array.append b [|Array.of_list(l)|])
+		else
+			let i = Random.int d in
+			if rule <> "it" then
+			(if i = 0
+			then (set_color white; fill x y; build x (y+1) (l@[1]) b)
+			else (set_color black; fill x y; build x (y+1) (l@[0]) b))
+			else
+			(if i = 0
+			then (set_color white; fill x y; build x (y+1) (l@[1]) b)
+			else (if i = 1
+			then (set_color (rgb 128 128 128); fill x y; build x (y+1) (l@[2]) b)
+			else (set_color black; fill x y; build x (y+1) (l@[0]) b)))
 let rec dcopy t i = if i = Array.length t - 1 then [|Array.copy t.(i)|] else Array.append [|Array.copy t.(i)|] (dcopy t (i+1))
 let turn a =
-        let rec bu i j l =
-                if i = Array.length(a.(0))
-                then [||]
-                else
-                        if j = -1
-                        then Array.append [|l|] (bu (i+1) (Array.length a - 1) [||])
-                        else bu i (j-1) (Array.append l [|a.(j).(i)|])
-        in bu 0 (Array.length a - 1) [||]
+	let rec bu i j l =
+		if i = Array.length(a.(0))
+		then [||]
+		else
+			if j = -1
+			then Array.append [|l|] (bu (i+1) (Array.length a - 1) [||])
+			else bu i (j-1) (Array.append l [|a.(j).(i)|])
+	in bu 0 (Array.length a - 1) [||]
 let flip a =
-        let rec it i =
-                if i = Array.length a
-                then [||]
-                else Array.append [|Array.of_list(List.rev (Array.to_list a.(i)))|] (it (i+1))
-        in it (0)
+	let rec it i =
+		if i = Array.length a
+		then [||]
+		else Array.append [|Array.of_list(List.rev (Array.to_list a.(i)))|] (it (i+1))
+	in it (0)
 let gs= match rule with
 | "marine" -> []
 | "factorio" -> []
 | "bosco" -> []
 | "it" -> []
 | _ ->
- let ga=[|[|3; 0; 0; 0; 0; 3|];
-          [|0; 0; 1; 1; 0; 0|];
-          [|0; 1; 0; 0; 1; 0|];
-          [|0; 0; 1; 1; 0; 0|];
-          [|3; 0; 0; 0; 0; 3|]|]
- and gb=[|[|0; 0; 0; 0; 3|];
-          [|0; 1; 1; 0; 0|];
-          [|0; 1; 0; 1; 0|];
-          [|0; 0; 1; 0; 0|];
-          [|3; 0; 0; 0; 3|]|]
- and gc=[|[|3; 0; 0; 0; 3; 3|];
-          [|0; 0; 1; 0; 0; 3|];
-          [|0; 1; 0; 1; 0; 0|];
-          [|0; 1; 0; 0; 1; 0|];
-          [|0; 0; 1; 1; 0; 0|];
-          [|3; 0; 0; 0; 0; 3|]|]
- and gd=[|[|3; 0; 0; 0; 3|];
-          [|0; 0; 1; 0; 0|];
-          [|0; 1; 0; 1; 0|];
-          [|0; 0; 1; 0; 0|];
-          [|3; 0; 0; 0; 3|]|]
- and ge=[|[|3; 0; 0; 0; 0; 3|];
-          [|0; 0; 1; 1; 0; 0|];
-          [|0; 1; 0; 0; 1; 0|];
-          [|0; 1; 0; 0; 1; 0|];
-          [|0; 0; 1; 1; 0; 0|];
-          [|3; 0; 0; 0; 0; 3|]|]
- and gf=[|[|0; 0; 0; 0; 3|];
-          [|0; 1; 1; 0; 0|];
-          [|0; 1; 0; 1; 0|];
-          [|0; 0; 1; 1; 0|];
-          [|3; 0; 0; 0; 0|]|]
- and gg=[|[|0; 0; 0; 0; 3; 3|]; 
-          [|0; 1; 1; 0; 0; 3|];
-          [|0; 1; 0; 1; 0; 0|];
-          [|0; 0; 1; 0; 1; 0|];
-          [|3; 0; 0; 1; 0; 0|];
-          [|3; 3; 0; 0; 0; 3|]|]
+let ga=[|[|3; 0; 0; 0; 0; 3|];
+		 [|0; 0; 1; 1; 0; 0|];
+		 [|0; 1; 0; 0; 1; 0|];
+		 [|0; 0; 1; 1; 0; 0|];
+		 [|3; 0; 0; 0; 0; 3|]|]
+and gb=[|[|0; 0; 0; 0; 3|];
+		 [|0; 1; 1; 0; 0|];
+		 [|0; 1; 0; 1; 0|];
+		 [|0; 0; 1; 0; 0|];
+		 [|3; 0; 0; 0; 3|]|]
+and gc=[|[|3; 0; 0; 0; 3; 3|];
+		 [|0; 0; 1; 0; 0; 3|];
+		 [|0; 1; 0; 1; 0; 0|];
+		 [|0; 1; 0; 0; 1; 0|];
+		 [|0; 0; 1; 1; 0; 0|];
+		 [|3; 0; 0; 0; 0; 3|]|]
+and gd=[|[|3; 0; 0; 0; 3|];
+		 [|0; 0; 1; 0; 0|];
+		 [|0; 1; 0; 1; 0|];
+		 [|0; 0; 1; 0; 0|];
+		 [|3; 0; 0; 0; 3|]|]
+and ge=[|[|3; 0; 0; 0; 0; 3|];
+		 [|0; 0; 1; 1; 0; 0|];
+		 [|0; 1; 0; 0; 1; 0|];
+		 [|0; 1; 0; 0; 1; 0|];
+		 [|0; 0; 1; 1; 0; 0|];
+	 	 [|3; 0; 0; 0; 0; 3|]|]
+and gf=[|[|0; 0; 0; 0; 3|];
+		 [|0; 1; 1; 0; 0|];
+	 	 [|0; 1; 0; 1; 0|];
+	 	 [|0; 0; 1; 1; 0|];
+		 [|3; 0; 0; 0; 0|]|]
+and gg=[|[|0; 0; 0; 0; 3; 3|]; 
+		 [|0; 1; 1; 0; 0; 3|];
+		 [|0; 1; 0; 1; 0; 0|];
+		 [|0; 0; 1; 0; 1; 0|];
+		 [|3; 0; 0; 1; 0; 0|];
+		 [|3; 3; 0; 0; 0; 3|]|]
  in let gb_=turn gb and gc_=turn gc and gg_=turn gg in let gb__=turn gb_ and gc__=turn gc_ and gg__=turn gg_ in let gb___=turn gb__ and gc___=turn gc__ and gg___=turn gg__ in
  [[|[|0; 0; 0; 0|];
     [|0; 1; 1; 0|];
@@ -131,31 +131,31 @@ let bs=
  | "factorio" -> []
  | "it" -> []
  | _ ->
- let ba=[|[|0; 0; 0; 0; 0|];
-          [|0; 1; 1; 1; 0|];
-          [|0; 0; 0; 0; 0|]|]
- and bb=[|[|3; 0; 0; 0; 3; 3|];
-          [|0; 0; 1; 0; 0; 0|];
-          [|0; 1; 0; 0; 1; 0|];
-          [|0; 1; 0; 0; 1; 0|];
-          [|0; 0; 0; 1; 0; 0|];
-          [|3; 3; 0; 0; 0; 3|]|]
- and bc=[|[|3; 0; 0; 0; 0; 0|];
-          [|0; 0; 1; 1; 1; 0|];
-          [|0; 1; 1; 1; 0; 0|];
-          [|0; 0; 0; 0; 0; 3|]|] 
- and bd=[|[|0; 0; 0; 0; 3; 3|];
-          [|0; 1; 1; 0; 3; 3|];
-          [|0; 1; 1; 0; 0; 0|];
-          [|0; 0; 0; 1; 1; 0|];
-          [|3; 3; 0; 1; 1; 0|];
-          [|3; 3; 0; 0; 0; 0|]|] 
- and be=[|[|0; 0; 0; 0; 3; 3|];
-          [|0; 1; 1; 0; 3; 3|];
-          [|0; 1; 0; 0; 0; 0|];
-          [|0; 0; 0; 0; 1; 0|];
-          [|3; 3; 0; 1; 1; 0|];
-          [|3; 3; 0; 0; 0; 0|]|] in let bb_ = flip bb and bc_ = flip bc
+let ba=[|[|0; 0; 0; 0; 0|];
+		 [|0; 1; 1; 1; 0|];
+	 	 [|0; 0; 0; 0; 0|]|]
+and bb=[|[|3; 0; 0; 0; 3; 3|];
+		 [|0; 0; 1; 0; 0; 0|];
+		 [|0; 1; 0; 0; 1; 0|];
+	 	 [|0; 1; 0; 0; 1; 0|];
+	 	 [|0; 0; 0; 1; 0; 0|];
+	 	 [|3; 3; 0; 0; 0; 3|]|]
+and bc=[|[|3; 0; 0; 0; 0; 0|];
+		 [|0; 0; 1; 1; 1; 0|];
+		 [|0; 1; 1; 1; 0; 0|];
+		 [|0; 0; 0; 0; 0; 3|]|] 
+and bd=[|[|0; 0; 0; 0; 3; 3|];
+		 [|0; 1; 1; 0; 3; 3|];
+		 [|0; 1; 1; 0; 0; 0|];
+		 [|0; 0; 0; 1; 1; 0|];
+		 [|3; 3; 0; 1; 1; 0|];
+		 [|3; 3; 0; 0; 0; 0|]|] 
+and be=[|[|0; 0; 0; 0; 3; 3|];
+		 [|0; 1; 1; 0; 3; 3|];
+		 [|0; 1; 0; 0; 0; 0|];
+		 [|0; 0; 0; 0; 1; 0|];
+		 [|3; 3; 0; 1; 1; 0|];
+		 [|3; 3; 0; 0; 0; 0|]|] in let bb_ = flip bb and bc_ = flip bc
     in [ba; turn ba; bb; bc; turn bb; turn bc; bd; turn bd; be; turn be; bb_; bc_; turn bb_; turn bc_]
 let rs=
  match rule with
@@ -163,128 +163,127 @@ let rs=
  | "marine" -> []
  | "factorio" -> []
  | "it" -> []
- | _ ->
-(let ra=[|[|3; 3; 0; 0; 0|];
-          [|0; 0; 0; 1; 0|];
-          [|0; 1; 0; 1; 0|];
-          [|0; 0; 1; 1; 0|];
-          [|3; 0; 0; 0; 0|]|]
- and rb=[|[|0; 0; 0; 3; 3|];
-          [|0; 1; 0; 0; 0|];
-          [|0; 0; 1; 1; 0|];
-          [|0; 1; 1; 0; 0|];
-          [|0; 0; 0; 0; 3|]|]
- and rc=[|[|3; 0; 0; 0; 3|];
-          [|3; 0; 1; 0; 0|];
-          [|0; 0; 0; 1; 0|];
-          [|0; 1; 1; 1; 0|];
-          [|0; 0; 0; 0; 0|]|]
- and rd=[|[|0; 0; 0; 0; 0|];
-          [|0; 1; 0; 1; 0|];
-          [|0; 0; 1; 1; 0|];
-          [|3; 0; 1; 0; 0|];
-          [|3; 0; 0; 0; 3|]|] in let ra_ = turn ra and rb_ = turn rb and rc_ = turn rc and rd_ = turn rd in
-          let ra__ = turn ra_ and rb__ = turn rb_ and rc__ = turn rc_ and rd__ = turn rd_ in
-          let ra___ = turn ra__ and rb___ = turn rb__ and rc___ = turn rc__ and rd___ = turn rd__
+ | _ ->(
+let ra=[|[|3; 3; 0; 0; 0|];
+	 	 [|0; 0; 0; 1; 0|];
+	 	 [|0; 1; 0; 1; 0|];
+	 	 [|0; 0; 1; 1; 0|];
+	 	 [|3; 0; 0; 0; 0|]|]
+and rb=[|[|0; 0; 0; 3; 3|];
+	 	 [|0; 1; 0; 0; 0|];
+	 	 [|0; 0; 1; 1; 0|];
+	 	 [|0; 1; 1; 0; 0|];
+	 	 [|0; 0; 0; 0; 3|]|]
+and rc=[|[|3; 0; 0; 0; 3|];
+	 	 [|3; 0; 1; 0; 0|];
+	 	 [|0; 0; 0; 1; 0|];
+	 	 [|0; 1; 1; 1; 0|];
+	 	 [|0; 0; 0; 0; 0|]|]
+and rd=[|[|0; 0; 0; 0; 0|];
+		 [|0; 1; 0; 1; 0|];
+	 	 [|0; 0; 1; 1; 0|];
+	 	 [|3; 0; 1; 0; 0|];
+	 	 [|3; 0; 0; 0; 3|]|] in let ra_ = turn ra and rb_ = turn rb and rc_ = turn rc and rd_ = turn rd in
+	  let ra__ = turn ra_ and rb__ = turn rb_ and rc__ = turn rc_ and rd__ = turn rd_ in
+	  let ra___ = turn ra__ and rb___ = turn rb__ and rc___ = turn rc__ and rd___ = turn rd__
  in [ra; rb; rc; rd; ra_; rb_; rc_; rd_; ra__; rb__; rc__; rd__; ra___; rb___; rc___; rd___])
 let rec doit g fast par =
-        let g_ = dcopy g 0
-        in let c x y t =
-                let rec c_ l =
-                        match l with
-                        | [] -> 0
-                        | i::s ->(let nx = x+fst(i) and ny = y+snd(i) in (if g.(wrap nx).(wrap ny) = t then 1 else 0) + c_ s) in c_ neighbours
-        in let rec col x y =
-                let rec test p v =
-                        let rec itest i j =
-                                if i = Array.length p
-                                then 1
-                                else
-                                        if j = Array.length(p.(i))
-                                        then itest (i+1) 0
-                                        else
-                                                let px = x+i-fst(v) and py = y+j-snd(v) in
-                                                if g_.(wrap px).(wrap py) = p.(i).(j) || p.(i).(j) = 3
-                                                then itest i (j+1)
-                                                else 0
-                        in (if p.(fst(v)).(snd(v)) <> 3 then itest 0 0 else 0)
-                in let rec iterco p x_ y_ =
-                        if x_ = Array.length p
-                        then false
-                        else
-                                if y_ = Array.length(p.(0))
-                                then iterco p (x_+1) 0
-                                else (p.(x_).(y_) <> 0 && test p (x_, y_) = 1) || iterco p x_ (y_+1)
-                in let rec iterp l =
-                        match l with
-                        | [] -> false
-                        | i::s -> iterco i 0 0 || iterp s
-                in (if iterp gs then (if g_.(x).(y) = 2 then rgb 0 128 0 else green) else if iterp bs then (if g_.(x).(y) = 2 then rgb 0 0 128 else blue) else if iterp rs then (if g_.(x).(y) = 2 then rgb 128 0 0 else red) else (if g_.(x).(y) = 2 then (rgb 128 128 128) else white))
-        in let rec show x y =
-                if x < si
-                then
-                        if y = si
-                        then show (x+1) 0
-                        else
-                                ((if g_.(x).(y) <> 0
-                                then set_color(col x y)
-                                else set_color black);
-                                fill x y;
-                                show x (y+1))
-        in let rec it x y =
-                if x < si
-                then
-                        if y = si
-                        then it (x+1) 0
-                        else
-                                (if rule <> "it" then
-                                (let v = c x y 1 in
-                                (if g_.(x).(y) = 1
-                                then
-                                (if not (List.mem v (snd(counts)))
-                                then (g_.(x).(y) <- 0; if fast then (set_color black; fill x y)))
-                                else
-                                (if List.mem v (fst(counts))
-                                then (g_.(x).(y) <- 1; if fast then (set_color white; fill x y)))); 
-                                it x (y+1))
-                                else
-                                ((let v1 = c x y 1 and v2 = c x y 2 in
-                                if (v1 = v2 && 2<=v1 && v1 <= 4) || (v2 <= v1 && 1<=v2 && v1<=4)
-                                then (g_.(x).(y) <- 1; if fast && g.(x).(y) <> 1 then (set_color white; fill x y))
-                                else if v1 <= v2 && 1 <= v1 && v2 <= 4
-                                then (g_.(x).(y) <- 2; if fast && g.(x).(y) <> 2 then (set_color (rgb 128 128 128); fill x y))
-                                else if v1 + v2 != 3 && v1+v2 != 4
-                                then (g_.(x).(y) <- 0; if fast && g.(x).(y) <> 0 then (set_color black; fill x y))); it x (y+1)))
-                else (if not(fast) then show 0 0)
-        in it 0 0;Unix.sleepf time; if (not (button_down())) && par <> 1 then doit g_ fast 0 else (let n = read_key() and change x y = let nv = (g_.(x).(y) + 1) mod (if rule = "it" then 3 else 2) in g_.(x).(y) <- nv; if fast then (set_color (if nv = 2 then (rgb 128 128 128) else if nv = 1 then white else black); fill x y) else show 0 0 in
-        let rec choose k =
-                match k with
-                | 'n' -> doit(build 0 0 [] [||]) fast 0
-                | 'p' -> doit g_ fast 0
-                | 'e' -> let rec wait ()= if (button_down()) then (let mx=fst(mouse_pos())/z and my=snd(mouse_pos())/z in change mx my) else wait() in wait(); choose(read_key())
-                | 'm' -> (let rec wait()=
-                        if (button_down())
-                        then (let mx=fst(mouse_pos())/z and my=snd(mouse_pos())/z in 
-                            (if mx >= 0 && mx < si && my >= 0 && my < si 
-                            then (change mx my; Unix.sleepf 0.15; wait())
-                            else choose(read_key())))
-                        else wait() in wait())
-                | 'd' -> let rec empty x y = if x < si then (if y = si then empty (x+1) 0 else (g_.(x).(y) <- 0; fill x y;empty x (y+1))) in set_color black; empty 0 0; choose(read_key())
-                | 'c' -> print_endline "Enter new settings :"; close_graph(); ignore(Unix.system "gameoflife.ml")
-                | 'r' -> (if not fast then (
-                        let rec a x y =
-                                if x < si 
-                                then 
-                                        if y = si
-                                        then a (x+1) 0
-                                        else
-                                                (if g_.(x).(y) = 1
-                                                then set_color white
-                                                else set_color black;
-                                                fill x y; a x (y+1))
-                        in a 0 0)); doit g_ (not fast) 0
+	let g_ = dcopy g 0
+	in let c x y t =
+		let rec c_ l =
+			match l with
+			| [] -> 0
+			| i::s ->(let nx = x+fst(i) and ny = y+snd(i) in (if g.(wrap nx).(wrap ny) = t then 1 else 0) + c_ s) in c_ neighbours
+	in let rec col x y =
+		let rec test p v =
+			let rec itest i j =
+				if i = Array.length p
+				then 1
+				else
+					if j = Array.length(p.(i))
+					then itest (i+1) 0
+					else
+						let px = x+i-fst(v) and py = y+j-snd(v) in
+						if g_.(wrap px).(wrap py) = p.(i).(j) || p.(i).(j) = 3
+						then itest i (j+1)
+						else 0
+			in (if p.(fst(v)).(snd(v)) <> 3 then itest 0 0 else 0)
+		in let rec iterco p x_ y_ =
+			if x_ = Array.length p
+			then false
+			else
+				if y_ = Array.length(p.(0))
+				then iterco p (x_+1) 0
+				else (p.(x_).(y_) <> 0 && test p (x_, y_) = 1) || iterco p x_ (y_+1)
+		in let rec iterp l =
+			match l with
+			| [] -> false
+			| i::s -> iterco i 0 0 || iterp s
+		in (if iterp gs then (if g_.(x).(y) = 2 then rgb 0 128 0 else green) else if iterp bs then (if g_.(x).(y) = 2 then rgb 0 0 128 else blue) else if iterp rs then (if g_.(x).(y) = 2 then rgb 128 0 0 else red) else (if g_.(x).(y) = 2 then (rgb 128 128 128) else white))
+	in let rec show x y =
+		if x < si
+		then
+			if y = si
+			then show (x+1) 0
+			else
+				((if g_.(x).(y) <> 0
+				then (set_color(col x y); fill x y)
+				else (if g.(x).(y) != g_.(x).(y) then (set_color black; fill x y)));
+				show x (y+1))
+	in let rec it x y =
+		if x < si
+		then
+			if y = si
+			then it (x+1) 0
+			else
+				(if rule <> "it" then
+				(let v = c x y 1 in
+				(if g_.(x).(y) = 1
+				then
+				(if not (List.mem v (snd(counts)))
+				then (g_.(x).(y) <- 0; if fast then (set_color black; fill x y)))
+				else
+				(if List.mem v (fst(counts))
+				then (g_.(x).(y) <- 1; if fast then (set_color white; fill x y)))); 
+				it x (y+1))
+				else
+				((let v1 = c x y 1 and v2 = c x y 2 in
+				if (v1 = v2 && 2<=v1 && v1 <= 4) || (v2 <= v1 && 1<=v2 && v1<=4)
+				then (g_.(x).(y) <- 1; if fast && g.(x).(y) <> 1 then (set_color white; fill x y))
+				else if v1 <= v2 && 1 <= v1 && v2 <= 4
+				then (g_.(x).(y) <- 2; if fast && g.(x).(y) <> 2 then (set_color (rgb 128 128 128); fill x y))
+				else if v1 + v2 != 3 && v1+v2 != 4
+				then (g_.(x).(y) <- 0; if fast && g.(x).(y) <> 0 then (set_color black; fill x y))); it x (y+1)))
+		else (if not(fast) then show 0 0)
+	in it 0 0;Unix.sleepf time; if (not (button_down())) && par <> 1 then doit g_ fast 0 else (let n = read_key() and change x y = let nv = (g_.(x).(y) + 1) mod (if rule = "it" then 3 else 2) in g_.(x).(y) <- nv; if fast then (set_color (if nv = 2 then (rgb 128 128 128) else if nv = 1 then white else black); fill x y) else show 0 0 in
+	let rec choose k =
+		match k with
+		| 'n' -> doit(build 0 0 [] [||]) fast 0
+		| 'p' -> doit g_ fast 0
+		| 'e' -> let rec wait ()= if (button_down()) then (let mx=fst(mouse_pos())/z and my=snd(mouse_pos())/z in change mx my) else wait() in wait(); choose(read_key())
+		| 'm' -> (let rec wait()=
+			if (button_down())
+			then (let mx=fst(mouse_pos())/z and my=snd(mouse_pos())/z in 
+			    (if mx >= 0 && mx < si && my >= 0 && my < si 
+			    then (change mx my; Unix.sleepf 0.15; wait())
+			    else choose(read_key())))
+			else wait() in wait())
+		| 'd' -> let rec empty x y = if x < si then (if y = si then empty (x+1) 0 else (g_.(x).(y) <- 0; fill x y;empty x (y+1))) in set_color black; empty 0 0; choose(read_key())
+		| 'c' -> print_endline "Enter new settings :"; close_graph(); ignore(Unix.system "./TheGameOfLife")
+		| 'r' -> (if not fast then (
+			let rec a x y =
+				if x < si 
+				then 
+					if y = si
+					then a (x+1) 0
+					else
+						(if g_.(x).(y) = 1
+						then set_color white
+						else set_color black;
+						fill x y; a x (y+1))
+			in a 0 0)); doit g_ (not fast) 0
 		| 'i' -> info(); choose(read_key())
-                | 'f' -> doit g_ fast 1
-                | _ -> print_endline "Closed."
-        in choose n)
+		| 'f' -> doit g_ fast 1
+		| _ -> print_endline "Closed."
+	in choose n)
 let () = doit (build 0 0 [] [||]) true 0
