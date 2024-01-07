@@ -10,7 +10,7 @@ let () = ini(); info [
 "If you enter an unknown string, default is beam.";
 "This screen will update to show the rules here.";
 ""];
-let rec inp s = if key_pressed() then (let c = read_key() in if 'a' <= c && c <= 'z' then (Unix.sleepf 0.2; bl (s^(String.make 1 c)); inp (s^(String.make 1 c))) else if c = '-' then (Unix.sleepf 0.2; bl ""; inp "") else if c = '=' then s else inp s) else inp s in 
+let rec inp s = if key_pressed() then (let c = read_key() in if 'a' <= c && c <= 'z' then (Unix.sleepf 0.1; bl (s^(String.make 1 c)); inp (s^(String.make 1 c))) else if c = '-' then (Unix.sleepf 0.1; bl ""; inp "") else if c = '=' then s else inp s) else inp s in 
 let m = inp "" in set_color black; fill_rect 0 0 1000 1000; if m = "bosco" then(
 go
 (fun l v -> let rec cou l = match l with | [] -> 0 | i::s -> if i = white then 1+cou s else cou s in let c = cou l in if v = white then (if c >= 33 && c <= 57 then white else black) else if c >= 34 && c <= 45 then white else black)
