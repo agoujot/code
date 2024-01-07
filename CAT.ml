@@ -4,7 +4,7 @@ let ini () = Random.self_init(); open_graph ""; resize_window 1000 1020; set_col
 let rec write l x y = (* to write a list of strings one line each with the top one starting at x y *)
 	match l with
 	| [] -> ()
-	| h::t -> set_color (rgb 8 8 8); fill_rect x y (6*String.length h) 19 (* to overlay the text on top of the CA, more pretty *); moveto x y; set_color white; draw_string h; write t x (y-20)
+	| h::t -> set_color black; fill_rect x y (6*String.length h) 19 (* to overlay the text on top of the CA, more pretty *); moveto x y; set_color white; draw_string h; write t x (y-20)
 let info rs = write ([
 "Hello and welcome to my Cellular Automata Terminal (CAT).";
 "";
