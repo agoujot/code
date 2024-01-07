@@ -40,7 +40,7 @@ let rec b x e si = (* building an array array of size si filled with e() (to all
 let rec dcopy a i = if i = Array.length a then [||] else Array.append [|Array.copy a.(i)|] (dcopy a (i+1)) (* deepcopy of an array array, called with i=0 *)
 let bl s = set_color black; fill_rect 0 1000 1000 20; write [s] 10 1005 (* for bottom left even though now it is in the top left, eh, erases the text at the top and replaces it, for status *)
 let rec di g (* for grid, array array of cells (Graphic.color's) *) p (* for parameter, char *) f (* for function, see info first setting *) n (* neighbours, see info second setting*) col (* see go, from info 4th setting *) d (* see info 5th setting *) rs (* see info last setting *) h (* for history, list of strings containing compressed g's *) _g (* grid of before, to speed b up *) = (* di for do it aka main *)
-	let g_ = dcopy g 0 in (* new array in which modifications will be made *)
+	let g_ = if p <> 'b' then dcopy g 0 else [||] in (* new array in which modifications will be made *)
 	let si = Array.length g_ in
 	let z = 1000/si in (* the widh of a cell in pixels *)
 	let rec w k = if k >= si then k - si else if k < 0 then si + k else k in (* w for wrap around *)
@@ -66,7 +66,7 @@ let rec di g (* for grid, array array of cells (Graphic.color's) *) p (* for par
 			if s.[i+1] = '-'
 			then itdecomp (i+2) "" (Array.append l (Array.make (if n = "" then 1 else int_of_string n) (col.(int_of_char(s.[i]) - 48)))) (* because to gain space it removed the coefficient when it is one*)
 			else itdecomp (i+1) (n^(String.make 1 s.[i])) l
-		in se 0 "" [||] in
+		in itdecomp 0 "" [||] in
 	let rec cha i j e = (* cha for change, when you want to replace every cell with e(). *)
 		if i < si
 		then (
