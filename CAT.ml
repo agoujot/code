@@ -21,13 +21,13 @@ let info rs = write ([
 "When in pause, you can press keys to do things:";
 " - p (Play) : does exactly what it says on the tin.";
 " - o (One) : goes one frame further and then back to pause.";
-" - b (Backwards) : play but in reverse, shows you the state of before.";
+" - b (Backwards) : play but in reverse, shows you the state of before. going backwards to a frame that has been edited will show you it with the edits";
 " - l (Last) : goes one frame backwards and back to pause.";
 " - e (Edit) : lets you manually change the state of cells by clicking on them. it changes to the next one in the color array given earlier";
 "              (which means the order in that array counts). to exit editing mode, press o for Out.";
 " - n (New) : generates a new random grid using the element function above.";
 " - d (Delete) : sets all the grid to black (it is therefore recommended that you have the state 'no life' and that it be black).";
-" - i (Info) : show this.";
+" - i (Info) : shows this.";
 " - x (EXit) : closes CAT."]@rs) 10 980; let rec wait () = if button_down() then () else wait() in wait() (* display info about this, rs is rulestring, additional text you might want to display about your CA*)
 let rec b x e si = (* building an array array of size si filled with e() (to allow for different random results). should be called with x=0*)
 	let rec l y =
@@ -40,8 +40,8 @@ let rec b x e si = (* building an array array of size si filled with e() (to all
 let rec dcopy a i = if i = Array.length a then [||] else Array.append [|Array.copy a.(i)|] (dcopy a (i+1)) (* deepcopy of an array array, called with i=0 *)
 let bl s = set_color black; fill_rect 0 1000 1000 20; write [s] 10 1005 (* for bottom left even though now it is in the top left, eh, erases the text at the top and replaces it, for status *)
 let rec di g (* for grid, array array of cells (Graphic.color's) *) p (* for parameter, char *) f (* for function, see info first setting *) n (* neighbours, see info second setting*) col (* see go, from info 4th setting *) d (* see info 5th setting *) rs (* see info last setting *) h (* for history, list of strings containing compressed g's *) _g (* grid of before, to speed b up *) = (* di for do it aka main *)
-	let g_ = if p <> 'b' then dcopy g 0 else [||] in (* new array in which modifications will be made *)
-	let si = Array.length g_ in
+	let g_ = dcopy g 0 in (* new array in which modifications will be made *)
+	let si = Array.length g in
 	let z = 1000/si in (* the widh of a cell in pixels *)
 	let rec w k = if k >= si then k - si else if k < 0 then si + k else k in (* w for wrap around *)
 	let draw x y c = set_color c; fill_rect (x*z) (y*z) (z-1) (z-1) in (* draws a cell, aka a rectangle. c is the color *)
@@ -67,12 +67,6 @@ let rec di g (* for grid, array array of cells (Graphic.color's) *) p (* for par
 			then itdecomp (i+2) "" (Array.append l (Array.make (if n = "" then 1 else int_of_string n) (col.(int_of_char(s.[i]) - 48)))) (* because to gain space it removed the coefficient when it is one*)
 			else itdecomp (i+1) (n^(String.make 1 s.[i])) l
 		in itdecomp 0 "" [||] in
-	let rec cha i j e = (* cha for change, when you want to replace every cell with e(). *)
-		if i < si
-		then (
-			if j = si
-			then cha (i+1) 0 e
-			else let v = e() in g_.(i).(j) <- v; draw i j v; cha i (j+1) e) in
 	let rec it i j = (* it for iterate, as it does the main loop *)
 		if i = si
 		then ()
@@ -90,8 +84,8 @@ let rec di g (* for grid, array array of cells (Graphic.color's) *) p (* for par
 	let rec wa() = (* for wait *)
 		bl " - pause - ";
 		match read_key() with
-		| 'p' -> bl " - running - "; di g_ 'p' f n col d rs ([comp g]@h) [||]
-		| 'o' -> di g_ 'o' f n col d rs ([comp g]@h) [||] (* meaning you only do it once *)
+		| 'p' -> bl " - running - "; di g_ 'p' f n col d rs ([comp g_]@h) g
+		| 'o' -> di g_ 'o' f n col d rs ([comp g_]@h) g (* meaning you only do it once *)
 		| 'e' -> bl " - editing - ";
 			let rec ed() = (* for editing *)
 			if key_pressed() 
@@ -106,13 +100,13 @@ let rec di g (* for grid, array array of cells (Graphic.color's) *) p (* for par
 				g_.(mx).(my) <- co (g_.(mx).(my)); draw mx my (g_.(mx).(my)); Unix.sleepf 0.2 (* else you would always change it multiple times *); ed())
 				else ed()) in ed()
 		| 'x' -> close_graph(); print_endline "Closed with X."
-		| 'd' -> cha 0 0 (fun () -> black); wa()
-		| 'n' -> cha 0 0 d; wa()
+		| 'd' -> di (b 0 (fun _ -> black) si) 's' f n col d rs ([comp g_]@h) g
+		| 'n' -> di (b 0 d si) 's' f n col d rs ([comp g_]@h) g
 		| 'i' -> info (rs@["Click to exit this and go back to pause."]); let rec show i j = if i = si then wa() else if j = si then show (i+1) 0 else (draw i j (g_.(i).(j)); show i (j+1)) (*need to redisplay after showing text*) in show 0 0
 		| 'b' -> di (decomp (List.hd h)) 'b' (* use h to read the old ones *) f n col d rs (List.tl h) g
 		| 'l' -> if h <> [] then di (decomp (List.hd h)) 's' f n col d rs (List.tl h) g else wa()
 		| _ -> wa() in
 		it 0 0; if button_down() then wa() else
-		if p = 'p' then di g_ p f n col d rs ((comp g)::h) [||] (* standard path of continuing *) else
+		if p = 'p' then di g_ p f n col d rs ((comp g)::h) g (* standard path of continuing *) else
 		if p = 'b' && h <> [] then di (decomp (List.hd h)) 'b' f n col d rs (List.tl h) g else wa()
 let go f n si col d rs = info (rs@["Click to start."]); di (b 0 d si) 's' (* for stop, doesnt even do first iteration*) f n col d rs (* see di *) [] [||]
