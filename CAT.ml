@@ -82,6 +82,6 @@ let rec di g (* for grid, array array of cells (Graphic.color's) *) p (* for par
 		| 'd' -> cha 0 0 (fun () -> black); wa()
 		| 'n' -> cha 0 0 d; wa()
 		| 'i' -> info (rs@["Click to exit this and go back to pause."]); let rec show i j = if i = si then wa() else if j = si then show (i+1) 0 else (draw i j (g_.(i).(j)); show i (j+1)) (*need to redisplay after showing text*) in show 0 0
-		| _ -> print_endline "Unknown command. Press i for info."; wa()
+		| _ -> wa()
 	in wa()
 let go f n si co d rs = info (rs@["Click to start."]); di (b 0 d si) 's' (* for stop, doesnt even do first iteration*) f n (fun c -> let rec it i = if co.(i) = c then i else it (i+1) in co.(((it 0) + 1) mod (Array.length co))) (* makes the function out of the array *) d rs (* see di *)
