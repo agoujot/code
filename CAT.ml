@@ -60,13 +60,13 @@ let rec di g (* for grid, array array of cells (Graphic.color's) *) p (* for par
 				in let v = string_of_int (fi (aa.(i).(j)) 0) in
 				if v <> lt then (if j <> 0 then (if ti = 1 then "" else string_of_int ti)^lt^"-"^itcomp i (j+1) v 1 else itcomp i (j+1) v 1) else itcomp i (j+1) lt (ti+1) in itcomp 0 0 "-" 1 in
 	let decomp s = (* for decompress, re-transforms a comp'ed string into a grid *)
-		let rec itdecomp i n l = (* n is the unfinished string of the coefficient and l the line*)
+		let rec itdecomp i n l = (* n is the unfinished coefficient and l the line*)
 			if i = String.length s then [||] else
-			if s.[i] = '|' then Array.append [|l|] (itdecomp (i+1) "" [||]) else
+			if s.[i] = '|' then Array.append [|l|] (itdecomp (i+1) 0 [||]) else
 			if s.[i+1] = '-'
-			then itdecomp (i+2) "" (Array.append l (Array.make (if n = "" then 1 else int_of_string n) (col.(int_of_char(s.[i]) - 48)))) (* because to gain space it removed the coefficient when it is one*)
-			else itdecomp (i+1) (n^(String.make 1 s.[i])) l
-		in itdecomp 0 "" [||] in
+			then itdecomp (i+2) 0 (Array.append l (Array.make (if n = 0 then 1 else n) (col.(int_of_char(s.[i]) - 48)))) (* because to gain space it removed the coefficient when it is one*)
+			else itdecomp (i+1) (n*10+(int_of_char s.[i] - 48)) l
+		in itdecomp 0 0 [||] in
 	let rec it i j = (* it for iterate, as it does the main loop *)
 		if i = si
 		then ()
@@ -100,10 +100,10 @@ let rec di g (* for grid, array array of cells (Graphic.color's) *) p (* for par
 				g_.(mx).(my) <- co (g_.(mx).(my)); draw mx my (g_.(mx).(my)); Unix.sleepf 0.2 (* else you would always change it multiple times *); ed())
 				else ed()) in ed()
 		| 'x' -> close_graph(); print_endline "Closed with X."
-		| 'd' -> di (b 0 (fun _ -> black) si) 's' f n col d rs ([comp g_]@h) g
-		| 'n' -> di (b 0 d si) 's' f n col d rs ([comp g_]@h) g
+		| 'd' -> di (b 0 (fun _ -> black) si) 's' f n col d rs [] g
+		| 'n' -> di (b 0 d si) 's' f n col d rs [] g
 		| 'i' -> info (rs@["Click to exit this and go back to pause."]); let rec show i j = if i = si then wa() else if j = si then show (i+1) 0 else (draw i j (g_.(i).(j)); show i (j+1)) (*need to redisplay after showing text*) in show 0 0
-		| 'b' -> di (decomp (List.hd h)) 'b' (* use h to read the old ones *) f n col d rs (List.tl h) g
+		| 'b' -> di (decomp (List.hd h)) 'b' (* use h to read the old ones *) f n col d rs (List.tl h) g_
 		| 'l' -> if h <> [] then di (decomp (List.hd h)) 's' f n col d rs (List.tl h) g else wa()
 		| _ -> wa() in
 		it 0 0; if button_down() then wa() else
