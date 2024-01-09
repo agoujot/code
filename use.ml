@@ -4,13 +4,15 @@ let () = ini(); info [
 "";
 "You also need to choose your CA."; 
 "If you want a custom one, write a new file following the instructions above."; 
-"Possibilities are: bosco, gol, beam, or it.";
-"To choose, click once, then press the keys. The text will appear in the top left as you type it.";
-"Press - to reset and = to validate";
+"Possibilities are: bosco, gol, beam, or arc.";
+"(There is also test for testing, which contains whatever I am building now.";
+"It may crash. It may keep you from moving your mouse. Ye be warned.)";
+"To choose, press space, then press the keys. The text will appear in the top left as you type it.";
+"Press - to reset and space to validate";
 "If you enter an unknown string, default is beam.";
-"This screen will update to show the rules here.";
+"This screen will update to show the rules here, then you'll have to press space again to start.";
 ""];
-let rec inp s = if key_pressed() then (let c = read_key() in if 'a' <= c && c <= 'z' then (Unix.sleepf 0.1; bl (s^(String.make 1 c)); inp (s^(String.make 1 c))) else if c = '-' then (Unix.sleepf 0.1; bl ""; inp "") else if c = '=' then s else inp s) else inp s in 
+let rec inp s = if key_pressed() then (let c = read_key() in if 'a' <= c && c <= 'z' then (Unix.sleepf 0.1; bl (s^(String.make 1 c)); inp (s^(String.make 1 c))) else if c = '-' then (Unix.sleepf 0.1; bl ""; inp "") else if c = ' ' then s else inp s) else inp s in 
 let m = inp "" in set_color black; fill_rect 0 0 1000 1000; if m = "bosco" then(
 go
 (fun l v -> let rec cou l = match l with | [] -> 0 | i::s -> if i = white then 1+cou s else cou s in let c = cou l in if v = white then (if c >= 33 && c <= 57 then white else black) else if c >= 34 && c <= 45 then white else black)
@@ -39,26 +41,51 @@ go
 "One type of life, S2-3 & B3.";
 ""]
 )
-else if m = "it" then(
+else if m = "arc" then(
 go
 (fun l v -> let rec c l co = match l with | [] -> 0 | i::s -> if i = co then 1+c s co else c s co in
-	let v1 = c l white and v2 = c l blue in
-	if (v1 = v2 && 2<=v1 && v1 <= 4) || (v2 <= v1 && 1<=v2 && v1<=4)
-	then white
-	else if v1 <= v2 && 1 <= v1 && v2 <= 4
-	then blue
-	else if v1 + v2 != 3 && v1+v2 != 4
-	then black
-	else v)
+	let v3 = c l blue and v2 = c l green and v1 = c l red in
+	if (v1 > 0 && v2 > 0) || v3 > 0
+	then (if v1 > v2 then red else if v2 > v1 then green else blue)
+	else black)
 [(1,1);(1,0);(1,-1);(0,1);(0,-1);(-1,1);(-1,0);(-1,-1)]
 100
-[|black; blue; white|]
-(fun () -> let r = Random.int 3 in if r = 1 then white else if r = 2 then blue else black)
+[|black; red; green; blue|]
+(fun () -> let r = Random.int 5 in if r = 0 then red else if r = 1 || r = 4 then green else if r = 2 then blue else black)
 ["";
-"This is It, invented by a friend of mine and named so by me by lack of imagination.";
+"This is Arc, invented by a me.";
+"Named so because of the similarity of the common pattern of a sort of twisted, rapidly changing line to electric arcs.";
+"Plus, red and green do the same just opposite (and reflect themselves and do things with the other) so it already made me think of electricity.";
+"It has a tendency to expand to a quite high density and stay a chaotic soup there.";
+"Interesting part is it is not just random, there are patterns and as far as I know it is not periodic (or very big periods).";
 "Range 1 moore neighbourhood.";
-"Two types of life, life 1 in white and life 2 in blue.";
-"Rules are complicated to give, look in the code.";
+"Three types of life, red blue green.";
+"Any cell will become:";
+" - black if it has no blue neighbours and, 0/1/4+ neighbours in either red or green, all the others rely on this being false.";
+" - red if it has more red neighbours than green.";
+" - green if it has more green neighbours than red.";
+" - blue if it has exactly as much of the other two."]
+)
+else if m = "test" then(
+go
+(*(fun l v -> let rec c l co = match l with | [] -> 0 | i::s -> if i = co then 1+c s co else c s co in
+	let v1 = c l red and v2 = c l green and v3 = c l blue in
+	if (v2 > 1&&v2 < 5) && v2 > v1 then green else
+	if (v1 > 1&&v1 < 5) && v1 > v2 then red else
+	if v3 > 0 && v1 = v2 && v1 > 0 then blue
+	else black) *)
+(fun l v -> let rec c l co = match l with | [] -> 0 | i::s -> if i = co then 1+c s co else c s co in
+	let v3 = c l blue and v2 = c l green and v1 = c l red in
+	if (if v1 > 0 && v1 < 5 then 3 else 0)+(if v2 > 0 && v2 < 5 then 2 else 0) + (if v3 > 0 then 2 else 0) >= 3
+	then (if v1 > v2 then red else if v2 > v1 then green else blue)
+	else black)
+[(-1, -1);(-1, 0);(-1, 1);(0, -1);(0, 1);(1, -1);(1, 0);(1, 1)]
+100
+[|black; red; blue; green|]
+(fun () -> let r = Random.int 4 in if r = 0 then red else if r = 1 then green else if r = 2 then blue else black)
+[
+"";
+"Test CA. may do weird things.";
 ""]
 )
 else go
@@ -75,7 +102,11 @@ if (not (test o blue) && not(test d green) && test o red) then green else blue)
 (fun () -> let r = Random.int 10 in if r < 5 then black else if r < 7 then red else if r < 9 then green else blue)
 ["";
 "This is Beams, invented by me.";
-"Three types of life (red green & blue), two neighbouroods (range one von neumann (orthogonal) and range one cross (diagonally).";
+"Made to easily allow recreating logic system.";
+"Main (and maybe only) ship is 2*1, or gate is 2*1, and there are a lot of guns.";
+"The ships, called sparks, are made of a green cell and a red one and go forth at c towards their green cell.";
+"Named so because often when there is a gun it just looks like a continuous flow of yellow (r+g) light being reflected or split by the blue.";
+"Three types of life (red green & blue), two neighborhoods (range one von neumann (orthogonal) and range one cross (diagonally).";
 "A green cell becomes red.";
 "A red cell becomes black.";
 "A black cell becomes green if it is orthogonally next to a green cell and, either it is not next to a red diagonally,";

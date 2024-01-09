@@ -6,29 +6,30 @@ let rec write l x y = (* to write a list of strings one line each with the top o
 	| [] -> ()
 	| h::t -> set_color black; fill_rect x y (6*String.length h) 19 (* to overlay the text on top of the CA, more pretty *); moveto x y; set_color white; draw_string h; write t x (y-20)
 let info rs = write ([
-"Hello and welcome to my Cellular Automata Terminal (CAT).";
-"";
-"To use, first do ini(), then do go with the following arguments:";
-" - a function that given a list of the colors of the neighbours of a cell and the colour of that cell returns the color that cell should now take.";
-" - a list of tuples telling which neighbours the above function should be given, with the tuples being relative coordinates to the cell.";
-" - the size in cells of the square grid.";
-" - an array of colors listing all colours existing in your system.";
-" - a function for (re)initialization giving from unit a color. should use random.";
-" - a list containing lines of text you might want to display, will appear at the end.";
-"";
-"You will have the status in the top left.";
-"When CAT is running and you click, it will stop and go to pause.";
-"When in pause, you can press keys to do things:";
-" - p (Play) : does exactly what it says on the tin.";
-" - o (One) : goes one frame further and then back to pause.";
-" - b (Backwards) : play but in reverse, shows you the state of before. going backwards to a frame that has been edited will show you it with the edits";
-" - l (Last) : goes one frame backwards and back to pause.";
-" - e (Edit) : lets you manually change the state of cells by clicking on them. it changes to the next one in the color array given earlier";
-"              (which means the order in that array counts). to exit editing mode, press o for Out.";
-" - n (New) : generates a new random grid using the element function above.";
-" - d (Delete) : sets all the grid to black (it is therefore recommended that you have the state 'no life' and that it be black).";
-" - i (Info) : shows this.";
-" - x (EXit) : closes CAT."]@rs) 10 980; let rec wait () = if button_down() then () else wait() in wait() (* display info about this, rs is rulestring, additional text you might want to display about your CA*)
+	"Hello and welcome to my Cellular Automata Terminal (CAT).";
+	"";
+	"To use, first do ini(), then do go with the following arguments:";
+	" - a function that given a list of the colors of the neighbours of a cell and the colour of that cell returns the color that cell should now take.";
+	" - a list of tuples telling which neighbours the above function should be given, with the tuples being relative coordinates to the cell.";
+	" - the size in cells of the square grid.";
+	" - an array of colors listing all colours existing in your system.";
+	" - a function for (re)initialization giving from unit a color. should use random.";
+	" - a list containing lines of text you might want to display, will appear at the end.";
+	"";
+	"You will have the status in the top left.";
+	"When CAT is running and you click, it will stop and go to pause.";
+	"When in pause, you can press keys to do things:";
+	" - p (Play) : does exactly what it says on the tin.";
+	" - o (One) : goes one frame further and then back to pause.";
+	" - b (Backwards) : play but in reverse, shows you the state of before. going backwards to a frame that has been edited will show you it with the edits";
+	" - l (Last) : goes one frame backwards and back to pause.";
+	" - e (Edit) : lets you manually change the state of cells by clicking on them. it changes to the next one in the color array given earlier";
+	"              (which means the order in that array counts). to exit editing mode, press o for Out.";
+	" - n (New) : generates a new random grid using the element function above.";
+	" - d (Delete) : sets all the grid to black (it is therefore recommended that you have the state 'no life' and that it be black).";
+	" - i (Info) : shows this.";
+	" - x (EXit) : closes CAT."]@rs) 10 980; (* display info about this, rs is rulestring, additional text you might want to display about your CA*)
+	let rec wait () = if key_pressed() then (if read_key() <> ' ' then wait() (* meaning else (), exiting*)) else wait() in wait()
 let rec b x e si = (* building an array array of size si filled with e() (to allow for different random results). should be called with x=0*)
 	let rec l y =
 		if y = si
@@ -102,11 +103,11 @@ let rec di g (* for grid, array array of cells (Graphic.color's) *) p (* for par
 		| 'x' -> close_graph(); print_endline "Closed with X."
 		| 'd' -> di (b 0 (fun _ -> black) si) 's' f n col d rs [] g
 		| 'n' -> di (b 0 d si) 's' f n col d rs [] g
-		| 'i' -> info (rs@["Click to exit this and go back to pause."]); let rec show i j = if i = si then wa() else if j = si then show (i+1) 0 else (draw i j (g_.(i).(j)); show i (j+1)) (*need to redisplay after showing text*) in show 0 0
+		| 'i' -> info (rs@["Press space to exit this and go back to pause."]); let rec show i j = if i = si then wa() else if j = si then show (i+1) 0 else (draw i j (g_.(i).(j)); show i (j+1)) (*need to redisplay after showing text*) in show 0 0
 		| 'b' -> di (decomp (List.hd h)) 'b' (* use h to read the old ones *) f n col d rs (List.tl h) g_
 		| 'l' -> if h <> [] then di (decomp (List.hd h)) 's' f n col d rs (List.tl h) g else wa()
 		| _ -> wa() in
 		it 0 0; if button_down() then wa() else
 		if p = 'p' then di g_ p f n col d rs ((comp g)::h) g (* standard path of continuing *) else
 		if p = 'b' && h <> [] then di (decomp (List.hd h)) 'b' f n col d rs (List.tl h) g else wa()
-let go f n si col d rs = info (rs@["Click to start."]); di (b 0 d si) 's' (* for stop, doesnt even do first iteration*) f n col d rs (* see di *) [] [||]
+let go f n si col d rs = info (rs@["Press space to start."]); di (b 0 d si) 's' (* for stop, doesnt even do first iteration*) f n col d rs (* see di *) [] [||]
