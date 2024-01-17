@@ -1,5 +1,5 @@
 open Graphics
-type salle = {e : int list; g : int array array; d : string; c : string * (int * int); v : string list}
+type salle = {e : int list; g : int array array; d : string; c : string * (int * int); v : string list; s : bool}
 type entite = {s : string; b : string -> string; t : string; d : string}
 let erase() = set_color black; fill_rect 0 0 1000 1000
 let erase_console() = set_color (rgb 16 16 16); fill_rect 1000 0 500 1000
@@ -35,7 +35,7 @@ let tob s =
 	if List.hd l = "random"
 	then (fun s -> let a = Array.of_list (Hashtbl.find t s).v in a.(Random.int (Array.length a)))
 	else if List.hd l = "match"
-	then (fun s -> let rec fi l = match l with | a::b::r -> if s = a || a = "___" then b else fi r | _ -> assert false in fi (Hashtbl.find t s).v)
+	then (fun s -> let rec fi l = match l with | a::b::r -> if s = a || a = "_" then b else fi r | _ -> assert false in fi (Hashtbl.find t s).v)
 	else if List.hd l = "ask"
 	then (fun s -> inp "")
 	else (fun s -> s)
@@ -44,18 +44,22 @@ let etage = int_of_string (input_line ic)
 let cor = let s = input_line ic in let l = String.split_on_char ' ' s in (int_of_string (List.nth l 0), int_of_string (List.nth l 1))
 let pop s = let rec add l = match l with | (k, v)::ta -> if v.s = s then k::add ta else add ta| [] -> [] in add (List.of_seq (Hashtbl.to_seq p))
 let a = Hashtbl.create 10
-let col_of_int x = match x with | 0 -> black | 1 -> white | 2 -> rgb 128 128 128 | 3 -> red | 4 -> yellow | _ -> rgb 139 69 19
-let display_room s z scroll tt =
+let col_of_int x = match x with | 0 -> (0, 0, 0) | 1 -> (255, 255, 255) | 2 -> (128, 128, 128) | 3 -> (255, 0, 0) | 4 -> (255, 255, 0) | _ -> (139, 69, 19)
+let trgb x = let (r, g, b) = col_of_int x in rgb r g b
+let display_room s z scroll tt oc dont =
 	let r = Hashtbl.find tt s in
 	let coord = bl r.c in
-	let draw i j col = set_color col; let x = ((i+fst coord)*z+fst scroll) and y = ((j+snd coord)*z+snd scroll) in if x < 0 || y < 0 || x >= 1000 || y >= 1000 then () else fill_rect x y (z-1) (z-1) in 
+	let draw i j co = set_color (trgb co); let x = ((i+fst coord)*z+fst scroll) and y = ((j+snd coord)*z+snd scroll) in if x < 0 || y < 0 || x >= 1000 || y >= 1000 || co = 0 then () else ((if dont then output_string oc (String.concat " " (List.map string_of_int (let (r, g, b) = col_of_int co in [x; y; z-1]@(if r = 255 && b = 0 then (if g = 0 then [128; 128; 128] else [255; 255; 255]) else [r; g; b])))^"\n") else ()); fill_rect x y (z-1) (z-1)) in 
 	let rec it i j =
 		if i = Array.length r.g then () else
 		if j = Array.length r.g.(i) then it (i+1) 0 else
-		((let co = col_of_int r.g.(i).(j) in if co = black then () else draw i j co); it i (j+1))
+		((draw i j r.g.(i).(j)); it i (j+1))
 	in it 0 0; set_color blue; moveto (fst coord *z+fst scroll) (snd coord *z+snd scroll); (let x = fst coord *z+fst scroll+6*String.length s and y = snd coord * z + snd scroll + 6 * String.length s in if x < 0 || y < 0 || x >= 1000 || x >= 1000 then () else let po = pop s in draw_string (if po = [] then s else s^"("^String.concat ", " po^")"))
 let display z eta scroll tt =
-	erase(); Hashtbl.iter (fun k v -> if List.mem eta v.e then display_room k z scroll tt) tt
+	erase(); 
+	let oc = open_out "ordres.txt" in
+	Hashtbl.iter (fun k v -> if List.mem eta v.e then display_room k z scroll tt oc v.s) tt;
+	close_out oc
 let crop mat =
 	let i_ = let rec it i = if Array.for_all (fun x -> x = 0) mat.(i) then it (i+1) else i in it 0
 	and _i = let rec it i = if Array.for_all (fun x -> x = 0) mat.(i) then it (i-1) else i in it (Array.length mat - 1)
@@ -72,7 +76,7 @@ let crop mat =
 let edit mat z =
 	let rec wa c = 
 		if button_down() then (let mi = fst(mouse_pos())/z and mj = snd(mouse_pos())/z in
-		mat.(mi).(mj) <- c; set_color (col_of_int c); (if c = 0 then () else fill_rect (mi*z) (mj*z) (z-1) (z-1)); wa c)
+		mat.(mi).(mj) <- c; set_color (trgb c); fill_rect (mi*z) (mj*z) (z-1) (z-1); wa c)
 		else if key_pressed() then (let k = read_key() in if k = '0' || k = '1' || k = '2' || k = '3' || k = '4' || k = '5' then wa (int_of_char k - 48 ) else if k = 's' then crop mat else wa c)
 		else wa c
 	in tr ["0 pour des cases noires, 1 pour des blanches, 2 pour des grises, 3 pour des rouges, 4 pour des jaunes et 5 pour des marrons.";"Appuyez sur s pour sauver quand vous avez fini."]; wa 1
@@ -90,7 +94,7 @@ let modi g =
 	let rec show i j =
 		if i = Array.length mat then () else
 		if j = Array.length mat.(i) then show (i+1) 0 else
-		(set_color (col_of_int mat.(i).(j)); (if mat.(i).(j) = 0 then () else fill_rect (i*z) (j*z) (z-1) (z-1)); show i (j+1))
+		(set_color (trgb mat.(i).(j)); (if mat.(i).(j) = 0 then () else fill_rect (i*z) (j*z) (z-1) (z-1)); show i (j+1))
 	in show 0 0; edit mat z
 let create() = 
 	set_color black; fill_rect 0 0 1000 1000; tr ["Entrez la taille maximale."]; let ma = int_of_string(inp "") in let z = 1000/ma in
@@ -158,8 +162,9 @@ let rec di z eta scroll=
 			let gr = create() in
 			display z eta scroll t;
 			tr ["Description ?"]; let de = inp "" in
+			let vi = tr ["Visible ? [y/N]"]; read_key() = 'y' in
 			tr ["Salles voisines ?"]; let vo = let rec wa() = let r = select_room z eta scroll t in if r = "0" then [] else r::wa() in wa() in
-			placer na {e=et; g=gr; d=de; c=("0", (0, 0)); v=vo} z eta scroll);
+			placer na {e=et; g=gr; d=de; c=("0", (0, 0)); v=vo; s=vi} z eta scroll);
 		| 'e' -> 
 			(let en = tr ["Entrer nom."]; inp "" in
 			let sa = select_room z eta scroll t in
@@ -190,14 +195,16 @@ let rec di z eta scroll=
 		| _ -> tr ["s pour salles, e pour entites ou a pour alarmes."]); 
 		di z eta scroll
 	| 't' -> tr ["Entrer taille."]; di (int_of_string(inp "")) eta scroll
-	| 'c' -> tr ["Les commandes disponibles sont (une commande suivie d'un * signifie que il faut choisir quel type): ";" - l* : donne les listes de salles/entites/alarmes";" - +* : cree une nouvelle salle/entite/alarme";" - -* : supprime une salle/entite/alarme";" - t : redefinit la taille d'une case en pixels";" - c : affiche ceci";" - i* : donne des informations sur une salle/entite (pour les alarmes faire l)";" - m* : modifie une salle/entite/alarme.";"- b : fait bouger toutes les entites selon leur comportement defini et affiche les alarmes le cas echeant.";"- a : va à une salle." ;" - f : sauvegarde."; " - x : ferme tout sans sauvegarder."; " - z, q, s, ou d pour defiler respectivement vers le haut, la gauche, le bas, et la droite.";" - < pour aller a l'etage en dessous (donc avec le numero plus grand)";" - > pour remonter un etage."]; di z eta scroll
+	| 'c' -> tr ["Les commandes disponibles sont (une commande suivie d'un * signifie que il faut choisir quel type): ";" - l* : donne les listes de salles/entites/alarmes";" - +* : cree une nouvelle salle/entite/alarme";" - -* : supprime une salle/entite/alarme";" - t : redefinit la taille d'une case en pixels";" - c : affiche ceci";" - i* : donne des informations sur une salle/entite (pour les alarmes faire l)";" - m* : modifie une salle/entite/alarme.";" - b : fait bouger toutes les entites selon leur comportement defini et affiche les alarmes le cas echeant.";" - a : va a une salle."; " - v : change l'etat de visibilite d'une salle (dans dungeonshower)."; " - f : sauvegarde."; " - x : ferme tout sans sauvegarder."; " - z, q, s, ou d pour defiler respectivement vers le haut, la gauche, le bas, et la droite.";" - < pour aller a l'etage en dessous (donc avec le numero plus grand)";" - > pour remonter un etage."]; di z eta scroll
 	| 'i' -> tr ["s pour salles ou e pour entites."]; (match read_key() with
 		| 's' -> (let na = select_room z eta scroll t in 
 			tr (if Hashtbl.mem t na then 
 				(let r = Hashtbl.find t na in 
-					[na; ""; r.d; ""; "Liee a :"]@
-					List.map (fun x -> " - "^x) r.v@
-					(let po = pop na in if po = [] then [] else [""; "Contient les entites : "]@(List.map (fun x -> " - "^x) po))) 
+					[na; ""; r.d; ""]; (if r.v <> [] then "Liee a :"::
+					List.map (fun x -> " - "^x) r.v else [])@
+					(let po = pop na in if po = [] then [] else [""; "Contient les entites : "]@
+					(List.map (fun x -> " - "^x) po))@
+					["Visible aux joueurs : "^if r.s then "oui" else "non"]) 
 			else ["Salle non existante."]))
 		| 'e' -> 
 			(let en = tr ["Entrer nom."]; inp "" in
@@ -224,7 +231,7 @@ let rec di z eta scroll=
 		| 'e' -> 
 			(let en = tr["Entrer nom."]; inp "" in
 			if Hashtbl.mem p en then 
-				(tr ["Modification de l'entite "^en^"."; "Faites n pour changer le nom, r pour replacer, d pour chnager la description, et c pour changer le comportement."];
+				(tr ["Modification de l'entite "^en^"."; "Faites n pour changer le nom, r pour replacer, d pour changer la description, et c pour changer le comportement."];
 				let a = Hashtbl.find p en in
 				(match read_key() with
 				| 'n' -> tr ["Entrer le nouveau nom."]; let nn = inp "" in Hashtbl.remove p en; Hashtbl.add p nn a
@@ -243,9 +250,7 @@ let rec di z eta scroll=
 		output_string oc (string_of_int z^"\n"^string_of_int eta^"\n"^string_of_int (fst scroll)^" "^string_of_int(snd scroll)^"\n"); 
 		Hashtbl.iter (fun k v -> output_string oc ("-"^k^"\n"^String.concat " " v^"\n")) a;
 		Hashtbl.iter (fun k v -> output_string oc ("'"^k^"\n"^v.s^"\n"^v.t^"\n"^v.d^"\n")) p;
-		Hashtbl.iter (fun k v -> output_string oc ("_"^k^"\n"^String.concat " " (List.map string_of_int v.e)^"\n"^frg v.g^"\n"^v.d^"\n"^frc v.c^"\n"^String.concat " " v.v^"\n")) t; close_out oc; let oc = open_out "user.txt" in
-		output_string oc (string_of_int z^"\n"^string_of_int eta^"\n"^string_of_int (fst scroll)^" "^string_of_int(snd scroll)^"\n");
-		Hashtbl.iter (fun k v -> output_string oc (k^"\n"^String.concat " " (List.map string_of_int v.e)^"\n"^frg v.g^"\n"^frc v.c^"\n"^"false\n")) t; close_out oc; di z eta scroll
+		Hashtbl.iter (fun k v -> output_string oc ("_"^k^"\n"^String.concat " " (List.map string_of_int v.e)^"\n"^frg v.g^"\n"^v.d^"\n"^frc v.c^"\n"^String.concat " " v.v^"\n"^string_of_bool v.s^"\n")) t; close_out oc; di z eta scroll
 	| 'x' -> ()
 	| 'b' -> (Hashtbl.iter (fun k v -> Hashtbl.replace p k {v with s = v.b v.s}) p; 
 		let rec check l = match l with 
@@ -254,7 +259,7 @@ let rec di z eta scroll=
 			| _ -> []
 		in tr(check (List.of_seq (Hashtbl.to_seq a)))); di z eta scroll
 	| 'a' -> (let sa = tr ["Entrer nom."]; inp "" in let r = Hashtbl.find t sa in di z (List.hd r.e) (let co = bl r.c in (-(fst co)*z, -(snd co)*z)))
-	| ' ' -> let o = inp "" in let oc = open_out "orders.txt" in output_string oc o; close_out oc; di z eta scroll
+	| 'v' -> let sa = select_room z eta scroll t in let r = Hashtbl.find t sa in Hashtbl.replace t sa {r with s = not r.s}; di z eta scroll
 	| _ -> tr ["Commande inconnue. Faites c pour en avoir la liste."]; di z eta scroll
 let () = 
 	open_graph ""; 
@@ -262,18 +267,18 @@ let () =
 	set_window_title "Dungeon Builder";
 	erase(); 
 	erase_console(); 
-	let oc = open_out "orders.txt" in output_string oc "nothing to see"; close_out oc;
 	let rec it() = 
 		try let nom = input_line ic in
 		(if nom.[0] = '_' then
-		(let etage = input_line ic and grille = input_line ic and desc = input_line ic and co = input_line ic and voi = input_line ic in
+		(let etage = input_line ic and grille = input_line ic and desc = input_line ic and co = input_line ic and voi = input_line ic and see = input_line ic in
 		Hashtbl.add t 
 		(String.sub nom 1 (String.length nom - 1)) 
 		{e=List.map int_of_string (String.split_on_char ' ' etage); 
 		g=tog grille;
 		d=desc;
 		c=toc co;
-		v=String.split_on_char ' ' voi})
+		v=String.split_on_char ' ' voi;
+		s=bool_of_string see})
 		else if nom.[0] = '\'' then
 		(let sall = input_line ic and behaviour = input_line ic and desc = input_line ic in
 		Hashtbl.add p
