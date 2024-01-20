@@ -329,7 +329,7 @@ def check(xr, yr, tour, rep):
 	return(c)
 while not fin:
 	afficher()
-	t = input("Tour des Blancs. Entrez votre coup. "if tour == 10 else"Tour des Noirs. Entrez vore coup. ")
+	t = input("Tour des Blancs. Entrez votre coup. "if tour == 10 else"Tour des Noirs. Entrez votre coup. ")
 	m = [int(t[1])-1, ord(t[0])-65, int(t[3])-1, ord(t[2])-65] # pck pr moi les x, la premiere coordonnee, c'est les lignes, or aux échecs on dit la colonne d'abord, qui d'ailleurs est une lettre d'où les ord
 	if (b[m[0]][m[1]] != "p" and b[m[0]][m[1]] != "P") or b[m[2]][m[3]] != ".": # si on a bougé une autre pièce qu'un pion ou si on va capturer une pièce
 		ppt = 0
