@@ -111,6 +111,8 @@ def legal(xd, yd, xe, ye, tour, v):
 						myl = ltc(xd, yd, xe, ye, tour, v)
 						if myl == 1:
 							b[xd][ye] = "." # pour manger en passant sans y aller
+							if [xd, yd] in p:
+								p.remove([xd, yd])
 							return
 						elif myl == 2:
 							return(True)
@@ -144,7 +146,7 @@ def legal(xd, yd, xe, ye, tour, v):
 				for c in range(xd+d, xe, d):
 					if b[c][yd] != ".":
 						ok = False
-			else: # si on ne va ni a la verticale ni à l'horizontale. il pourrait encore avoir quelaue trous dans mon code avec des mouvement illégaux auquels je n'ai pas penseé
+			else: # si on ne va ni a la verticale ni à l'horizontale. il pourrait encore avoir quelques trous dans mon code avec des mouvement illégaux auquels je n'ai pas penseé
 				ok = False 
 			if ok:
 				myl = ltc(xd, yd, xe, ye, tour, v)
@@ -266,7 +268,7 @@ def legal(xd, yd, xe, ye, tour, v):
 				if ye < yd: # si roque à gauche
 					for c in range(1, 4):
 						if b[xd][c] != "." or check(xd, c, (20 if tour == 10 else 10), True) == 1:
-							ok = False # pour chque case entre la tour et le roi, on vérifie que elle est vide et pas menacée
+							ok = False # pour chaque case entre la tour et le roi, on vérifie que elle est vide et pas menacée
 				if yd < ye: # si roque à droite
 					for c in range(5, 7):
 						if b[xd][c] != "." or check(xd, c, (20 if tour == 10 else 10), True) == 1:
@@ -317,7 +319,7 @@ def check(xr, yr, tour, rep):
 						for y in range(8): # pour chaque couple de co
 							if legal(i, j, x, y, (20 if tour == 10 else 10), False):
 								c = 1
-								break # si aller des premières co aux deuxièmes sort le roi d'échec, c'est bon (et oui c'est légèrement bourrin et après ne vous étonnez pas que je mette quatres break)
+								break # si aller des premières co aux deuxièmes sort le roi d'échec, c'est bon (et oui c'est légèrement bourrin et après ne vous étonnez pas que je mette quatre break)
 						if c == 1:
 							break
 					if c == 1:
@@ -345,7 +347,7 @@ while not fin:
 	for i in range(8): # (pour les promotions) pour chaque colonne:
 		for j in range(0, 8, 7): # pour les deux lignes qui nous intéressent, 0 et 7
 			if b[j][i] == ("p" if j == 0 else "P"):
-				o = input("Promotion du pion en" + chr(i+65)+str(l+1)+". Entrez le nom de la pièce que vous voulez.").lower()
+				o = input("Promotion du pion en" + chr(i+65)+str(j+1)+". Entrez le nom de la pièce que vous voulez.").lower()
 				if o == "reine":
 					b[j][i] = ("q" if j == 0 else "Q")
 				elif o == "fou":
@@ -353,7 +355,7 @@ while not fin:
 				elif o == "tour":
 					b[j][i] = ("r" if j == 0 else "R")
 				elif o == "cavalier":
-					b[j][i] = ("n" if j == 0 else "N") # does exactly what it says on the tin
+					b[j][i] = ("n" if j == 0 else "N") # DEWISOTT
 	kk = k[(20 if tour == 10 else 10)] # les coordonnées du roi ennemi
 	ch = check(kk[0], kk[1], tour, False)
 	if ch == 1: 
