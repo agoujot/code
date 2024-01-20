@@ -1,74 +1,98 @@
-#finding, with description of a graph, whether it is an eulerian graph. and, yes, it it not clean.
+#finding, with the description of a graph, whether it is a semi-eulerian graph (and the number of solutions). and, yes, it it not clean.
 import copy
 def trouver(cpris, c):
-    global nbsolutions
-    C, cpris_ = c[0], copy.deepcopy(cpris)
-    if C not in cpris_:
-        cpris_.append(C)
-        if len(cpris_) == (nbnoeuds):
-            nbsolutions += 1
-        else:
-            for csuivant in graphe[c]:
-                trouver(cpris_, csuivant)
+	"""a partir de la liste des chemins pris et du chemin qu'on vient de prendre essaie pour tous les autres chemins"""
+	global nbsolutions
+	global fait
+	if not fait:
+		C, cpris_ = c[0], copy.deepcopy(cpris)
+		if C not in cpris_:
+			cpris_.append(C)
+			if len(cpris_) == (nbnoeuds):
+				if tout:
+					nbsolutions += 1
+				else:
+					fait = True
+			else:
+				for csuivant in graphe[c]:
+					trouver(cpris_, csuivant)
 def construire(figure):
-    dic_arretes = {}
-    for j in range(len(figure)):
-        arrete = figure[j].split("/")
-        dic_arretes[arrete[0]] = [arrete[1], arrete[2]]
-    dic_chemins = {}
-    for lettrea in dic_arretes.keys():
-        for nombre in dic_arretes[lettrea]:
-            csuivants = []
-            for lettreb in dic_arretes.keys():
-                boutsb = []
-                for bout in dic_arretes[lettreb]:
-                    boutsb.append(bout)
-                if nombre in boutsb and lettrea != lettreb:
-                    boutsb.remove(nombre)
-                    csuivants.append(lettreb+boutsb[0])
-            dic_chemins[lettrea+nombre] = csuivants
-    return(dic_chemins)
-def afficher(dic_chemins):
-    global nbsolutions
-    nbsolutions = 0
-    print("Le problème étant comment passer par chaque arrête une et une seule fois dans le graphe, il y a ", end = "")
-    for depart in dic_chemins.keys():
-        trouver([], depart)
-    print(str(nbsolutions)+" solutions.")
+	"""construit à partir d'une description pour chaque arrête de ses deux bouts un dictionnaire décrivant à partir de chaque chemin les autres chemins."""
+	dic_arretes = {}
+	for j in range(len(figure)):
+		arrete = figure[j].split("/")
+		dic_arretes[arrete[0]] = [arrete[1], arrete[2]] # construit un dictionnaire donnant pour chaque arrete ses bouts
+	dic_chemins = {}
+	for lettrea in dic_arretes.keys():
+		for nombre in dic_arretes[lettrea]: # cad pour chaque chemin
+			csuivants = []
+			for lettreb in dic_arretes.keys():# pour chaque arrete
+				boutsb = [x for x in dic_arretes[lettreb]]
+				if nombre in boutsb and lettrea != lettreb: # si ils partagent un bout mais ne sont pas identiques
+					boutsb.remove(nombre)
+					csuivants.append(lettreb+boutsb[0]) # on rajoute l'autre bout de l'autre arrete
+			dic_chemins[lettrea+nombre] = csuivants
+	return(dic_chemins)
+def afficher():
+	"""appelle trouver et fait le formatage de la reponse."""
+	global nbsolutions
+	nbsolutions = 0
+	global fait
+	fait = False
+	if tout:
+		print("Le problème étant comment passer par chaque arrête une et une seule fois dans le graphe, il y a ", end = "")
+		for depart in graphe.keys():
+			trouver([], depart)
+		print(str(nbsolutions)+" solutions.")
+	else:
+		for depart in graphe.keys():
+			trouver([], depart)
+		if fait:
+			print("Ce graphe est eulerien.")
+		else:
+			print("Ce graphe n'est pas eulerien.")
 def modifier(dic_chemins):
-    if input("Entrez R pour rajouter des arrêtes et S pour en supprimer. ") == "R":
-        segments = list(map(str, input("Entrez les nouvelles arrêtes avec le même format. ").split(".")))
-        premier = True
-        for ch in dic_chemins.keys():
-            if premier:
-                der = ch[1:]
-                premier = False
-            else:
-                segments.append(ch[0]+"/"+der+"/"+ch[1:])
-                premier = True
-    else:
-        a_enlever = list(map(str, input("Entrez les noms des arrêtes a supprimer separés par des points. ").split(".")))
-        segments = []
-        premier = True
-        for ch in dic_chemins.keys():
-            if premier:
-                der = ch[1:]
-                premier = False
-            elif ch[0] not in a_enlever:
-                segments.append(ch[0]+"/"+der+"/"+ch[1:])
-                premier = True
-    dic_chemins = construire(segments)
-    return(dic_chemins)
+	"""DEWISOTT."""
+	if input("Entrez R pour rajouter des arrêtes et S pour en supprimer. ") == "R":
+		segments = list(input("Entrez les nouvelles arrêtes avec le même format. ").split("."))
+		premier = True # si on en est au premier bout d'un chemin
+		for ch in sorted(dic_chemins.keys()): # pour etre sur de le faire dans l'ordre
+			if premier:
+				der = ch[1:]
+				premier = False # on note le bout et on passe au suivant
+			else:
+				segments.append(ch[0]+"/"+der+"/"+ch[1:]) # on ajoute le nom, le bout note plus tot et le second bout
+				premier = True
+	else:
+		a_enlever = list(map(str, input("Entrez les noms des arrêtes a supprimer separés par des points. ").split(".")))
+		segments = []
+		premier = True
+		for ch in dic_chemins.keys():
+			if premier:
+				der = ch[1:]
+				premier = False
+			elif ch[0] not in a_enlever:
+				segments.append(ch[0]+"/"+der+"/"+ch[1:])
+				premier = True
+			else:
+				premier = True
+	dic_chemins = construire(segments)
+	return(dic_chemins)
 figure = list(map(str, input("Entrez votre graphe en mettant [arrête]/[noeud1]/[noeud2], \n(avec [arrête] reliant [noeud1] et [noeud2]) et en séparant les arretes par des points.\n ").split(".")))
 graphe = construire(figure)
 fin = ""
+tout = True
 while fin == "":
-    if input("Entrez A pour afficher les solutions avec le graphe actuel et M pour le modifier.") == "A":
-        nbnoeuds = len(graphe.keys())//2
-        afficher(graphe)
-    else:
-        graphe = modifier(graphe)
-    fin = input("Appuyer sur entrer pour continuer et entrez quelque chose pour arrêter.")
+	inp = input("Entrez A pour afficher la solution avec le graphe actuel, M pour le modifier et V pour le vider (enlever tout).")
+	if inp == "M":
+		graphe = modifier(graphe)
+	elif inp == "V":
+		graphe = {}
+	else:
+		nbnoeuds = len(graphe.keys())//2
+		tout = input("Entrer pour savoir si le graphe est eulerien et autre chose pour le nombre de solutions.") != ""
+		afficher()
+	fin = input("Appuyer sur entrer pour continuer et entrez quelque chose pour arrêter.")
 """TESTS:
 A/1/2.B/2/3.C/3/4.D/4/5.E/5/6.F/6/7.G/7/8.H/8/1.I/2/8.J/2/4.K/4/6.L/6/8 CARRE DANS CARRE = 960
 carre dans carre dans carre
