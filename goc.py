@@ -2,12 +2,12 @@
 import copy 
 l = int(input("Plateau de côté: ")) # l pour largeur
 b = [[2 for _ in range(l)] for _ in range(l)] # b pour Board. définition du plateau vide
-pa = 0 # pa pour passé. le nombre de joueaurs ayant passé à la suite
+pa = 0 # pa pour passé. le nombre de joueurs ayant passé à la suite
 t = 0 # le tour, 0 pour noir et 1 pour blanc. Les pierres noires et blanches seront représentées avec les même chiffres.
 v = [[1, 0], [-1, 0], [0, 1], [0, -1]] # v pour voisin. les coordonnées des pièces adjacentes
 ko = [] # ko pour la règle du même nom. la liste des plateaux déja vus
 def lib(x, y, f, mem):
-	"""retourne si la pierre aux co x et y a des libertés""" # mem pour mémoïsation, ou le concept de noter les valeurs des résultats qu'on devrait sinon calculer plusieurs fois. ceci accélère beaucoup le calcul de libertés de grandes structures. note: actuellement la mémoïsation est partielle car il ne s'en souvient que pour le calcul de cette case, et on pourrait faire qu'à chaque fois il nous donne les résultats pour toute la structure, vu que si il return True pour une des pierres, c'est bon pour toutes. en cours
+	"""retourne si la pierre aux co x et y a des libertés""" # mem pour mémoïsation, ou le concept de noter les valeurs des résultats qu'on devrait sinon calculer plusieurs fois. ceci accélère beaucoup le calcul de libertés de grandes structures.
 	if (x, y) in mem.keys():
 		return mem[(x, y)]
 	for p in v:
