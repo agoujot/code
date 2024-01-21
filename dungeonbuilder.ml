@@ -76,7 +76,7 @@ let display z eta scroll tt = (* affiche toutes les salles de tt qui sont à l'�
 	close_in ic_; 
 	let oc = open_out "ordres.txt" in
 	Hashtbl.iter (fun k v -> if List.mem eta v.e then display_room k z scroll tt oc (l<>"freeze")) tt;
-	(if l = "freeze" then output_string oc "freeze\n");
+	(if l = "freeze" then output_string oc "freeze\n"); (* parce que le fait d'avoir ouvert oc a ecrase le contenu du fichier *)
 	close_out oc
 let crop mat = (* enlève des lignes / colonnes vides sur les bords d'une matrice . *)
 	let i_ = let rec it i = if Array.for_all (fun x -> x = 0) mat.(i) then it (i+1) else i in it 0 (* le i min à garder *)
@@ -181,7 +181,7 @@ let rec di z eta scroll= (* di for do it, does main loop *)
 			display z eta scroll t;
 			tr ["Description ?"]; let de = inp "" in
 			tr ["Salles voisines ?"]; let vo = let rec wa() = let r = select_room z eta scroll t in if r = "0" then [] else r::wa() in wa() in
-			placer na {e=et; g=gr; d=de; c=("0", (0, 0)); v=vo; j=[||]} z eta scroll);
+			placer na {e=et; g=gr; d=de; c=("0", (0, 0)); v=vo; j=[|[||]|]} z eta scroll); (* on donne un c vide à placer parce que justement c'est placer qui fait les coordonnées et c'est pratique de réutiliser salle, et aussi une salle est par défaut non visible au joueur -> on n'affiche rien -> la matrics qu'on affiche est un tableau vide*)
 		| 'e' -> 
 			(let en = tr ["Entrer nom."]; inp "" in
 			let sa = select_room z eta scroll t in
@@ -199,8 +199,8 @@ let rec di z eta scroll= (* di for do it, does main loop *)
 			(let na = select_room z eta scroll t in 
 			if Hashtbl.mem t na 
 			then (let co = bl (Hashtbl.find t na).c in 
-				let del() = (Hashtbl.remove t na; Hashtbl.iter (fun k v -> Hashtbl.replace t k {v with c = if fst v.c <> na then v.c else ("0", (fst (snd v.c)+fst co, snd (snd v.c)+snd co))}) t; Hashtbl.iter (fun k v -> if List.mem na v then Hashtbl.remove a k else ()) a) in
-				(if pop na = [] then del() else (tr ["Il y a des entites dans cette salles."; "Voulez-vous vraiment la supprimer ? [y/N]"]; if read_key() = 'y' then del() else tr ["Suppression annulee."])))
+				let del() = (Hashtbl.remove t na; Hashtbl.iter (fun k v -> Hashtbl.replace t k {v with c = if fst v.c <> na then v.c else ("0", (fst (snd v.c)+fst co, snd (snd v.c)+snd co))}) t; Hashtbl.iter (fun k v -> if List.mem na v then Hashtbl.remove a k else ()) a) in (* si on enleve une salle on recalcule les coordonnées des salles qui en dépendaient à partir de "0" et on supprime les alarmes en lien avec elle *)
+				(if pop na = [] then del() else (tr ["Il y a des entites dans cette salles."; "Voulez-vous vraiment la supprimer ? [y/N]"; "(Les entites en question seront supprimées aussi.)"]; if read_key() = 'y' then del() else tr ["Suppression annulee."])))
 			else tr ["Salle non existante."])
 		| 'e' -> 
 			(let en = tr ["Entrer nom de l'entite."]; inp "" in 
@@ -212,7 +212,7 @@ let rec di z eta scroll= (* di for do it, does main loop *)
 		| _ -> tr ["s pour salles, e pour entites ou a pour alarmes."]); 
 		di z eta scroll
 	| 't' -> tr ["Entrer taille."]; di (int_of_string(inp "")) eta scroll
-	| 'c' -> tr ["Les commandes disponibles sont (une commande suivie d'un * signifie que il faut choisir quel type): ";" - l* : donne les listes de salles/entites/alarmes";" - +* : cree une nouvelle salle/entite/alarme";" - -* : supprime une salle/entite/alarme";" - t : redefinit la taille d'une case en pixels";" - c : affiche ceci";" - i* : donne des informations sur une salle/entite (pour les alarmes faire l)";" - m* : modifie une salle/entite/alarme.";" - b : fait bouger toutes les entites selon leur comportement defini et affiche les alarmes le cas echeant.";" - a : va a une salle."; " - v : actualise comment les joueurs voient une salle dans dungeonshower.";"- h : cache une salle dans dungeonshower.";"- g : gèle l'affichage dans dungeonshower." ; " - = : sauvegarde."; " - f : ferme tout sans sauvegarder."; " - z, q, s, ou d pour defiler respectivement vers le haut, la gauche, le bas, et la droite.";" - < pour aller a l'etage en dessous (donc avec le numero plus grand)";" - > pour remonter un etage."]; di z eta scroll
+	| 'c' -> tr ["Les commandes disponibles sont (une commande suivie d'un * signifie que il faut choisir quel type): ";" - l* : donne les listes de salles/entites/alarmes";" - +* : cree une nouvelle salle/entite/alarme";" - -* : supprime une salle/entite/alarme";" - t : redefinit la taille d'une case en pixels";" - c : affiche ceci";" - i* : donne des informations sur une salle/entite (pour les alarmes faire l)";" - m* : modifie une salle/entite/alarme.";" - b : fait bouger toutes les entites selon leur comportement defini et affiche les alarmes le cas echeant.";" - a : va a une salle."; " - v : actualise comment les joueurs voient une salle dans dungeonshower.";"- h : cache une salle dans dungeonshower.";"- g : (dé)gèle l'affichage dans dungeonshower." ; " - = : sauvegarde."; " - f : ferme tout sans sauvegarder."; " - z, q, s, ou d pour defiler respectivement vers le haut, la gauche, le bas, et la droite.";" - < pour aller a l'etage en dessous (donc avec le numero plus grand)";" - > pour remonter un etage."]; di z eta scroll
 	| 'i' -> tr ["s pour salles ou e pour entites."]; (match read_key() with
 		| 's' -> (let na = select_room z eta scroll t in 
 			tr (if Hashtbl.mem t na then 
@@ -238,11 +238,11 @@ let rec di z eta scroll= (* di for do it, does main loop *)
 				(tr ["Modification de la salle "^na^"."; "Faites n pour changer le nom, g pour modifier la grille, d pour changer la description, r pour la replacer et v pour changer les voisins."]; 
 				let r = Hashtbl.find t na in 
 				(match read_key() with
-				| 'n' -> tr ["Entrer le nouveau nom."]; let nn = inp "" in Hashtbl.remove t na; Hashtbl.add t nn r; Hashtbl.iter (fun k v -> Hashtbl.replace t k {v with c = if fst v.c = na then (nn, snd v.c) else v.c; v = List.map (fun x -> if x = na then nn else x) v.v}) t
+				| 'n' -> tr ["Entrer le nouveau nom."]; let nn = inp "" in Hashtbl.remove t na; Hashtbl.add t nn r; Hashtbl.iter (fun k v -> Hashtbl.replace t k {v with c = if fst v.c = na then (nn, snd v.c) else v.c; v = List.map (fun x -> if x = na then nn else x) v.v}) t (* si on renomme il faut remplacer toutes les références à l'ancien nom *)
 				| 'g' -> Hashtbl.replace t na {r with g = modi r.g}
 				| 'd' -> tr ["Entrer la description."]; Hashtbl.replace t na {r with d = inp ""}
 				| 'r' -> placer na r z eta scroll
-				| 'v' -> tr ["Entrer les voisins separes par des espaces."]; Hashtbl.replace t na {r with v = let rec rem l = match l with [] -> [] | i::s -> if Hashtbl.mem t i then i::rem s else rem s in rem (String.split_on_char ' ' (inp ""))}
+				| 'v' -> tr ["Entrer les voisins separes par des espaces."]; Hashtbl.replace t na {r with v = let rec rem l = match l with [] -> [] | i::s -> if Hashtbl.mem t i then i::rem s else rem s in rem (String.split_on_char ' ' (inp ""))} (* on n'ajoute pas les références à des salles inexistantes *)
 				| _ -> tr ["n/g/d/r/v."]))
 			else tr ["Salle non existante."])
 		| 'e' -> 
@@ -251,7 +251,7 @@ let rec di z eta scroll= (* di for do it, does main loop *)
 				(tr ["Modification de l'entite "^en^"."; "Faites n pour changer le nom, r pour replacer, d pour changer la description, et c pour changer le comportement."];
 				let a = Hashtbl.find p en in
 				(match read_key() with
-				| 'n' -> tr ["Entrer le nouveau nom."]; let nn = inp "" in Hashtbl.remove p en; Hashtbl.add p nn a
+				| 'n' -> tr ["Entrer le nouveau nom."]; let nn = inp "" in Hashtbl.remove p en; Hashtbl.add p nn a; Hashtbl.iter (fun k v -> Hastbl.replace a k (List.map (fun e -> if e = en then nn else e) v)) a (* on remplace les references à l'ancien nom *)
 				| 'r' -> let sa = select_room z eta scroll t in Hashtbl.replace p en {a with s=sa}
 				| 'd' -> let de = tr ["Entrer la description."]; inp "" in Hashtbl.replace p en {a with d=de}
 				| 'c' -> let be = tr ["Entrer le comportement."]; inp "" in let b_ = tob be in Hashtbl.replace p en {a with t=be; b=b_}
@@ -262,25 +262,25 @@ let rec di z eta scroll= (* di for do it, does main loop *)
 			if Hashtbl.mem a an then (let s = tr ["Entrer le type d'alarme et les deux noms separes pas des espaces."]; inp "" in Hashtbl.replace a an (String.split_on_char ' ' s)) else tr ["Alarme non existante."])
 		| _ -> tr ["s pour salles, e pour entites et a pour alarmes."]); 
 		di z eta scroll
-	| '=' -> ignore (Unix.system ("cp salles.txt salles/salles"^string_of_float (Unix.time())^".txt")); 
+	| '=' -> ignore (Unix.system ("cp salles.txt salles/salles"^string_of_float (Unix.time())^".txt"));
 		let oc = open_out "salles.txt" in 
-		output_string oc (string_of_int z^"\n"^string_of_int eta^"\n"^string_of_int (fst scroll)^" "^string_of_int(snd scroll)^"\n"); 
-		Hashtbl.iter (fun k v -> output_string oc ("-"^k^"\n"^String.concat " " v^"\n")) a;
-		Hashtbl.iter (fun k v -> output_string oc ("'"^k^"\n"^v.s^"\n"^v.t^"\n"^v.d^"\n")) p;
-		Hashtbl.iter (fun k v -> output_string oc ("_"^k^"\n"^String.concat " " (List.map string_of_int v.e)^"\n"^frg v.g^"\n"^v.d^"\n"^frc v.c^"\n"^String.concat " " v.v^"\n"^frg v.j^"\n")) t; close_out oc; di z eta scroll
-	| 'f' -> ()
+		output_string oc (string_of_int z^"\n"^string_of_int eta^"\n"^string_of_int (fst scroll)^" "^string_of_int(snd scroll)^"\n"); (* les parametres: z eta scroll, chacun sur une ligne *)
+		Hashtbl.iter (fun k v -> output_string oc ("-"^k^"\n"^String.concat " " v^"\n")) a; (*les alarmes, avec les noms qui commencent par -*)
+		Hashtbl.iter (fun k v -> output_string oc ("'"^k^"\n"^v.s^"\n"^v.t^"\n"^v.d^"\n")) p; (* les entites commencent par ' *)
+		Hashtbl.iter (fun k v -> output_string oc ("_"^k^"\n"^String.concat " " (List.map string_of_int v.e)^"\n"^frg v.g^"\n"^v.d^"\n"^frc v.c^"\n"^String.concat " " v.v^"\n"^frg v.j^"\n")) t; close_out oc; di z eta scroll (* les salles commencent par _. Ces débuts ont été rajoutés pour faciliter la lecture manuelle du fichier pour le debuggage *)
+	| 'f' -> () (*fermer signifie ne pas continuer, donc juste ne pas se rappeler *)
 	| 'b' -> (Hashtbl.iter (fun k v -> Hashtbl.replace p k {v with s = v.b v.s}) p; 
 		let rec check l = match l with 
-			| (k, ["avec"; a; b])::s -> if (Hashtbl.find p a).s = (Hashtbl.find p b).s then ("Alarme: l'entite "^a^" a rencontree l'entite "^b^"!")::check s else check s
-			| (k, ["dans"; a; b])::s -> if (Hashtbl.find p a).s = b then ("Alarme: l'entite "^a^" est dans la salle "^b^"!")::check s else check s
+			| (k, ["avec"; a; b])::s -> if (Hashtbl.find p a).s = (Hashtbl.find p b).s then ("Alarme "^k^" : l'entite "^a^" a rencontree l'entite "^b^"!")::check s else check s
+			| (k, ["dans"; a; b])::s -> if (Hashtbl.find p a).s = b then ("Alarme "^k^ ": l'entite "^a^" est dans la salle "^b^"!")::check s else check s
 			| _ -> []
 		in tr(check (List.of_seq (Hashtbl.to_seq a)))); di z eta scroll
 	| 'a' -> (let sa = tr ["Entrer nom."]; inp "" in let r = Hashtbl.find t sa in di z (List.hd r.e) (let co = bl r.c in (-(fst co)*z, -(snd co)*z)))
 	| 'v' -> let sa = select_room z eta scroll t in let r = Hashtbl.find t sa in Hashtbl.replace t sa {r with j = r.g}; di z eta scroll
-	| 'h' -> let sa = select_room z eta scroll t in let r = Hashtbl.find t sa in Hashtbl.replace t sa {r with j = [||]}; di z eta scroll
+	| 'h' -> let sa = select_room z eta scroll t in let r = Hashtbl.find t sa in Hashtbl.replace t sa {r with j = [|[||]|]}; di z eta scroll
 	| 'g' -> let ic_ = open_in "ordres.txt" in let l = input_line ic_ in close_in ic_; let oc = open_out "ordres.txt" in output_string oc (if l = "freeze" then "nothing to see here\n" else "freeze\n"); close_out oc; di z eta scroll
 	| _ -> tr ["Commande inconnue. Faites c pour en avoir la liste."]; di z eta scroll
-let () =
+let () = (* lit les valeurs et initialise *)
 	open_graph ""; 
 	resize_window 1500 1000; 
 	set_window_title "Dungeon Builder";
