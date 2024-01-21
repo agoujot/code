@@ -81,7 +81,7 @@ else if m = "ei" then(
 go
 (fun l v -> let rec c l co = match l with | [] -> 0 | i::s -> if i = co then 1+c s co else c s co in
 	let v3 = c l blue and v2 = c l green and v1 = c l red in
-	if (v1 > 0 && v1 < 3)||((v2 > 0 && v2 < 5)&&(v3 > 0))
+	if (v1 > 0 && v1 < 3)||(v2 > 0 && v3 > 0)
 	then (if v1 > v2 then red else if v2 > v1 then green else blue)
 	else black)
 (moore 1)
@@ -94,6 +94,20 @@ go
 "Name is ei for Experiment I, as I think I'll keep other diverse but not complex CAs.";
 "Green & blue delimit spaces and red expands into these spaces from breaks in the barriers but dies easily so new spaces are created.";
 ""]
+)
+else if m = "eii" then (
+go
+(fun l v -> let rec c l co = match l with | [] -> 0 | i::s -> if i = co then 1+c s co else c s co in
+	let v3 = c l blue and v2 = c l green and v1 = c l red in
+	if (v1 > 1 && v2 > 1) || (v3 > 0)
+	then (if v1 > v2 then red else if v2 > v1 then green else blue)
+	else black)
+(moore 1)
+100
+[|black; red; green; blue|]
+(fun () -> let r = Random.int 4 in if r = 0 then red else if r = 1 then green else if r = 2 then blue else black)
+["";
+"Found also while fiddling with arc.."]
 )
 else if m = "beam" then(
 go
