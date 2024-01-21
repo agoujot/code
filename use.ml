@@ -99,7 +99,7 @@ else if m = "eii" then (
 go
 (fun l v -> let rec c l co = match l with | [] -> 0 | i::s -> if i = co then 1+c s co else c s co in
 	let v3 = c l blue and v2 = c l green and v1 = c l red in
-	if (v1 > 1 && v2 > 1) || (v3 > 0)
+	if (v1 > 0 && v2 > 0) || (v3 > 1)
 	then (if v1 > v2 then red else if v2 > v1 then green else blue)
 	else black)
 (moore 1)
