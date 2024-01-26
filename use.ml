@@ -107,7 +107,33 @@ go
 [|black; red; green; blue|]
 (fun () -> let r = Random.int 4 in if r = 0 then red else if r = 1 then green else if r = 2 then blue else black)
 ["";
-"Found also while fiddling with arc.."]
+"Found also while fiddling with arc.";
+"Actually by needing two blue neighbours not one.";
+"Lower life counts, not soup.";
+"Interesting patterns.";
+"";]
+)
+else if m = "eiii" then (
+go
+(fun l v -> let rec c l co = match l with | [] -> 0 | i::s -> if i = co then 1+c s co else c s co in
+	let v1 = c l red and v2 = c l green and v3 = c l blue in
+		if (v1 > 0 && v2 > 0) || v3 > 1 then
+			(if v1 > v2 then red 
+			else if v2 > v1 then green 
+			else blue)
+		else black)
+((0, 0)::moore 1)
+100
+[|black; red; green; blue|]
+(fun () -> let r = Random.int 4 in if r = 0 then red else if r = 1 then green else if r = 2 then blue else black)
+["";
+"Balanced eii with dependancy upon previous condition.";
+"Namely, the cell itself counts ad one of its neighbours.";
+"(if you do the same with arc you end up with imploding loops.)";
+"Some of the patterns of eii are still visible.";
+"This one also has a tendancy for spinning guns and blue explosions.";
+"Even found, but it is a bit rare, a gun that moves diagonally as it shoots.";
+""]
 )
 else if m = "beam" then(
 go
