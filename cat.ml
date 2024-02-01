@@ -29,7 +29,7 @@ let info rs = write ([
 	" - d (Delete) : sets all the grid to black (it is therefore recommended that you have the state 'no life' and that it be black).";
 	" - i (Info) : shows this.";
 	" - x (EXit) : closes CAT."]@rs) 10 980; (* display info about this, rs is rulestring, additional text you might want to display about your CA*)
-	let rec wait () = if key_pressed() then (if read_key() <> ' ' then wait() (* meaning else (), exiting*)) else wait() in wait()
+	let rec wait () = if key_pressed() then (if read_key() <> char_of_int 13 then wait() (* meaning else (), exiting*)) else wait() in wait()
 let moore r = (let rec it i j = if i = (r+1) then [] else if j = (r+1) then it (i+1) (-r) else if i = 0 && j = 0 then it i (j+1) else (i, j)::it i (j+1) in it (-r) (-r))
 let neumann r = (let rec it i j = if i = (r+1) then [] else if j = (r-(abs i)+1) then it (i+1) (-r+(abs (i+1))) else if i = 0 && j == 0 then it i (j+1) else (i, j)::it i (j+1) in it (-r) 0)
 let cross r = (let rec it k = if k = 0 then [] else (-k, 0)::(k, 0)::(0, -k)::(0, k)::it (k-1) in it r )
@@ -106,11 +106,11 @@ let rec di g (* for grid, array array of cells (Graphic.color's) *) p (* for par
 		| 'x' -> close_graph(); print_endline "Closed with X."
 		| 'd' -> di (b 0 (fun _ -> black) si) 's' f n col d rs [] g
 		| 'n' -> di (b 0 d si) 's' f n col d rs [] g
-		| 'i' -> info (rs@["Press space to exit this and go back to pause."]); let rec show i j = if i = si then wa() else if j = si then show (i+1) 0 else (draw i j (g_.(i).(j)); show i (j+1)) (*need to redisplay after showing text*) in show 0 0
+		| 'i' -> info (rs@["Press enter to exit this and go back to pause."]); let rec show i j = if i = si then wa() else if j = si then show (i+1) 0 else (draw i j (g_.(i).(j)); show i (j+1)) (*need to redisplay after showing text*) in show 0 0
 		| 'b' -> di (decomp (List.hd h)) 'b' (* use h to read the old ones *) f n col d rs (List.tl h) g_
 		| 'l' -> if h <> [] then (bl " - pause - "; di (decomp (List.hd h)) 's' f n col d rs (List.tl h) g) else bl "ERROR: NO HISTORY"; wa()
 		| _ -> bl "ERROR: UNKNOWN COMMAND"; wa() in
 		it 0 0; if button_down() then (bl " - pause - " ; wa()) else
 		if p = 'p' then di g_ p f n col d rs ((comp g)::h) g (* standard path of continuing *) else
 		if p = 'b' then (if h = [] then (bl "ERROR: NO HISTORY"; wa()) else di (decomp (List.hd h)) 'b' f n col d rs (List.tl h) g) else wa()
-let go f n si col d rs = set_color black; fill_rect 0 0 1000 1020; info (rs@["Press space to start."]); bl " - pause - "; di (b 0 d si col) 's' (* for stop, doesnt even do first iteration*) f n col d rs (* see di *) [] [||]
+let go f n si col d rs = set_color black; fill_rect 0 0 1000 1020; info (rs@["Press space to start."]); bl " - pause - "; di (b 0 d si) 's' (* for stop, doesnt even do first iteration*) f n col d rs (* see di *) [] [||]

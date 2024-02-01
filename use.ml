@@ -8,16 +8,16 @@ let () = ini(); info [
 "I also keep some interesting but not that much CAs as ei, eii, eiii, and so forth for Experiment [roman numeral].";
 "(There is also test for testing, which contains whatever I am building now.";
 "It may not exist. It may crash. It may keep you from moving your mouse. Ye be warned.)";
-"To choose, press space, then press the keys. The text will appear in the top left as you type it.";
-"Press space to validate and backspace to delete the last character.";
+"To choose, press enter, then press the keys. The text will appear in the top left as you type it.";
+"Press enter to validate and backspace to delete the last character.";
 "If you enter an unknown string, you will be asked again.";
-"This screen will update to show the rules here, then you'll have to press space again to start.";
+"This screen will update to show the rules here, then you'll have to press enter again to start.";
 ""];
 let rec inp s = 
 	if key_pressed() then 
 		(let c = read_key() in 
-		if c = ' ' then s else
-		if c = char_of_int 8 then (let ns = String.sub s 0 (String.length s - 1) in Unix.sleepf 0.1; bl ns; inp ns) else
+		if c = char_of_int 13 then s else
+		if c = char_of_int 8 then (let ns = if s = "" then s else (String.sub s 0 (String.length s - 1)) in Unix.sleepf 0.1; bl ns; inp ns) else
 		(Unix.sleepf 0.1; bl (s^(String.make 1 c)); inp (s^(String.make 1 c))))
 	else inp s in
 let rec choose() = 
