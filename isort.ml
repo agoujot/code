@@ -1,7 +1,7 @@
 open Graphics
-let draw i h = set_color white; moveto i 0; lineto i h; set_color black; lineto i 1000
+let draw i h = set_color white; moveto i 0; lineto i h; set_color black; lineto i 1000; Unix.sleepf 0.00001
 let rec b i = 
-	if i = 1000 then [||] else let r = Random.int 1000 in (draw i r; Array.append [|r|] (b (i+1)))
+	if i = 1000 then [||] else let r = Random.int 1000 in (set_color white; moveto i 0; lineto i r; set_color black; lineto i 1000; Array.append [|r|] (b (i+1)))
 let rec isort t i =
 	if i = Array.length t then t else
 	let v = t.(i) in
