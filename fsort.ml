@@ -1,7 +1,7 @@
 open Graphics
-let rec b i = if i = 1000 then [||] else Array.append [|Random.int 1001|] (b (i+1))
+let draw i h = moveto i 0; set_color white; lineto i h; set_color black; lineto i 1000
+let rec b i = if i = 1000 then [||] else let r = Random.int 1000 in (draw i r; Array.append [|r|] (b (i+1)))
 let () = open_graph ""; resize_window 1000 1000; set_color black; fill_rect 0 0 1000 1000; Random.self_init()
-let draw x h = set_color white; fill_rect x 0 1 h; set_color black; fill_rect x h 1 1000
 let rec sort t i=
 	if Array.length t = 1
 	then t
