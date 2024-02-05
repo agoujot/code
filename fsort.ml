@@ -1,7 +1,7 @@
 open Graphics
-let draw i h = moveto i 0; set_color white; lineto i h; set_color black; lineto i 1000
+let draw i h = moveto i 0; set_color (rgb 0 (h*255/1000) (255-h*255/1000)); lineto i h; set_color black; lineto i 1000
 let drawa j a = let rec it i = if i = Array.length a then () else (draw (j+i) a.(i); it (i+1)) in it 0
-let rec b i = if i = 1000 then [||] else let r = Random.int 1000 in (moveto i 0; set_color white; lineto i r; set_color black; lineto i 1000; Array.append [|r|] (b (i+1)))
+let rec b i = if i = 1000 then [||] else let r = Random.int 1000 in (moveto i 0; set_color (rgb 0 (r*255/1000) (255-r*255/1000)); lineto i r; set_color black; lineto i 1000; Array.append [|r|] (b (i+1)))
 let () = open_graph ""; resize_window 1000 1000; set_color black; fill_rect 0 0 1000 1000; Random.self_init()
 let rec sort t i =
 	if Array.length t = 1
