@@ -1,6 +1,6 @@
 open Graphics
 (* this is a library for useful functions to run 2D cellular automata, including interface and commands *)
-let ini () = Random.self_init(); open_graph ""; resize_window 1000 1020; set_color black; fill_rect 0 0 1000 1020 (* initializes the graphics screen & the RNG *)
+let ini () = Random.self_init(); open_graph ""; resize_window 1000 1020; set_color black; fill_rect 0 0 1000 1020; set_window_title "Cellular Automata Terminal" (* initializes the graphics screen & the RNG *)
 let rec write l x y = (* to write a list of strings one line each with the top one starting at x y *)
 	match l with
 	| [] -> ()
