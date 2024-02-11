@@ -78,4 +78,4 @@ let rec comp l d s =
 		cmd ((if pkg = "" then "" else "ocamlfind ")^"ocamlopt -o "^out^(if pkg = "" then "" else " -package "^pkg^" -linkpkg")^" "^files);
 		if d then cmd ((if pkg = "" then "" else "ocamlfind ")^"ocamldoc -html "^(if pkg = "" then "" else "-package "^pkg)^" "^files); 
 		comp tl d "")
-let () = comp arg true ""; cmd "cp styles.css style.css"; clean (dir())
+let () = comp arg true ""; clean (dir())
