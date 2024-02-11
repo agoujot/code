@@ -3,7 +3,7 @@ open Graphics
 (** List of arguments given on command line *)
 let arg = Array.to_list (Array.sub Sys.argv 1 (Array.length Sys.argv-1)) 
 (** Help message *)
-let info = "Graphical representation of sorting algorithms.\nEach value is a line.\nHigher vales are higher lines and are in bluer color.\nTo be called with the names of the sorts you want, e.g. i or insertion.\nSorts: selection, insertion, bubble, merge, quick, and radix.\nPress any key to do next sort.\nOptions are:\n -l [int] : define the size of the array to be sorted (default is 1024).\n -s [string] : set the speed of the graphical representation. n(one) means 0 delay, r(eal) means same delay for all sorts, to compare them, and e(qual) means approximately same running time, for demonstrating the algorithms. default is equal.\n -c : shows comparison counts.\n -p : pure performance tests, no display, results in console.\n -b [int] : change the base for radix sort. -w : repeats the sorts given until you press enter.\n -help : shows this message."
+let info = "Graphical representation of sorting algorithms.\nEach value is a line.\nHigher vales are higher lines and are in bluer color.\nTo be called with the names of the sorts you want, e.g. i or insertion.\nSorts: selection, insertion, bubble, merge, quick, and radix.\nPress any key to do next sort.\nOptions are:\n -l [int] : define the size of the array to be sorted (default is 1024).\n -s [string] : set the speed of the graphical representation. n(one) means 0 delay, r(eal) means same delay for all sorts, to compare them, and e(qual) means approximately same running time, for demonstrating the algorithms. default is equal.\n -a : does all sorts.\n -p : pure performance tests, no display, results in console.\n -b [int] : change the base for radix sort. -w : repeats the sorts given until you close the window or do ^C.\n -help : shows this message."
 (** List of names of available sorts *)
 let sorts = ["s"; "i"; "b"; "m"; "q"; "r"]
 (** Search the value after the keyword (string) in a list (to be called with {!arg}) *)
@@ -22,16 +22,10 @@ let speed = let x = search arg "-s" in
 	| "real" | "r" -> "r"
 	| "none" | "n" -> "n"
 	| _ -> "e"
-(** Whether to show comparison counts *)
-let show = List.mem "-d" arg
 (** Loops 10**argument times. argument is ignored when {!speed} is equal or none *)
 let pause t = let rec dec x = if x = 0 then () else dec (x-1) in dec (int_of_float (10.**float_of_int (if speed = "r" then 4 else if speed = "n" || pure then 0 else t)))
 (** Sets or shows the title of the sort *)
 let title s = if pure then print_string s else set_window_title s 
-(** The comparison count. to be changed, for now too lazy to implement this correctly (plus would need an accumulator that might slow -p down) *)
-let comp = ref 0 
-(** Infix lower than that increases {!comp} *)
-let (^<) a b = if pure then a < b else (comp := !comp + 1; a < b) 
 (** Base for {!rsort} *)
 let ba = let x = int_of_string (search arg "-b") in if x = -1 then 8 else x 
 let () = if not pure then (open_graph ""; resize_window lim lim; set_color black; fill_rect 0 0 lim lim); Random.self_init() (* initializing graphics screen *)
@@ -58,7 +52,7 @@ let display() = let rec it i = if i = lim then () else (moveto i 0; set_color (c
 
 (** Performs in place selection sort on {!t} *)
 let ssort() =
-	let rec find_min i = if i = lim-1 then i else let ni = find_min (i+1) in if (pause 4;  t.(i) ^< t.(ni)) then i else ni in
+	let rec find_min i = if i = lim-1 then i else let ni = find_min (i+1) in if (pause 4;  t.(i) < t.(ni)) then i else ni in
 	let rec sort i =
 		if i = lim then () else
 		let min_i = find_min i in
@@ -71,7 +65,7 @@ let isort() =
 	let rec sort i =
 		if i = lim then () else
 		let rec it j =
-			if (pause 4; 0 ^< j && t.(j) ^< t.(j-1)) then (swap j (j-1); it (j-1)) in
+			if (pause 4; 0 < j && t.(j) < t.(j-1)) then (swap j (j-1); it (j-1)) in
 		it i; sort (i+1) in
 	sort 0
 
@@ -80,7 +74,7 @@ let bsort() =
 	let rec sort i j =
 		if j = 0 then () else
 		if i = j then (sort 0 (j-1)) else
-		(if t.(i+1) ^< t.(i) then swap i (i+1); sort (i+1) j)
+		(if t.(i+1) < t.(i) then swap i (i+1); sort (i+1) j)
 	in sort 0 (lim-1)
 
 (** Performs in place quick sort on {!t} *)
@@ -90,10 +84,10 @@ let qsort () =
 		let b = t.(j) in (* the pivot *)
 		let rec split l r =
 			if l >= r 
-			then (swap (r+1) j; if (pause 6; t.(r+1) ^< t.(l)) then (swap l (r+1); l) else r+1) (* reorganizing the middle value, the middle +1 value and the pivot so that they are in the right place. middle + 1goes to j to leave room to maneuver with middle value and pivot. *) 
+			then (swap (r+1) j; if (pause 6; t.(r+1) < t.(l)) then (swap l (r+1); l) else r+1) (* reorganizing the middle value, the middle +1 value and the pivot so that they are in the right place. middle + 1goes to j to leave room to maneuver with middle value and pivot. *) 
 			else
-			let l_ = if (pause 6; t.(l) ^< b) then l+1 else l in
-			let r_ = if (pause 6; b ^< t.(r)) then r-1 else r in
+			let l_ = if (pause 6; t.(l) < b) then l+1 else l in
+			let r_ = if (pause 6; b < t.(r)) then r-1 else r in
 			if l_ = l && r_ = r then (* if left value should be on the right and right one should be on the left *)
 				(swap l r;
 				split (l+1) (r-1))
@@ -132,7 +126,7 @@ let msort() =
 			let rec fuse a b j = 
 				if a = [] then (if not pure then drawl j b; b) else if b = [] then (if not pure then drawl j a; a) else
 				let va = List.hd a and vb = List.hd b in
-				if (pause 6; va ^< vb)
+				if (pause 6; va < vb)
 				then (if not pure then draw j va(*; drawa (j+1) x; drawa (j+Array.length a) b*); va::(fuse (List.tl a) b (j+1)))
 				else (if not pure then draw j vb(*; drawa (j+1) a; drawa (j+Array.length a+1) x*); vb::(fuse a (List.tl b) (j+1))) (* the commented parts of code used (with now obsolete functions) actually show the process of merging instead of jsut writing the merged list on top of the other two, but was too slow *)
 			in fuse (sort m i) (sort n (i+mid)) i
@@ -145,7 +139,6 @@ let msort() =
 (** Runs the sort identified by the string in argument *)
 let run s =
 	b 0;
-	comp := 0;
 	let start_time = Sys.time() in
 	(match s with
 	| "s" | "selection" | "select" -> title "Selection sort"; ssort()
@@ -157,10 +150,6 @@ let run s =
 	| _ -> ());
 	if pure then (print_endline (" took "^string_of_float (Sys.time()-.start_time)^" seconds.")) else
 	(if speed = "n" then display();
-	if show then (
-	set_color white; 
-	moveto 10 (lim-20);
-	draw_string (string_of_int !comp^" comparisons"));
 	ignore(read_key()))
 (** Runs every sort in {!sorts} *)
 let runall () = List.iter (fun s -> run s) sorts
@@ -170,14 +159,13 @@ let di () =
 	then print_endline info 
 	else if List.mem "-a" arg 
 	then runall() 
-	else List.iter run (List.filter (fun v -> List.mem v sorts) arg);
-	if pure then (b 0; let start_time = Sys.time() in ignore (Array.sort Stdlib.compare t); print_string ("For comparison, Array.sort took "^string_of_float (Sys.time() -. start_time)^" seconds.\n(Although it does not have the constraints my sorts have due to display checks.)"))
+	else List.iter run (List.filter (fun v -> List.mem v sorts) arg)
 (** Loops, exit should be done with fatal I/O error *)
 let rec wa() = di(); if List.mem "-w" arg then wa()
 let () = 
 	try wa() with 
 	| Graphic_failure "fatal I/O error" -> () (* normal closing, just to hide error message *)
-	| Failure s when s = "int_of_string" -> print_endline "Error : non-integer arguments for -l or -s."; print_endline info
+	| Failure s when s = "int_of_string" -> print_endline "Error : non-integer arguments somewhere."
 	| Invalid_argument _ -> print_endline "Error : negative values somewhere."
 	| Match_failure _ -> print_endline "Error : match failure."
 	| Stack_overflow -> print_endline "Error : stack overflow. probably too large -l."
