@@ -3,6 +3,8 @@
 let known_libs = ["array"; "arg"; "arraylabels"; "atomic"; "bigarray"; "bool"; "buffer"; "bytes"; "byteslabels"; "callback"; "char"; "complex"; "stdlib"; "condition"; "domain"; "digest"; "effect"; "either"; "ephemeron"; "filename"; "float"; "format"; "fun"; "gc"; "hashtbl"; "in_channel"; "int"; "int32"; "int64"; "lazy"; "lexing"; "list"; "listlabels"; "map"; "marshal"; "morelabels"; "mutex"; "nativeint"; "oo"; "option"; "out_channel"; "parsing"; "printexc"; "printf"; "queue"; "random"; "result"; "scanf"; "seq"; "set"; "semaphore"; "stack"; "stdlabels"; "string"; "stringlabels"; "sys"; "type"; "uchar"; "unit"; "weak"; "stdlib"]
 (** Returns the list of the files in current working directory *)
 let dir() = Array.to_list (Sys.readdir (Sys.getcwd()))
+(** Raised when modules mutually depend on each other *)
+exception Cyclical_dependance
 (** The list of the arguments given on the command line *)
 let arg = Array.to_list (Array.sub Sys.argv 1 (Array.length Sys.argv - 1))
 (** Executes the unix command given *)
@@ -40,7 +42,8 @@ let rec empty s i st =
 	^empty s (i+1) (if s.[i] = '"' then not st else st)
 (** Returns the list of third-party packages needed by the file given and the modules in currect directory that need to be used *)
 let rec finddep n =
-	let rec finddep' n =
+	let rec finddep' n p =
+		if List.mem n p then raise Cyclical_dependance else
 		let f = n ^".ml" in
 		let ic = open_in f in
 		let rec read() = try let l = input_line ic in l::read() with End_of_file -> (close_in ic; []) in
@@ -56,10 +59,9 @@ let rec finddep n =
 		(List.filter 
 		(fun s -> not (List.mem (String.lowercase_ascii s) known_libs))
 		(List.map String.lowercase_ascii (uni(filtmod words))))) in
-		let t_ = List.fold_left (fun l v -> let (a, b) = finddep' v in (fst l@a, snd l@b)) t (snd t) in
-		if List.mem n (snd t_) then raise (Undefined_recursive_module ("make.ml", 64, 80)) else
+		let t_ = List.fold_left (fun l v -> let (a, b) = finddep' v (n::p) in (fst l@a, snd l@b)) t (snd t) in
 		(uni (fst t_), uni (snd (t_)))
-	in let (a, b) = finddep' n in
+	in let (a, b) = finddep' n [] in
 	(String.concat "," a, String.concat " " (List.map (fun s -> s ^ ".ml") (b@[n])))
 (** Compiles the list of files given (files are in this module always given without their extension, .ml is assumed) *)
 let rec comp l d s =
@@ -78,4 +80,4 @@ let rec comp l d s =
 		cmd ((if pkg = "" then "" else "ocamlfind ")^"ocamlopt -o "^out^(if pkg = "" then "" else " -package "^pkg^" -linkpkg")^" "^files);
 		if d then cmd ((if pkg = "" then "" else "ocamlfind ")^"ocamldoc -html "^(if pkg = "" then "" else "-package "^pkg)^" "^files); 
 		comp tl d "")
-let () = comp arg true ""; clean (dir())
+let () = try (comp arg true ""; clean (dir())) with x -> (clean (dir()); match x with | Cyclical_dependance -> print_endline "Compilation stopped due to cyclical dependance." | Sys_error y -> print_endline ("System error: "^y^". Probably caused by giving the name of an unexistant file.") | _ -> print_endline "Unforeseen error:"; raise x)
