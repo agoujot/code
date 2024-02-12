@@ -55,7 +55,7 @@ let cmd s = ignore (Unix.system s)
 (** Array of functions to check some regexp patterns *)
 let regs = let open Str in
 	[|(fun s -> string_match (regexp {|^[A-Z][a-z_0-9\.]*$|}) s 0); (* if a word looks like Module or Module.something *)
-	  (fun s -> string_match (regexp {|.ml: No such file of directory$|}) s 0); (* if a Sys_error message is for missing file *)
+	  (fun s -> string_match (regexp {|^[a-z0-9_]*\.ml: No such file or directory$|}) s 0); (* if a Sys_error message is for missing file *)
 	  (fun s -> string_match (regexp {|^ocamlfind: Package `[a-z_0-9]*' not found$|}) s 0)|] (* if an ocamlfind error is for missing package *)
 (** Removes leftovers from compilation from the working directory (takes a list of names, to be called with {!dir}()) *)
 let rec clean =
