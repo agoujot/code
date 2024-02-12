@@ -106,12 +106,14 @@ let rsort() =
 		| hd::tl -> draw i hd; pause 6; put tl (i+1) in
 	let rec sort th l bu = (* bu is the list of the buckets *)
 		(if not pure && List.for_all (fun x -> x = []) bu then put l 0);
-		if th >= lim then () else
+		if th >= lim then l else
 		match l with
 		| [] -> sort (th*ba) (List.concat (List.map List.rev bu)) make
 		| hd::tl -> (let n = hd/th mod ba in (* this thing gives you the log_ba di th radix of hd *)
 			sort th tl (List.mapi (fun j v -> if j = n then hd::v else v) bu)) in
-	sort 1 (Array.to_list t) make
+	let l = sort 1 (Array.to_list t) make in
+	let rec cop l i = match l with | [] -> () | hd::tl -> (t.(i) <- hd; cop tl (i+1)) in if not pure then cop l 0
+	
 
 (** Performs merge sort on {!t} (not in place)*)
 let msort() =
