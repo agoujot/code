@@ -1,6 +1,6 @@
 (** Utility to compile files without having to bother about manually checking dependencies or making documentation *)
 (** Raised when modules mutually depend on each other *)
-exception Cyclical_dependance of string list
+exception Cyclical_dependence of string list
 (** Raised when a module is missing *)
 exception Missing_package of string
 (** Help message *)
@@ -57,10 +57,10 @@ let regs = let open Str in
 	[|(fun s -> string_match (regexp {|^[A-Z][a-z_0-9\.]*$|}) s 0); (* if a word looks like Module or Module.something *)
 	  (fun s -> string_match (regexp {|.ml: No such file of directory$|}) s 0); (* if a Sys_error message is for missing file *)
 	  (fun s -> string_match (regexp {|^ocamlfind: Package `[a-z_0-9]*' not found$|}) s 0)|] (* if an ocamlfind error is for missing package *)
-(** Removes up leftovers from compilation from the working directory (takes a list of names, to be called with {!dir}()) *)
+(** Removes leftovers from compilation from the working directory (takes a list of names, to be called with {!dir}()) *)
 let rec clean =
 	function
-	| [] -> cmd "rm __make_errors__.txt"
+	| [] -> if Sys.file_exists "__make_errors__.txt" then cmd "rm __make_errors__.txt"
 	| h::t -> 
 		if not (List.mem "-c" arg) then 
 		(if List.mem (Filename.extension h) [".cmi"; ".cmo"; ".cmx"; ".mli"; ".o"; ".html"] 
@@ -77,21 +77,24 @@ let rec filtmod =
 		| "open" -> (match r with | [] -> [] | hd::tl -> if regs.(0) hd then hd::filtmod tl else filtmod tl)
 		| s when regs.(0) s -> let li = String.split_on_char '.' s in if li = [s] then filtmod r else List.hd li :: filtmod r
 		| _ -> filtmod r)
-(** Removes special charcters (or characters in quotes or comments) from a string *)
+(** Removes special charcters (or characters inside strings, comments, characters, or quoted strings) from a string *)
 let rec empty s =
-	let rec it l str com =
+	let rec it l str com chr quo =
 		match l with
 		| [] -> []
-		| '"'::t when not com ->  ' '::it t (not str) com
-		| '('::'*'::t when not str && not com -> ' '::it t str (not com)
-		| '*'::')'::t when not str && com -> ' '::it t str (not com)
-		| 'A'..'Z'::t | 'a'..'z'::t | '0'..'9'::t | '.'::t | '_'::t when not str && not com -> List.hd l::it t str com
-		| _::t -> ' '::it t str com
-	in implode (it (explode s) false false)
+		| '"'::t when not com && not chr && not quo ->  ' '::it t (not str) com chr quo
+		| '\''::t when not com && not str && not quo -> ' '::it t str com (not chr) quo
+		| '('::'*'::t when not str && not com && not chr && not quo -> ' '::it t str (not com) chr quo
+		| '*'::')'::t when not str && com && not chr && not quo -> ' '::it t str (not com) chr quo
+		| '{'::'|'::t when not str && not chr && not com && not quo -> ' '::it t str com chr (not quo)
+		| '|'::'}'::t when not str && not chr && not com && quo -> ' '::it t str com chr (not quo)
+		| 'A'..'Z'::t | 'a'..'z'::t | '0'..'9'::t | '.'::t | '_'::t when not str && not com && not chr && not quo -> (List.hd l)::it t str com chr quo
+		| _::t -> ' '::it t str com chr quo
+	in implode (it (explode s) false false false false)
 (** Returns the list of third-party packages needed by the file given and the other files that need to be used *)
 let rec finddep n =
 	let rec finddep' n p =
-		if List.mem n p then raise (Cyclical_dependance (List.rev (n::p))) else
+		if List.mem n p then raise (Cyclical_dependence (List.map remove_path p)) else
 		let f = n ^".ml" in
 		let ic = open_in f in
 		let rec read() = try let l = input_line ic in l::read() with End_of_file -> (close_in ic; []) in
@@ -99,9 +102,7 @@ let rec finddep n =
 		List.filter (fun s -> s <> "") @@ String.split_on_char ' ' @@ empty @@ String.concat " " @@ read() in
 		let t = 
 		let tmp =
-		List.partition (fun s -> not (List.mem s (List.map remove_path (mods()))))
-		@@ List.filter (fun s -> not (List.mem s stdlib))
-		@@ List.map String.lowercase_ascii @@ uni @@ filtmod words in
+		words |> filtmod |> uni |> List.map String.lowercase_ascii |> List.filter (fun s -> not (List.mem s stdlib)) |> List.partition (fun s -> not @@ List.mem s @@ List.map remove_path @@ mods()) in
 		(fst tmp, List.map find_path @@ snd @@ tmp) in
 		let t_ = List.fold_left (fun l v -> let (a, b) = finddep' v (n::p) in (fst l@a, snd l@b)) t (snd t) in
 		(uni (fst t_), uni (snd (t_)))
@@ -137,7 +138,7 @@ let () =
 	(comp arg ""; clean (dir())) 
 	with x -> (clean (dir()); 
 	match x with 
-	| Cyclical_dependance l -> print_endline ("Cyclical dependence. \nThe following dependence loop was found : "^String.concat " > " l)
+	| Cyclical_dependence l -> print_endline ("Cyclical dependence. \nThe following dependence loop was found : "^String.concat " > " l)
 	| Sys_error y when regs.(1) y -> print_endline "File given does not exist."
 	| Not_found -> print_endline "A file disappeared during compilation."
 	| Missing_package s -> print_endline ("Missing package: "^s)
