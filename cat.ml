@@ -13,7 +13,7 @@ let info rs = write ([
 	" - a list of tuples telling which neighbours the above function should be given, with the tuples being relative coordinates to the cell.";
 	" - the size in cells of the square grid.";
 	" - an array of colors listing all colours existing in your system.";
-	" - a function for (re)initialization giving from unit a color. should use random.";
+	" - a function for (re)initialization giving a color from an array of colors and unit. just put choose if you are fine with equal probabilities.";
 	" - a list containing lines of text you might want to display, will appear at the end.";
 	"";
 	"You will have the status in the top left.";
@@ -30,10 +30,22 @@ let info rs = write ([
 	" - i (Info) : shows this.";
 	" - x (EXit) : closes CAT."]@rs) 10 980; (* display info about this, rs is rulestring, additional text you might want to display about your CA*)
 	let rec wait () = if key_pressed() then (if read_key() <> char_of_int 13 then wait() (* meaning else (), exiting*)) else wait() in wait()
-let moore r = (let rec it i j = if i = (r+1) then [] else if j = (r+1) then it (i+1) (-r) else if i = 0 && j = 0 then it i (j+1) else (i, j)::it i (j+1) in it (-r) (-r))
+let moore r = 
+	let rec it i j = 
+		if i = r+1 then [[];[];[];[]] 
+		else if j = r+1 then it (i+1) 0
+		else List.mapi (fun k v ->
+			match k with
+			| 0 -> (i, j)::v
+			| 1 -> (-j, i)::v
+			| 2 -> (-i, -j)::v
+			| 3 -> (j, -i)::v) 
+			(it i (j+1)) in
+	List.concat (it 1 0)
 let neumann r = (let rec it i j = if i = (r+1) then [] else if j = (r-(abs i)+1) then it (i+1) (-r+(abs (i+1))) else if i = 0 && j == 0 then it i (j+1) else (i, j)::it i (j+1) in it (-r) 0)
 let cross r = (let rec it k = if k = 0 then [] else (-k, 0)::(k, 0)::(0, -k)::(0, k)::it (k-1) in it r )
 let saltire r = (let rec it k = if k = 0 then [] else (-k, -k)::(-k, k)::(k, -k)::(k, k)::it (k-1) in it r)
+let equ a = (fun () -> let r = Random.int (Array.length a) in a.(r))
 let rec b x e si = (* building an array array of size si filled with e() (to allow for different random results). should be called with x=0*)
 	let rec l y =
 		if y = si
@@ -44,7 +56,17 @@ let rec b x e si = (* building an array array of size si filled with e() (to all
 	else Array.append [|l 0|] (b (x+1) e si)
 let rec dcopy a i = if i = Array.length a then [||] else Array.append [|Array.copy a.(i)|] (dcopy a (i+1)) (* deepcopy of an array array, called with i=0 *)
 let bl s = set_color black; fill_rect 0 1000 1000 20; write [s] 10 1005 (* for bottom left even though now it is in the top left, eh, erases the text at the top and replaces it, for status *)
-let rec di g (* for grid, array array of cells (Graphic.color's) *) p (* for parameter, char *) f (* for function, see info first setting *) n (* neighbours, see info second setting*) col (* see go, from info 4th setting *) d (* see info 5th setting *) rs (* see info last setting *) h (* for history, list of strings containing compressed g's *) _g (* grid of before, to speed b up *) = (* di for do it aka main *)
+let rec di 
+g (* for grid, array array of cells (Graphics.color's) *) 
+p (* for parameter, char *) 
+f (* for function, see info first setting *) 
+n (* neighbours, see info second setting*) 
+col (* see go, from info 4th setting *) 
+d (* se info 5th setting *)
+rs (* see info last setting *) 
+h (* for history, list of strings containing compressed g's *) 
+_g (* grid of before, to speed b up *) 
+= (* di for do it aka main *)
 	let g_ = dcopy g 0 in (* new array in which modifications will be made *)
 	let si = Array.length g in
 	let z = 1000/si in (* the widh of a cell in pixels *)
@@ -113,4 +135,4 @@ let rec di g (* for grid, array array of cells (Graphic.color's) *) p (* for par
 		it 0 0; if button_down() then (bl " - pause - " ; wa()) else
 		if p = 'p' then di g_ p f n col d rs ((comp g)::h) g (* standard path of continuing *) else
 		if p = 'b' then (if h = [] then (bl "ERROR: NO HISTORY"; wa()) else di (decomp (List.hd h)) 'b' f n col d rs (List.tl h) g) else wa()
-let go f n si col d rs = set_color black; fill_rect 0 0 1000 1020; info (rs@["Press space to start."]); bl " - pause - "; di (b 0 d si) 's' (* for stop, doesnt even do first iteration*) f n col d rs (* see di *) [] [||]
+let go f n si col d rs = set_color black; fill_rect 0 0 1000 1020; info (rs@["Press space to start."]); bl " - pause - "; di (b 0 (d col) si) 's' (* for stop, doesnt even do first iteration*) f n col (d col) rs (* see di *) [] [||]

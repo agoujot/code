@@ -28,7 +28,7 @@ go
 (moore 5)
 100
 [|black; white|]
-(fun () -> let r = Random.int 2 in if r = 1 then white else black)
+equ
 ["";
 "This is Bosco's rule, a higher-range outer-totalistic CA, invented by Kellie Evans";
 "Named after a reflectorless flipping oscillator named Bosco.";
@@ -42,7 +42,7 @@ go
 (moore 1)
 100
 [|white; black|]
-(fun () -> let r = Random.int 2 in if r = 1 then white else black)
+equ
 ["";
 "This is the Game of Life, one of the first CAs, invented by John Conway.";
 "It is still one of the most complex.";
@@ -60,7 +60,7 @@ go
 (moore 1)
 100
 [|black; red; green; blue|]
-(fun () -> let r = Random.int 4 in if r = 0 then red else if r = 1 then green else if r = 2 then blue else black)
+equ
 ["";
 "This is Arc, invented by a me.";
 "Named so because of the similarity of the common pattern of a sort of twisted, rapidly changing line to electric arcs.";
@@ -87,7 +87,7 @@ go
 (moore 1)
 100
 [|black; red; green; blue|]
-(fun () -> let r = Random.int 4 in if r = 0 then red else if r = 1 then green else if r = 2 then blue else black)
+equ
 [
 "";
 "Weird thing found while balancing arc.";
@@ -105,7 +105,7 @@ go
 (moore 1)
 100
 [|black; red; green; blue|]
-(fun () -> let r = Random.int 4 in if r = 0 then red else if r = 1 then green else if r = 2 then blue else black)
+equ
 ["";
 "Found also while fiddling with arc.";
 "Actually by needing two blue neighbours not one.";
@@ -125,14 +125,15 @@ go
 ((0, 0)::moore 1)
 100
 [|black; red; green; blue|]
-(fun () -> let r = Random.int 4 in if r = 0 then red else if r = 1 then green else if r = 2 then blue else black)
+equ
 ["";
 "Balanced eii with dependancy upon previous condition.";
-"Namely, the cell itself counts ad one of its neighbours.";
+"Namely, the cell itself counts as one of its neighbours.";
 "(if you do the same with arc you end up with imploding loops.)";
 "Some of the patterns of eii are still visible.";
 "This one also has a tendancy for spinning guns and blue explosions.";
 "Even found, but it is a bit rare, a gun that moves diagonally as it shoots.";
+"Should find a name for this, as it is remarkably not stable (compared to ei, eii, arc, or eiv)";
 ""]
 )
 else if m = "beam" then(
@@ -147,7 +148,7 @@ if (not (test o blue) && not(test d green) && test o red) then green else blue)
 (neumann 1@saltire 1)
 100
 [|black; blue; green; red|]
-(fun () -> let r = Random.int 10 in if r < 5 then black else if r < 7 then red else if r < 9 then green else blue)
+(fun _ () -> let r = Random.int 100 in if r < 50 then black else if r < 70 then green else if r < 90 then red else blue)
 ["";
 "This is Beams, invented by me.";
 "Made to easily allow recreating logic system.";
@@ -160,5 +161,38 @@ if (not (test o blue) && not(test d green) && test o red) then green else blue)
 "A black cell becomes green if it is orthogonally next to a green cell and, either it is not next to a red diagonally,";
 "    or it is next to a blue cell orthogonally and next to another diagonally.";
 "A blue cell stays blue.";
+""])
+else if m = "eiv" then(
+go
+(fun l v -> 
+let rec split l i j b = match l with | [] -> [b] | h::t -> if i = j then b::split l 0 j [] else split t (i+1) j (h::b) in
+let l_ = split l 0 4 [] in
+if List.for_all (List.mem white) l_ && v = white then white else black)
+(moore 1)
+100
+[|black; white|]
+equ
+["";
+"Yet another experiment.";
+"Arrived here by... uh... started as an attempt to recreate if/then/else structures for logic systems.";
+"(Because A && B <=> if a then b else false and A || B <=> if a then true else b.)";
+"Now does something else.";
+"B/W, moore 1 except it is split into two halves.";
+"A cell becomes white if it is already and both halves contain a white cell.";
+""])
+else if m = "test" then (
+go
+(fun l v ->
+let rec split l i j b = match l with | [] -> [b] | h::t -> if i = j then b::split l 0 j [] else split t (i+1) j (h::b) in
+let l_ = split l 0 12 [] in
+if List.for_all (List.mem white) l_ && v = white then white else black)
+(moore 2)
+100
+[|black; white|]
+equ
+["";
+"Yes, I know, nothing bad happened this time.";
+"(That bit of freezing your mouse really happened to me once though)";
+"Currently a variant of eiv.";
 ""])
 else (bl "UNKOWN CA"; choose()) in choose()
