@@ -39,7 +39,8 @@ let moore r =
 			| 0 -> (i, j)::v
 			| 1 -> (-j, i)::v
 			| 2 -> (-i, -j)::v
-			| 3 -> (j, -i)::v) 
+			| 3 -> (j, -i)::v
+			| _ -> assert false)
 			(it i (j+1)) in
 	List.concat (it 1 0)
 let neumann r = (let rec it i j = if i = (r+1) then [] else if j = (r-(abs i)+1) then it (i+1) (-r+(abs (i+1))) else if i = 0 && j == 0 then it i (j+1) else (i, j)::it i (j+1) in it (-r) 0)
