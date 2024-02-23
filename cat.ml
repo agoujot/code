@@ -1,35 +1,41 @@
 open Graphics
-(* this is a library for useful functions to run 2D cellular automata, including interface and commands *)
-let ini () = Random.self_init(); open_graph ""; resize_window 1000 1020; set_color black; fill_rect 0 0 1000 1020; set_window_title "Cellular Automata Terminal" (* initializes the graphics screen & the RNG *)
-let rec write l x y = (* to write a list of strings one line each with the top one starting at x y *)
+exception Incoherent_colors
+exception Work_In_Progress
+(** Library for useful functions to run 2D cellular automata, including interface and commands. requires Graphics module. *)
+let () = Random.self_init(); open_graph ""; resize_window 1000 1020; set_color black; fill_rect 0 0 1000 1020; set_window_title "Cellular Automata Terminal" (* initializes the graphics screen & the RNG *)
+(** write l x y writes a list of strings one line each with the top one starting at x y *)
+let rec write l x y =	
 	match l with
 	| [] -> ()
 	| h::t -> set_color black; fill_rect x y (6*String.length h) 19 (* to overlay the text on top of the CA, more pretty *); moveto x y; set_color white; draw_string h; write t x (y-20)
+(** Waits until user presses a key *)
+let rec wait() = if key_pressed() then () else wait()
+(** Displays information about CAT, argument is a list of strings you might want to display at the bottom *)
 let info rs = write ([
 	"Hello and welcome to my Cellular Automata Terminal (CAT).";
 	"";
-	"To use, first do ini(), then do go with the following arguments:";
+	"To write a new CA, do go with the following arguments:";
 	" - a function that given a list of the colors of the neighbours of a cell and the colour of that cell returns the color that cell should now take.";
 	" - a list of tuples telling which neighbours the above function should be given, with the tuples being relative coordinates to the cell.";
 	" - the size in cells of the square grid.";
 	" - an array of colors listing all colours existing in your system.";
-	" - a function for (re)initialization giving a color from an array of colors and unit. just put choose if you are fine with equal probabilities.";
+	" - a function for (re)initialization giving a color from an array of colors and unit. just put equ if you are fine with equal probabilities.";
 	" - a list containing lines of text you might want to display, will appear at the end.";
 	"";
 	"You will have the status in the top left.";
 	"When CAT is running and you click, it will stop and go to pause.";
 	"When in pause, you can press keys to do things:";
-	" - p (Play) : does exactly what it says on the tin.";
-	" - o (One) : goes one frame further and then back to pause.";
+	" - p (Play)   : does exactly what it says on the tin.";
+	" - o (One)    : goes one frame further and then back to pause.";
 	" - b (Backwards) : play but in reverse, shows you the state of before. going backwards to a frame that has been edited will show you it with the edits";
-	" - l (Last) : goes one frame backwards and back to pause.";
-	" - e (Edit) : lets you manually change the state of cells by clicking on them. it changes to the next one in the color array given earlier";
+	" - l (Last)   : goes one frame backwards and back to pause.";
+	" - e (Edit)   : lets you manually change the state of cells by clicking on them. it changes to the next one in the color array given earlier";
 	"              (which means the order in that array counts). to exit editing mode, press o for Out.";
-	" - n (New) : generates a new random grid using the element function above.";
+	" - n (New)    : generates a new random grid using the element function above.";
 	" - d (Delete) : sets all the grid to black (it is therefore recommended that you have the state 'no life' and that it be black).";
-	" - i (Info) : shows this.";
-	" - x (EXit) : closes CAT."]@rs) 10 980; (* display info about this, rs is rulestring, additional text you might want to display about your CA*)
-	let rec wait () = if key_pressed() then (if read_key() <> char_of_int 13 then wait() (* meaning else (), exiting*)) else wait() in wait()
+	" - i (Info)   : shows this. exit by pressing any key";
+	" - x (EXit)   : Does Exactly What It Says On The Tin."]@rs) 10 980
+(** Moore neighbourhood of range given *)
 let moore r = 
 	let rec it i j = 
 		if i = r+1 then [[];[];[];[]] 
@@ -43,76 +49,90 @@ let moore r =
 			| _ -> assert false)
 			(it i (j+1)) in
 	List.concat (it 1 0)
-let neumann r = (let rec it i j = if i = (r+1) then [] else if j = (r-(abs i)+1) then it (i+1) (-r+(abs (i+1))) else if i = 0 && j == 0 then it i (j+1) else (i, j)::it i (j+1) in it (-r) 0)
-let cross r = (let rec it k = if k = 0 then [] else (-k, 0)::(k, 0)::(0, -k)::(0, k)::it (k-1) in it r )
+(** Neumann neighbourhood of range given *)
+let neumann r = let rec it i j = if i = (r+1) then [] else if j = (r-(abs i)+1) then it (i+1) (-r+(abs (i+1))) else if i = 0 && j == 0 then it i (j+1) else (i, j)::it i (j+1) in it (-r) 0
+(** Cross neighbourhood of range given *)
+let cross r = 
+	let rec it i = 
+		if i = 0 then [[];[];[];[]] else
+		List.mapi (fun j v ->
+			match j with
+			| 0 -> (-i, 0)::v
+			| 1 -> (i, 0)::v
+			| 2 -> (0, -i)::v
+			| 3 -> (0, i)::v
+			| _ -> assert false)
+		(it (i-1)) in
+	List.concat (it r)
+(** Saltire (diagonal cross) neighbourhood of range given *)
 let saltire r = (let rec it k = if k = 0 then [] else (-k, -k)::(-k, k)::(k, -k)::(k, k)::it (k-1) in it r)
+(** equ a returns a function that chooses a random element from a *)
 let equ a = (fun () -> let r = Random.int (Array.length a) in a.(r))
-let rec b x e si = (* building an array array of size si filled with e() (to allow for different random results). should be called with x=0*)
-	let rec l y =
-		if y = si
+(** b e si builds an array array of size si filled with results of e() (to allow for different random results) *)
+let rec b e si = 
+	let rec itx x = 
+		let rec ity y =
+			if y = si
+			then [||]
+			else Array.append [|e()|] (ity (y+1))
+	    in if x = si
 		then [||]
-		else Array.append [|e()|] (l (y+1))
-    in if x = si
-	then [||]
-	else Array.append [|l 0|] (b (x+1) e si)
-let rec dcopy a i = if i = Array.length a then [||] else Array.append [|Array.copy a.(i)|] (dcopy a (i+1)) (* deepcopy of an array array, called with i=0 *)
-let bl s = set_color black; fill_rect 0 1000 1000 20; write [s] 10 1005 (* for bottom left even though now it is in the top left, eh, erases the text at the top and replaces it, for status *)
-let rec di 
-g (* for grid, array array of cells (Graphics.color's) *) 
-p (* for parameter, char *) 
-f (* for function, see info first setting *) 
-n (* neighbours, see info second setting*) 
-col (* see go, from info 4th setting *) 
-d (* se info 5th setting *)
-rs (* see info last setting *) 
-h (* for history, list of strings containing compressed g's *) 
-_g (* grid of before, to speed b up *) 
-= (* di for do it aka main *)
-	let g_ = dcopy g 0 in (* new array in which modifications will be made *)
+		else Array.append [|ity 0|] (itx (x+1))
+	in itx 0
+(** Deepcopy of an array array *)
+let rec dcopy a = let rec it i = if i = Array.length a then [||] else Array.append [|Array.copy a.(i)|] (it (i+1)) in it 0
+(** For bottom left (even though now it is in the top left), erases the top and displays the text given. for status *)
+let bl s = set_color black; fill_rect 0 1000 1000 20; write [s] 10 1005
+(** di for do it, as it does most things. Arguments are : an array array of cells (Graphics.color's), a character for parameters, a function that returns a new color from a list of colors and the old color, a list of the relative coordinates of neighbours, an array of the colors of the CA, a function returning a color from unit, a list of strings to display for information, a list of compressed changes, and the grid of before. you are not supposed to touch this, call go. *)
+let rec di g p f n col d rs h _g =
+	let g_ = dcopy g in (* new array in which modifications will be made *)
 	let si = Array.length g in
 	let z = 1000/si in (* the widh of a cell in pixels *)
 	let rec w k = if k >= si then k - si else if k < 0 then si + k else k in (* w for wrap around *)
 	let draw x y c = set_color c; fill_rect (x*z) (y*z) (z-1) (z-1) in (* draws a cell, aka a rectangle. c is the color *)
-	let comp aa = (* for compress, transforms a grid of cells into a string of the indexes of the colors in col, -'s, and |'s. also makes 1 1 into 21 *)
-		let rec itcomp i j lt ti = (* lt for last, the last one, for reducing, and ti for times the number of lt's in a row *)
-			if i = si
-			then ""
-			else 
-				if j = si
-				then (if ti = 1 then "" else string_of_int ti)^lt^"-|"^itcomp (i+1) 0 "-" 1 (* end of lines are made into | *)
-				else
-				let rec fi c i = (* find the index of color in col *)
-					if col.(i) = c
-					then i
-					else fi c (i+1) 
-				in let v = string_of_int (fi (aa.(i).(j)) 0) in
-				if v <> lt then (if j <> 0 then (if ti = 1 then "" else string_of_int ti)^lt^"-"^itcomp i (j+1) v 1 else itcomp i (j+1) v 1) else itcomp i (j+1) lt (ti+1) in itcomp 0 0 "-" 1 in
-	let decomp s = (* for decompress, re-transforms a comp'ed string into a grid *)
-		let rec itdecomp i n l = (* n is the unfinished coefficient and l the line*)
-			if i = String.length s then [||] else
-			if s.[i] = '|' then Array.append [|l|] (itdecomp (i+1) 0 [||]) else
-			if s.[i+1] = '-'
-			then itdecomp (i+2) 0 (Array.append l (Array.make (if n = 0 then 1 else n) (col.(int_of_char(s.[i]) - 48)))) (* because to gain space it removed the coefficient when it is one*)
-			else itdecomp (i+1) (n*10+(int_of_char s.[i] - 48)) l
-		in itdecomp 0 0 [||] in
-	let rec it i j = (* it for iterate, as it does the main loop *)
+	let fi co = (* Find the Index for a color in col *)
+		let rec fi' i = 
+			if i = Array.length col
+			then raise Incoherent_colors
+			else
+			if col.(i) = co
+			then i
+			else fi' (i+1) in 
+		fi' 0 in
+	let reverse aa c =
+		let l = List.map (fun s -> (fun l -> (List.nth l 0, List.nth l 1, List.nth l 2)) @@ List.map int_of_string @@ String.split_on_char ',' s) (List.filter (fun s -> s <> "") @@ String.split_on_char ';' c) in
+		let rec rev' l i j = 
+			match l with
+			| (x, y, k)::s -> (aa.(i+x).(j+y) <- col.(k); rev' s (i+x) (j+y))
+			| [] -> () in
+		rev' l 0 0; aa
+		in
+	let rec it i j c x y = (* it for iterate, as it does the main loop. c is a string describing changes, and (x, y) is the position of the last change*)
 		if i = si
-		then ()
+		then c
 		else
 			if j = si
-			then it (i+1) 0
+			then it (i+1) 0 c x y
 			else 
 				let rec ch l = (* ch for check, no ideas, applies the relatives coordinates in n to the coordinates of the current cell to get the coordinates of the cells to check.*)
 					match l with
 					| [] -> []
-					| h::t -> g.(w (i+fst(h))).(w (j+snd(h))):: ch t in	
-				((if p = 's' (* for stop *) then draw i j (g_.(i).(j)) else 
-				if p = 'b' || p = 'l' then (if g.(i).(j) <> _g.(i).(j) then draw i j (g.(i).(j))) else
-				(g_.(i).(j) <- f (ch n) (g.(i).(j)); (if g.(i).(j) <> g_.(i).(j) then draw i j (g_.(i).(j))))); it i (j+1)) in
+					| hd::tl -> g.(w (i+fst(hd))).(w (j+snd(hd))):: ch tl in	
+				(if p = 's' (* for stop *) 
+				then (draw i j (g_.(i).(j)); it i (j+1) c x y) 
+				else if p = 'b' || p = 'l' 
+				then (if g.(i).(j) <> _g.(i).(j) then draw i j (g.(i).(j)); it i (j+1) c x y) else
+				(let co = f (ch n) (g.(i).(j)) in
+				g_.(i).(j) <- co;
+				let changed = g.(i).(j) <> co in
+				(if changed then draw i j co);
+				it i (j+1) (if changed then c^";"^string_of_int (i-x)^","^string_of_int (j-y)^","^string_of_int (fi g.(i).(j)) else c) (if changed then i else x) (if changed then j else y))
+				) in
+	let change = it 0 0 "" 0 0 in
 	let rec wa() = (* for wait *)
 		match read_key() with
-		| 'p' -> bl " - running - "; di g_ 'p' f n col d rs ([comp g_]@h) g
-		| 'o' -> bl " - pause - "; di g_ 'o' f n col d rs ([comp g_]@h) g (* meaning you only do it once *)
+		| 'p' -> bl " - running - "; di g_ 'p' f n col d rs (change::h) g
+		| 'o' -> bl " - pause - "; di g_ 'o' f n col d rs (change::h) g
 		| 'e' -> bl " - editing - ";
 			let rec ed() = (* for editing *)
 			if key_pressed() 
@@ -123,17 +143,18 @@ _g (* grid of before, to speed b up *)
 			else 
 				(if (button_down())
 				then (let mx = fst(mouse_pos())/z and my = snd(mouse_pos())/z (* coordinates of the cell you clicked in g_ *) in 
-				let co c = let rec it i = if col.(i) = c then i else it (i+1) in col.(((it 0) + 1) mod (Array.length col)) in
+				let co c = col.(((fi c) + 1) mod (Array.length col)) in
 				g_.(mx).(my) <- co (g_.(mx).(my)); draw mx my (g_.(mx).(my)); Unix.sleepf 0.2 (* else you would always change it multiple times *); ed())
 				else ed()) in ed()
-		| 'x' -> close_graph(); print_endline "Closed with X."
-		| 'd' -> di (b 0 (fun _ -> black) si) 's' f n col d rs [] g
-		| 'n' -> di (b 0 d si) 's' f n col d rs [] g
-		| 'i' -> info (rs@["Press enter to exit this and go back to pause."]); let rec show i j = if i = si then wa() else if j = si then show (i+1) 0 else (draw i j (g_.(i).(j)); show i (j+1)) (*need to redisplay after showing text*) in show 0 0
-		| 'b' -> di (decomp (List.hd h)) 'b' (* use h to read the old ones *) f n col d rs (List.tl h) g_
-		| 'l' -> if h <> [] then (bl " - pause - "; di (decomp (List.hd h)) 's' f n col d rs (List.tl h) g) else bl "ERROR: NO HISTORY"; wa()
-		| _ -> bl "ERROR: UNKNOWN COMMAND"; wa() in
-		it 0 0; if button_down() then (bl " - pause - " ; wa()) else
-		if p = 'p' then di g_ p f n col d rs ((comp g)::h) g (* standard path of continuing *) else
-		if p = 'b' then (if h = [] then (bl "ERROR: NO HISTORY"; wa()) else di (decomp (List.hd h)) 'b' f n col d rs (List.tl h) g) else wa()
-let go f n si col d rs = set_color black; fill_rect 0 0 1000 1020; info (rs@["Press space to start."]); bl " - pause - "; di (b 0 (d col) si) 's' (* for stop, doesnt even do first iteration*) f n col (d col) rs (* see di *) [] [||]
+		| 'x' -> ()
+		| 'd' -> di (b (fun _ -> black) si) 's' f n col d rs [] g
+		| 'n' -> di (b d si) 's' f n col d rs [] g
+		| 'i' -> info (rs); wait(); let rec show i j = if i = si then wa() else if j = si then show (i+1) 0 else (draw i j (g_.(i).(j)); show i (j+1)) (*need to redisplay after showing text*) in show 0 0
+		| 'b' -> if h <> [] then (bl " - running - "; di (reverse g_ (if change = "" then List.hd h else change)) 'b' (* use h to read the old ones *) f n col d rs (if change = "" then List.tl h else h) (dcopy g_)) else (bl "ERROR: NO VISIBLE HISTORY"; wa())
+		| 'l' -> if h <> [] then (bl " - pause - "; di (reverse g_ (if change = "" then List.hd h else change)) 'l' f n col d rs (if change = "" then List.tl h else h) (dcopy g_)) else (bl "ERROR: NO VISIBLE HISTORY"; wa())
+		| _ -> bl "ERROR: UNKNOWN COMMAND (PRESS i FOR INFO)"; wa() in
+	if button_down() || p = 's' then (bl " - pause - " ; wa()) else
+	if p = 'p' then di g_ p f n col d rs (change::h) g (* standard path of continuing *) else
+	if p = 'b' then (if h = [] then (bl "ERROR: NO VISIBLE HISTORY"; wa()) else di (reverse g (List.hd h)) 'b' f n col d rs (List.tl h) (dcopy g)) else wa()
+(** Starts the CA *)
+let go f n si col d rs = bl " - pause - "; di (b (d col) si) 's' (* for stop, doesnt even do first iteration*) f n col (d col) rs (* see di *) [] [||]

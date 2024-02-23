@@ -1,18 +1,6 @@
 open Graphics
 open Cat
-let () = ini(); info [
-"";
-"You also need to choose your CA.";
-"If you want a custom one, write a new file following the instructions above.";
-"Possibilities are: bosco, gol, beam, or arc.";
-"I also keep some interesting but not that much CAs as ei, eii, eiii, and so forth for Experiment [roman numeral].";
-"(There is also test for testing, which contains whatever I am building now.";
-"It may not exist. It may crash. It may keep you from moving your mouse. Ye be warned.)";
-"To choose, press enter, then press the keys. The text will appear in the top left as you type it.";
-"Press enter to validate and backspace to delete the last character.";
-"If you enter an unknown string, you will be asked again.";
-"This screen will update to show the rules here, then you'll have to press enter again to start.";
-""];
+let () =
 let rec inp s = 
 	if key_pressed() then 
 		(let c = read_key() in 
@@ -21,7 +9,18 @@ let rec inp s =
 		(Unix.sleepf 0.1; bl (s^(String.make 1 c)); inp (s^(String.make 1 c))))
 	else inp s in
 let rec choose() = 
+bl " - choosing CA - ";
+info ["";
+"Enter CA name.";
+"Possibilities are gol, bosco, arc, beam, ei, eii, eiii, eiv, (experiments).";
+"And test, that containes whatever I am building right now.";
+"It might not exist, it might be rubbish, it might keep you from moving your mouse.";
+"Ye be warned.";
+"Put exit to leave.";
+""]; wait();
 let m = inp "" in 
+if m = "exit" then () else
+begin
 if m = "bosco" then(
 go
 (fun l v -> let rec cou l = match l with | [] -> 0 | i::s -> if i = white then 1+cou s else cou s in let c = cou l in if v = white then (if c >= 33 && c <= 57 then white else black) else if c >= 34 && c <= 45 then white else black)
@@ -72,7 +71,7 @@ equ
 "Range 1 moore neighbourhood.";
 "Three types of life, red blue green.";
 "Any cell will become:";
-" - black if it has no blue neighbours and, 0/1/4+ neighbours in either red or green, all the others rely on this being false.";
+" - black if it has no blue neighbours and, no green or no red neighbours, all the others rely on this being false.";
 " - red if it has more red neighbours than green.";
 " - green if it has more green neighbours than red.";
 " - blue if it has exactly as much of the other two."]
@@ -160,7 +159,8 @@ if (not (test o blue) && not(test d green) && test o red) then green else blue)
 "A red cell becomes black.";
 "A black cell becomes green if it is orthogonally next to a green cell and, either it is not next to a red diagonally,";
 "    or it is next to a blue cell orthogonally and next to another diagonally.";
-"A blue cell stays blue.";
+"A blue cell stays blue (except if it has no blue neighbours, no diagonal green neighbours and a orthogonal red neighbour, in which case it becomes green.";
+"That last condition is not really needed but it helps clear the random field from obstacles.)";
 ""])
 else if m = "eiv" then(
 go
@@ -179,20 +179,29 @@ equ
 "Now does something else.";
 "B/W, moore 1 except it is split into two halves.";
 "A cell becomes white if it is already and both halves contain a white cell.";
+"Does nice patterns, though the spltting in two of a moore 1 is assymetrical, because it is like this:";
+"A A A";
+"A X B";
+"B B B";
+"(With X being the cell and A and B the two neighbourhoods.)";
+"My problem is it is not the same vertically and horizontally.";
+"And if you do";
+"A B A      A A B";
+"B X B  or  B X B";
+"A B A      B A A";
+"It is too stable.";
 ""])
-else if m = "test" then (
+else if m = "test" then(
 go
-(fun l v ->
-let rec split l i j b = match l with | [] -> [b] | h::t -> if i = j then b::split l 0 j [] else split t (i+1) j (h::b) in
-let l_ = split l 0 12 [] in
-if List.for_all (List.mem white) l_ && v = white then white else black)
-(moore 2)
+(fun l v -> if v = white then black else if List.nth l 0 = white then List.nth l 1 else List.nth l 2)
+[(0, -1);(1, 0);(-1, 0)]
 100
 [|black; white|]
 equ
 ["";
 "Yes, I know, nothing bad happened this time.";
 "(That bit of freezing your mouse really happened to me once though)";
-"Currently a variant of eiv.";
 ""])
-else (bl "UNKOWN CA"; choose()) in choose()
+else (bl "UNKOWN CA");
+choose() end
+in choose()
