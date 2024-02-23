@@ -54,9 +54,10 @@ let arg = Array.to_list (Array.sub Sys.argv 1 (Array.length Sys.argv - 1))
 let cmd s = ignore (Unix.system s)
 (** Array of functions to check some regexp patterns *)
 let regs = let open Str in
-	[|(fun s -> string_match (regexp {|^[A-Z][a-z_0-9\.]*$|}) s 0); (* if a word looks like Module or Module.something *)
+	[|(fun s -> string_match (regexp {|^[A-Z][a-z_0-9]*\.[a-z_0-9]*$|}) s 0); (* if a word looks like Module or Module.something *)
 	  (fun s -> string_match (regexp {|^[a-z0-9_]*\.ml: No such file or directory$|}) s 0); (* if a Sys_error message is for missing file *)
-	  (fun s -> string_match (regexp {|^ocamlfind: Package `[a-z_0-9]*' not found$|}) s 0)|] (* if an ocamlfind error is for missing package *)
+	  (fun s -> string_match (regexp {|^ocamlfind: Package `[a-z_0-9]*' not found$|}) s 0);(* if an ocamlfind error is for missing package *) 
+   	  (fun s -> string_match (regexp {|^{\([a-z_0-9]*\)|.*|\1}$|}) s 0)|] (* to identify quoted strings *)
 (** Removes leftovers from compilation from the working directory (takes a list of names, to be called with {!dir}()) *)
 let rec clean =
 	function
@@ -79,18 +80,21 @@ let rec filtmod =
 		| _ -> filtmod r)
 (** Removes special charcters (or characters inside strings, comments, characters, or quoted strings) from a string *)
 let rec empty s =
-	let rec it l str com chr quo =
+	let rec it l state qs =
 		match l with
 		| [] -> []
-		| '"'::t when not com && not chr && not quo ->  ' '::it t (not str) com chr quo
-		| '\''::t when not com && not str && not quo -> ' '::it t str com (not chr) quo
-		| '('::'*'::t when not str && not com && not chr && not quo -> ' '::it t str (not com) chr quo
-		| '*'::')'::t when not str && com && not chr && not quo -> ' '::it t str (not com) chr quo
-		| '{'::'|'::t when not str && not chr && not com && not quo -> ' '::it t str com chr (not quo)
-		| '|'::'}'::t when not str && not chr && not com && quo -> ' '::it t str com chr (not quo)
-		| 'A'..'Z'::t | 'a'..'z'::t | '0'..'9'::t | '.'::t | '_'::t when not str && not com && not chr && not quo -> (List.hd l)::it t str com chr quo
-		| _::t -> ' '::it t str com chr quo
-	in implode (it (explode s) false false false false)
+		| '"'::t when state = "none" ->  ' '::it t "string" ""
+  		| '"'::t when state = "string" -> ' '::it t "none" ""
+		| '\''::t when state = "none" -> ' '::it t "char" ""
+  		| '\''::t when state = "char" -> ' '::it t "none" ""
+		| '('::'*'::t when state = "none" -> ' '::it t "comm" ""
+		| '*'::')'::t when state = "comm" -> ' '::it t "none" ""
+		| '{'::t when state = "none" -> ' '::it t "brace" ""
+    		| c::t when state = "brace" -> it t "brace" (qs^String.make 1 c)
+      		| '}'::t when state="brace" -> if (regs.(3) qs then [' '] else explode qs) @ it t "none" ""
+		| 'A'..'Z'::t | 'a'..'z'::t | '0'..'9'::t | '.'::t | '_'::t when state="none" -> (List.hd l)::it t "none" ""
+		| _::t -> ' '::it t state qs
+	in implode (it (explode s) "none")
 (** Returns the list of third-party packages needed by the file given and the other files that need to be used *)
 let rec finddep n =
 	let rec finddep' n p =
