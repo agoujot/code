@@ -54,7 +54,7 @@ let arg = Array.to_list (Array.sub Sys.argv 1 (Array.length Sys.argv - 1))
 let cmd s = ignore (Unix.system s)
 (** Array of functions to check some regexp patterns *)
 let regs = let open Str in
-	[|(fun s -> string_match (regexp {|^[A-Z][a-z_0-9]*\.[a-z_0-9]*$|}) s 0); (* if a word looks like Module or Module.something *)
+	[|(fun s -> string_match (regexp {|^[A-Z][a-z_0-9]*\.?[a-z_0-9]*$|}) s 0); (* if a word looks like Module or Module.something *)
 	  (fun s -> string_match (regexp {|^[a-z0-9_]*\.ml: No such file or directory$|}) s 0); (* if a Sys_error message is for missing file *)
 	  (fun s -> string_match (regexp {|^ocamlfind: Package `[a-z_0-9]*' not found$|}) s 0);(* if an ocamlfind error is for missing package *) 
    	  (fun s -> string_match (regexp {|^{\([a-z_0-9]*\)|.*|\1}$|}) s 0)|] (* to identify quoted strings *)
@@ -89,12 +89,12 @@ let rec empty s =
   		| '\''::t when state = "char" -> ' '::it t "none" ""
 		| '('::'*'::t when state = "none" -> ' '::it t "comm" ""
 		| '*'::')'::t when state = "comm" -> ' '::it t "none" ""
-		| '{'::t when state = "none" -> ' '::it t "brace" ""
-    		| c::t when state = "brace" -> it t "brace" (qs^String.make 1 c)
-      		| '}'::t when state="brace" -> if (regs.(3) qs then [' '] else explode qs) @ it t "none" ""
+		| '{'::t when state = "none" -> ' '::it t "brace" "{"
+		| c::t when state = "brace" -> it t "brace" (qs^String.make 1 c)
+		| '}'::t when state="brace" -> (if regs.(3) (qs^"}") then [' '] else explode (qs^"}")) @ it t "none" ""
 		| 'A'..'Z'::t | 'a'..'z'::t | '0'..'9'::t | '.'::t | '_'::t when state="none" -> (List.hd l)::it t "none" ""
 		| _::t -> ' '::it t state qs
-	in implode (it (explode s) "none")
+	in implode (it (explode s) "none" "")
 (** Returns the list of third-party packages needed by the file given and the other files that need to be used *)
 let rec finddep n =
 	let rec finddep' n p =
@@ -111,7 +111,7 @@ let rec finddep n =
 		let t_ = List.fold_left (fun l v -> let (a, b) = finddep' v (n::p) in (fst l@a, snd l@b)) t (snd t) in
 		(uni (fst t_), uni (snd (t_)))
 	in let (a, b) = finddep' n [] in
-	(String.concat "," a, String.concat " " (List.map (fun s -> s ^ ".ml") (b@[n])))
+	(String.concat "," a, String.concat " "  @@ List.map (fun s -> s ^ ".ml") @@ (b@[n]))
 (** Compiles the list of files given (files are in this module always given without their extension, .ml is assumed) *)
 let rec comp l s = 
 	match l with
@@ -147,3 +147,4 @@ let () =
 	| Not_found -> print_endline "A file disappeared during compilation."
 	| Missing_package s -> print_endline ("Missing package: "^s)
 	| _ -> print_endline "Unforeseen error (maybe due to input) : "; raise x)
+
