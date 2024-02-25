@@ -1,6 +1,5 @@
 open Graphics
 exception Incoherent_colors
-exception Work_In_Progress
 (** Library for useful functions to run 2D cellular automata, including interface and commands. requires Graphics module. *)
 let () = Random.self_init(); open_graph ""; resize_window 1000 1020; set_color black; fill_rect 0 0 1000 1020; set_window_title "Cellular Automata Terminal" (* initializes the graphics screen & the RNG *)
 (** write l x y writes a list of strings one line each with the top one starting at x y *)
@@ -83,8 +82,8 @@ let rec b e si =
 let rec dcopy a = let rec it i = if i = Array.length a then [||] else Array.append [|Array.copy a.(i)|] (it (i+1)) in it 0
 (** For bottom left (even though now it is in the top left), erases the top and displays the text given. for status *)
 let bl s = set_color black; fill_rect 0 1000 1000 20; write [s] 10 1005
-(** di for do it, as it does most things. Arguments are : an array array of cells (Graphics.color's), a character for parameters, a function that returns a new color from a list of colors and the old color, a list of the relative coordinates of neighbours, an array of the colors of the CA, a function returning a color from unit, a list of strings to display for information, a list of compressed changes, and the grid of before. you are not supposed to touch this, call go. *)
-let rec di g p f n col d rs h _g =
+(** di for do it, as it does most things. Arguments are : an array array of cells (Graphics.color's), a character for parameters (p to play, o to do one frame, b to go backwards, l to go to the last frame, and s to stop ), a function that returns a new color from a list of colors and the old color, a list of the relative coordinates of neighbours, an array of the colors of the CA, a function returning a color from unit, a list of strings to display for information, a list of compressed changes, and the grid of before. you are not supposed to touch this, call go. *)
+let rec di g p f n col e rs h _g =
 	let g_ = dcopy g in (* new array in which modifications will be made *)
 	let si = Array.length g in
 	let z = 1000/si in (* the widh of a cell in pixels *)
@@ -100,39 +99,60 @@ let rec di g p f n col d rs h _g =
 			else fi' (i+1) in 
 		fi' 0 in
 	let reverse aa c =
-		let l = List.map (fun s -> (fun l -> (List.nth l 0, List.nth l 1, List.nth l 2)) @@ List.map int_of_string @@ String.split_on_char ',' s) (List.filter (fun s -> s <> "") @@ String.split_on_char ';' c) in
-		let rec rev' l i j = 
-			match l with
-			| (x, y, k)::s -> (aa.(i+x).(j+y) <- col.(k); rev' s (i+x) (j+y))
-			| [] -> () in
-		rev' l 0 0; aa
+		let l = 
+			let rec def l =
+				match l with
+				| v1::v2::v3::t -> 
+					(if v1 = "" then -1 else int_of_string v1)::
+					(if v2 = "" then 0 else int_of_string v2)::
+					(if v3 = "" then 0 else int_of_string v3)::
+					def t
+				| _ -> []
+			in
+			def @@ List.tl @@ String.split_on_char ',' c 
 		in
-	let rec it i j c x y = (* it for iterate, as it does the main loop. c is a string describing changes, and (x, y) is the position of the last change*)
+		let rec rev' l i j ls = 
+			match l with
+			| k::y::x::s -> 
+				(let r = if k <> -1 then k else ls in 
+				aa.(i+x).(j+y) <- col.(r); rev' s (i+x) (j+y) r)
+			| _ -> () in
+		rev' l 0 0 0; aa
+		in
+	let rec it i j c x y cc = (* it for iterate, as it does the main loop. c is a string describing changes, (x, y) is the position of the last change, and cc the color of that change *)
 		if i = si
 		then c
 		else
 			if j = si
-			then it (i+1) 0 c x y
+			then it (i+1) 0 c x y cc
 			else 
 				let rec ch l = (* ch for check, no ideas, applies the relatives coordinates in n to the coordinates of the current cell to get the coordinates of the cells to check.*)
 					match l with
 					| [] -> []
 					| hd::tl -> g.(w (i+fst(hd))).(w (j+snd(hd))):: ch tl in	
 				(if p = 's' (* for stop *) 
-				then (draw i j (g_.(i).(j)); it i (j+1) c x y) 
+				then (draw i j (g_.(i).(j)); it i (j+1) c x y cc) 
 				else if p = 'b' || p = 'l' 
-				then (if g.(i).(j) <> _g.(i).(j) then draw i j (g.(i).(j)); it i (j+1) c x y) else
+				then (if g.(i).(j) <> _g.(i).(j) then draw i j (g.(i).(j)); it i (j+1) c x y cc) else
 				(let co = f (ch n) (g.(i).(j)) in
 				g_.(i).(j) <- co;
 				let changed = g.(i).(j) <> co in
 				(if changed then draw i j co);
-				it i (j+1) (if changed then c^";"^string_of_int (i-x)^","^string_of_int (j-y)^","^string_of_int (fi g.(i).(j)) else c) (if changed then i else x) (if changed then j else y))
+				it i (j+1) 
+					(if changed then c^","
+						^(if g.(i).(j) <> cc then string_of_int (fi g.(i).(j)) else "")^","
+						^(if j <> y then string_of_int (j-y) else "")^","
+						^(if i <> x then string_of_int (i-x) else "")
+					else c)
+					(if changed then i else x)
+					(if changed then j else y)
+					(if changed then g.(i).(j) else cc))
 				) in
-	let change = it 0 0 "" 0 0 in
+	let change = it 0 0 "" 0 0 col.(0) in 
 	let rec wa() = (* for wait *)
 		match read_key() with
-		| 'p' -> bl " - running - "; di g_ 'p' f n col d rs (change::h) g
-		| 'o' -> bl " - pause - "; di g_ 'o' f n col d rs (change::h) g
+		| 'p' -> bl " - running - "; di g_ 'p' f n col e rs (change::h) g
+		| 'o' -> bl " - pause - "; di g_ 'o' f n col e rs (change::h) g
 		| 'e' -> bl " - editing - ";
 			let rec ed() = (* for editing *)
 			if key_pressed() 
@@ -147,14 +167,14 @@ let rec di g p f n col d rs h _g =
 				g_.(mx).(my) <- co (g_.(mx).(my)); draw mx my (g_.(mx).(my)); Unix.sleepf 0.2 (* else you would always change it multiple times *); ed())
 				else ed()) in ed()
 		| 'x' -> ()
-		| 'd' -> di (b (fun _ -> black) si) 's' f n col d rs [] g
-		| 'n' -> di (b d si) 's' f n col d rs [] g
+		| 'd' -> di (b (fun _ -> black) si) 's' f n col e rs [] g
+		| 'n' -> di (b e si) 's' f n col e rs [] g
 		| 'i' -> info (rs); wait(); let rec show i j = if i = si then wa() else if j = si then show (i+1) 0 else (draw i j (g_.(i).(j)); show i (j+1)) (*need to redisplay after showing text*) in show 0 0
-		| 'b' -> if h <> [] then (bl " - running - "; di (reverse g_ (if change = "" then List.hd h else change)) 'b' (* use h to read the old ones *) f n col d rs (if change = "" then List.tl h else h) (dcopy g_)) else (bl "ERROR: NO VISIBLE HISTORY"; wa())
-		| 'l' -> if h <> [] then (bl " - pause - "; di (reverse g_ (if change = "" then List.hd h else change)) 'l' f n col d rs (if change = "" then List.tl h else h) (dcopy g_)) else (bl "ERROR: NO VISIBLE HISTORY"; wa())
+		| 'b' -> if h <> [] then (bl " - running - "; di (reverse g_ (if change = "" then List.hd h else change)) 'b' (* use h to read the old ones *) f n col e rs (if change = "" then List.tl h else h) (if change = "" then g else dcopy g_)) else (bl "ERROR: NO VISIBLE HISTORY"; wa())
+		| 'l' -> if h <> [] then (bl " - pause - "; di (reverse g_ (if change = "" then List.hd h else change)) 'l' f n col e rs (if change = "" then List.tl h else h) (if change = "" then g else dcopy g_)) else (bl "ERROR: NO VISIBLE HISTORY"; wa())
 		| _ -> bl "ERROR: UNKNOWN COMMAND (PRESS i FOR INFO)"; wa() in
 	if button_down() || p = 's' then (bl " - pause - " ; wa()) else
-	if p = 'p' then di g_ p f n col d rs (change::h) g (* standard path of continuing *) else
-	if p = 'b' then (if h = [] then (bl "ERROR: NO VISIBLE HISTORY"; wa()) else di (reverse g (List.hd h)) 'b' f n col d rs (List.tl h) (dcopy g)) else wa()
-(** Starts the CA *)
-let go f n si col d rs = bl " - pause - "; di (b (d col) si) 's' (* for stop, doesnt even do first iteration*) f n col (d col) rs (* see di *) [] [||]
+	if p = 'p' then di g_ p f n col e rs (change::h) g (* standard path of continuing *) else
+	if p = 'b' then (if h = [] then (bl "ERROR: NO VISIBLE HISTORY"; wa()) else di (reverse g (List.hd h)) 'b' f n col e rs (List.tl h) g_) else wa()
+(** go f n si col e rs starts the CA using colors col, the neighbourhood n and the function f giving from the old state and the neighbours the new state in a square grid of size si that is initialized with results of d(), also showing rs in info. *)
+let go f n si col e rs = bl " - pause - "; di (b (e col) si) 's' f n col (e col) rs [] [||]
