@@ -15,6 +15,8 @@ this will try to compile foobar.ml, including its dependencies (this uses ocamlf
 Modules not from stdlib will be scaned for in current directory and its children.
 This will by default make html documentation with ocamldoc (disable with -d) and clean up all files produced by the compilation except the executable and the html (disable with -c).
 -h shows this message."
+(**DEWISOTT.*)
+let tablength = 4
 (** List of packages automatically opened (depends on your installation, here in 4.13) *)
 let stdlib = 
 	["array"; "arg";       "arraylabels"; "atomic";   "bigarray";    "bool"; "buffer"; "bytes";  "byteslabels";  "callback"; "char";  "complex"; "stdlib"; "condition"; "domain"; "digest";  
@@ -54,14 +56,20 @@ let arg = Array.to_list (Array.sub Sys.argv 1 (Array.length Sys.argv - 1))
 let cmd s = ignore (Unix.system s)
 (** Array of functions to check some regexp patterns *)
 let regs = let open Str in
-	[|(fun s -> string_match (regexp {|^[A-Z][a-z_0-9]*\.?[a-z_0-9]*$|}) s 0); (* if a word looks like Module or Module.something *)
-	  (fun s -> string_match (regexp {|^[a-z0-9_]*\.ml: No such file or directory$|}) s 0); (* if a Sys_error message is for missing file *)
-	  (fun s -> string_match (regexp {|^ocamlfind: Package `[a-z_0-9]*' not found$|}) s 0);(* if an ocamlfind error is for missing package *) 
-   	  (fun s -> string_match (regexp {|^{\([a-z_0-9]*\)|.*|\1}$|}) s 0)|] (* to identify quoted strings *)
+	[|(fun s -> string_match (regexp {|^[A-Z][a-z_0-9]*\.?[a-z_0-9]*$|}) s 0); 				(* 0 if a word looks like Module or Module.something *)
+	  (fun s -> string_match (regexp {|^[a-z0-9_]*\.ml: No such file or directory$|}) s 0); (* 1 if a Sys_error message is for missing file *)
+	  (fun s -> string_match (regexp {|^ocamlfind: Package `[a-z_0-9]*' not found$|}) s 0);	(* 2 if an ocamlfind error is for missing package *) 
+   	  (fun s -> string_match (regexp {|^{\([a-z_0-9]*\)|.*|\1}$|}) s 0); 					(* 3 quoted strings *)
+	  (fun s -> string_match (regexp {|^File .*$|}) s 0); 									(* 4 indicator at the beginning of some error message, needs to be in bold *)
+	  (fun s -> string_match (regexp {|^Error:.*$|}) s 0); 									(* 5 error word is in bold red *)
+	  (fun s -> string_match (regexp {| *\^ *|}) s 0);										(* 6 pointer showing the place *)
+	  (fun s -> string_match (regexp {|^[0-9]+ error(s) encountered$|}) s 0); 				(* 7 thank you, i can count *)
+	  (fun s -> string_match (regexp {|^[0-9]+ | .*$|}) s 0)								(* 8 the line shown, to adjust the pointer *)
+	  |]
 (** Removes leftovers from compilation from the working directory (takes a list of names, to be called with {!dir}()) *)
 let rec clean =
 	function
-	| [] -> if Sys.file_exists "__make_errors__.txt" then cmd "rm __make_errors__.txt"
+	| [] -> if Sys.file_exists "__make_errors__.txt" then cmd "rm __make_errors__.txt" (** because sometimes clean can itself close badly, which will destroy some of them but not all, which might cause even more errors if not taken care of *)
 	| h::t -> 
 		if not (List.mem "-c" arg) then 
 		(if List.mem (Filename.extension h) [".cmi"; ".cmo"; ".cmx"; ".mli"; ".o"; ".html"] 
@@ -83,18 +91,20 @@ let rec empty s =
 	let rec it l state qs =
 		match l with
 		| [] -> []
-		| '"'::t when state = "none" ->  ' '::it t "string" ""
-  		| '"'::t when state = "string" -> ' '::it t "none" ""
-		| '\''::t when state = "none" -> ' '::it t "char" ""
-  		| '\''::t when state = "char" -> ' '::it t "none" ""
-		| '('::'*'::t when state = "none" -> ' '::it t "comm" ""
-		| '*'::')'::t when state = "comm" -> ' '::it t "none" ""
-		| '{'::t when state = "none" -> ' '::it t "brace" "{"
-		| c::t when state = "brace" -> it t "brace" (qs^String.make 1 c)
-		| '}'::t when state="brace" -> (if regs.(3) (qs^"}") then [' '] else explode (qs^"}")) @ it t "none" ""
-		| 'A'..'Z'::t | 'a'..'z'::t | '0'..'9'::t | '.'::t | '_'::t when state="none" -> (List.hd l)::it t "none" ""
+		| '"'::t when state = 0 ->  ' '::it t 1 ""
+  		| '"'::t when state = 1 -> ' '::it t 0 ""
+		| '\''::t when state = 0 -> ' '::it t 2 ""
+  		| '\''::t when state = 2 -> ' '::it t 0 ""
+		| '('::'*'::t when state = 0 -> ' '::it t 3 ""
+		| '*'::')'::t when state = 3 -> ' '::it t 0 ""
+		| '{'::t when state = 0 -> ' '::it t 4 "{"
+		| '{'::t when state > 3 -> it t (state+1) (qs^"{")
+		| '}'::t when state = 4 -> (if regs.(3) (qs^"}") then it t 0 "" else it (List.tl (explode (qs))@t) 0 "")
+		| '}'::t when state > 4 -> it t (state-1) (qs^"}")
+		| c::t when state > 3 -> it t state (qs^String.make 1 c)
+		| 'A'..'Z'::t | 'a'..'z'::t | '0'..'9'::t | '.'::t | '_'::t when state=0 -> (List.hd l)::it t 0 ""
 		| _::t -> ' '::it t state qs
-	in implode (it (explode s) "none" "")
+	in implode (it (explode s) 0 "")
 (** Returns the list of third-party packages needed by the file given and the other files that need to be used *)
 let rec finddep n =
 	let rec finddep' n p =
@@ -133,9 +143,54 @@ let rec comp l s =
 		let ic = open_in "__make_errors__.txt" in 
 		let result = In_channel.input_lines ic in 
 		close_in ic; 
-		List.iter 
-		(fun s -> if regs.(2) s then raise (Missing_package (String.sub (String.sub s 20 (String.length s - 20)) 0 (String.length s - 31))) else print_endline s)
-		result;
+		ignore(
+		List.fold_left 
+			(fun flag l -> 
+			if regs.(2) l then 
+				raise 
+				(Missing_package 
+				(String.sub 
+					(String.sub l 20 (String.length l - 20)) 
+					0 
+					(String.length l - 31))) else 
+			if regs.(7) l then "" else (
+			if regs.(4) l then 
+				(print_endline 
+					("\x1b[1m"^
+					l^
+					"\x1b[22m"); 
+				"") else (
+			if regs.(6) l then 
+				(print_endline 
+					("\x1b[1;31m"
+					^flag^l^
+					"\x1b[22;0m"); 
+				"") else (
+			if regs.(5) l then 
+				(print_endline 
+					("\x1b[1;31mError\x1b[22;0m"^
+					String.sub l 5 
+					(String.length l - 5)); 
+				"") else
+			if regs.(8) l then 
+				(let s = 
+					let lst = 
+					String.split_on_char '|' l in 
+					print_string @@ List.hd @@ lst;
+					print_string "| ";
+					String.concat "|" @@ List.tl lst
+				in
+				let rec count i = 
+					if s.[i] <> char_of_int 9 
+					then i-1 else 
+					count (i+1) in 
+				let c = count 1 in
+				print_string (String.make (c*tablength) ' ');
+				print_endline (String.sub l (1+c+String.length l - String.length s) (+String.length s-1-c)); 
+				String.make (c * (tablength - 1)) ' ') else
+			(print_endline l; "")))))
+		"" result);
+		(*if result = [] then raise Exit else print_endline @@ List.hd result;*)
 		comp tl "")
 let () = 
 	try 
@@ -144,7 +199,8 @@ let () =
 	match x with 
 	| Cyclical_dependence l -> print_endline ("Cyclical dependence. \nThe following dependence loop was found : "^String.concat " > " l)
 	| Sys_error y when regs.(1) y -> print_endline "File given does not exist."
-	| Not_found -> print_endline "A file disappeared during compilation."
+	| Not_found -> print_endline "A file disappeared during compilation.\nProbably due to another program manipulating files at the same time."
 	| Missing_package s -> print_endline ("Missing package: "^s)
+	| Exit -> print_endline "Compilation stopped."
 	| _ -> print_endline "Unforeseen error (maybe due to input) : "; raise x)
 
