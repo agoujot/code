@@ -3,6 +3,8 @@
 exception Cyclical_dependence of string list
 (** Raised when a module is missing *)
 exception Missing_package of string
+(** Raised when there is an unfinished something at the end. *)
+exception Unfinished of string
 (** Help message *)
 let info = 
 "This is a utility to compile .ml files to native that automatically checks dependancies.
@@ -44,6 +46,8 @@ let mods() =
 	in uni(scan (dir()) "./")
 (** Gives a filename without its path *)
 let remove_path s = List.hd @@ List.rev @@ String.split_on_char '/' @@ s
+(** Gets the path out of a filename *)
+let extract_path s = String.sub s 0 (String.length s - String.length (remove_path s))
 (** Gives the path where a file can be found from its name *)
 let find_path f = 
 	let rec it = function 
@@ -90,7 +94,7 @@ let rec filtmod =
 let rec empty s =
 	let rec it l state qs =
 		match l with
-		| [] -> []
+		| [] -> if state <> 0 then raise (Unfinished (match state with | 1 -> "string" | 2 -> "character" | 3 -> "comment" | _ when state > 3 -> "quoted string" | _ -> "none")) else []
 		| '"'::t when state = 0 ->  ' '::it t 1 ""
   		| '"'::t when state = 1 -> ' '::it t 0 ""
 		| '\''::t when state = 0 -> ' '::it t 2 ""
@@ -107,7 +111,7 @@ let rec empty s =
 	in implode (it (explode s) 0 "")
 (** Returns the list of third-party packages needed by the file given and the other files that need to be used *)
 let rec finddep n =
-	let rec finddep' n p =
+	let rec finddep_ n p =
 		if List.mem n p then raise (Cyclical_dependence (List.map remove_path p)) else
 		let f = n ^".ml" in
 		let ic = open_in f in
@@ -118,9 +122,9 @@ let rec finddep n =
 		let tmp =
 		words |> filtmod |> uni |> List.map String.lowercase_ascii |> List.filter (fun s -> not (List.mem s stdlib)) |> List.partition (fun s -> not @@ List.mem s @@ List.map remove_path @@ mods()) in
 		(fst tmp, List.map find_path @@ snd @@ tmp) in
-		let t_ = List.fold_left (fun l v -> let (a, b) = finddep' v (n::p) in (fst l@a, snd l@b)) t (snd t) in
+		let t_ = List.fold_left (fun l v -> let (a, b) = finddep_ v (n::p) in (fst l@a, snd l@b)) t (snd t) in
 		(uni (fst t_), uni (snd (t_)))
-	in let (a, b) = finddep' n [] in
+	in let (a, b) = finddep_ n [] in
 	(String.concat "," a, String.concat " "  @@ List.map (fun s -> s ^ ".ml") @@ (b@[n]))
 (** Compiles the list of files given (files are in this module always given without their extension, .ml is assumed) *)
 let rec comp l s = 
@@ -136,10 +140,16 @@ let rec comp l s =
 	| "-h" -> print_endline info
 	| _ ->
 		let pkg, files = finddep hd in
+		let dirs = 
+			let rec getdir = 
+				function
+				| [] -> []
+				| i::s -> let p = extract_path i in if p = "" then getdir s else p::getdir s in
+			String.concat "," @@ uni @@ getdir @@ String.split_on_char ' ' @@ files in
 		let out = if s = "" then String.capitalize_ascii hd else s in
-		cmd ((if pkg = "" then "" else "ocamlfind ")^"ocamlopt -o "^out^(if pkg = "" then "" else " -package "^pkg^" -linkpkg")^" "^files^" 2> __make_errors__.txt"); 
+		cmd ((if pkg = "" then "" else "ocamlfind ")^"ocamlopt -o "^out^(if dirs = "" then "" else " -I "^dirs)^(if pkg = "" then "" else " -package "^pkg^" -linkpkg")^" "^files^" 2> __make_errors__.txt"); 
 		if not (List.mem "-d" arg) then 
-		cmd ((if pkg = "" then "" else "ocamlfind ")^"ocamldoc -html "^(if pkg = "" then "" else "-package "^pkg)^" "^files^" 2> __make_errors__.txt");
+		cmd ((if pkg = "" then "" else "ocamlfind ")^"ocamldoc -html "^(if dirs = "" then "" else " -I "^dirs)^(if pkg = "" then "" else "-package "^pkg)^" "^files^" 2> __make_errors__.txt");
 		let ic = open_in "__make_errors__.txt" in 
 		let result = In_channel.input_lines ic in 
 		close_in ic; 
@@ -187,10 +197,10 @@ let rec comp l s =
 				let c = count 1 in
 				print_string (String.make (c*tablength) ' ');
 				print_endline (String.sub l (1+c+String.length l - String.length s) (+String.length s-1-c)); 
-				String.make (c * (tablength - 1)) ' ') else
-			(print_endline l; "")))))
+				String.make (c * (tablength - 1)) ' ') else (
+			print_endline l; "")))))
 		"" result);
-		(*if result = [] then raise Exit else print_endline @@ List.hd result;*)
+		if result <> [] then raise Exit;
 		comp tl "")
 let () = 
 	try 
@@ -202,5 +212,6 @@ let () =
 	| Not_found -> print_endline "A file disappeared during compilation.\nProbably due to another program manipulating files at the same time."
 	| Missing_package s -> print_endline ("Missing package: "^s)
 	| Exit -> print_endline "Compilation stopped."
+	| Unfinished x -> print_endline("There was an unfinished "^x^" at the end of the file.\nIf it is a character, it might be due to your using apostrophes in identifiers.\nIt is allowed, but don't.")
 	| _ -> print_endline "Unforeseen error (maybe due to input) : "; raise x)
 
