@@ -17,7 +17,7 @@ The executable will have the module name corresponding to the file name (capital
 (This requires ocamlfind.)
 Modules not from stdlib will be scanned for in current directory and its children.
 It will also produce html documentation and clean up.
-What I mean by 'clean up' is 'destroy every file from compilation except the html and executable'.
+(What I mean by 'clean up' is 'destroy every file from compilation except the html and executable'.)
 
 Options :
  -o [name] : change the name of the executable.
@@ -32,12 +32,6 @@ let arg = Array.to_list (Array.sub Sys.argv 1 (Array.length Sys.argv - 1))
 let cmd s = ignore (Unix.system s)
 (** For displaying error messages. *)
 let tablength = 4
-(** List of packages automatically opened (depends on your installation, here in 4.13) *)
-let stdlib = 
-	["array"; "arg";       "arraylabels"; "atomic";   "bigarray";    "bool"; "buffer"; "bytes";  "byteslabels";  "callback"; "char";  "complex"; "stdlib"; "condition"; "domain"; "digest";  
-	"either"; "ephemeron"; "filename";    "float";    "format";      "fun";  "gc";     "genlex"; "hashtbl";      "int";      "int32"; "int64";   "lazy";   "lexing";    "list";   "listlabels";  
-	"map";    "marshal";   "morelabels";  "nativeint";"obj";         "oo";   "option"; "parsing";"pervasives";   "printexc"; "printf"; "queue";  "random"; "result";    "scanf";  "seq";  
-	"set";    "stack";     "stdlabels";   "string";   "stringlabels";"sys";  "type";   "uchar";  "unit";         "weak";     "stdlib"]
 (** Removes duplicates from a list *)
 let rec uni = 
 	function
@@ -51,7 +45,7 @@ let implode l = String.concat "" (List.map (fun c -> String.make 1 c) l)
 let dir s = Array.to_list @@ Sys.readdir s
 (** Returns the list of files available *)
 let scan nas = 
-	let rec scan_ l p = 
+	let rec scan_ l p =
 		match l with
 		| [] -> [] 
 		| h::t when Sys.is_directory (p^h) -> (if List.mem "-r" arg then [] else (scan_ (dir (p^h)) (p^h^"/")))@scan_ t p
@@ -74,7 +68,7 @@ let regs = let open Str in
 	let fd = " *"^id^{| *[:=] *.+ *|} in
 	let a = 
 	[|regexp ("^"^mo^{|\(\.|}^id^{|\)?$|}); 						(* 0 if a word looks like Module or Module.something *)
-	  regexp ("^"^id^{|*\.ml: No such file or directory$|});			(* 1 if a Sys_error message is for missing file *)
+	  regexp ("^"^id^{|*\.ml: No such file or directory$|});		(* 1 if a Sys_error message is for missing file *)
 	  regexp ("^ocamlfind: Package `"^id^"' not found$");			(* 2 if an ocamlfind error is for missing package *) 
    	  regexp {|^{\([a-z_]*\)|.*|\1}$|}; 							(* 3 quoted strings *)
 	  regexp {|^File .*$|}; 										(* 4 indicator at the beginning of some error messages *)
@@ -82,13 +76,22 @@ let regs = let open Str in
 	  regexp {| *\^ *|};											(* 6 pointer line *)
 	  regexp {|^[0-9]+ error(s) encountered$|}; 					(* 7 thank you, i can count *)
 	  regexp {|^[0-9]+ | .*$|};										(* 8 code snippet *)
-	  regexp ({|^{\(|}^id^" with "^{|\)?|}^fd^{|\(;|}^fd^{|\)*}$|})	(* 9 a record *)
+	  regexp ({|^{\(|}^id^" with "^{|\)?|}^fd^{|\(;|}^fd^{|\)*}$|});(* 9 a record *)
+	  regexp ("stdlib__"^mo^{|\..*|})								(* 10 a stdlib package file *)
 	  |] in
 	(fun i s -> string_match a.(i) s 0)
+(** List of stdlib packages (should adapt to your installation) *)
+let stdlib = 
+	List.map String.lowercase_ascii @@
+	List.map (fun s -> String.sub s 8 (String.length s - 8)) @@
+	uni @@
+	List.map Filename.remove_extension @@
+	List.filter (regs 10) @@ 
+	dir "/usr/lib/ocaml"
 (** Removes leftovers from compilation from the working directory (takes a list of names, to be called with {!scan}()) *)
 let rec clean =
 	function
-	| [] -> if Sys.file_exists "__make_errors__.txt" then cmd "rm __make_errors__.txt" (** because sometimes clean can itself close badly, which will destroy some of them but not all, which might cause even more errors if not taken care of *)
+	| [] -> if Sys.file_exists "__build_errors__.txt" then cmd "rm __build_errors__.txt" (** because sometimes clean can itself close badly, which will destroy some of them but not all, which might cause even more errors if not taken care of *)
 	| h::t -> 
 		if not (List.mem "-c" arg) then 
 		(if List.mem (Filename.extension h) [".cmi"; ".cmo"; ".cmx"; ".mli"; ".o"; ".html"] 
@@ -171,10 +174,10 @@ let rec comp l s i =
 				| x::s -> let p = extract_path x in if p = "" then getdir s else p::getdir s in
 			String.concat "," @@ uni @@ getdir @@ String.split_on_char ' ' @@ files in
 		let out = if s = "" then String.capitalize_ascii hd else s in
-		cmd ((if pkg = "" then "" else "ocamlfind ")^"ocamlopt -o "^out^(if dirs = "" then "" else " -I "^dirs)^(if pkg = "" then "" else " -package "^pkg^" -linkpkg")^" "^files^" 2> __make_errors__.txt"); 
+		cmd ((if pkg = "" then "" else "ocamlfind ")^"ocamlopt -o "^out^(if dirs = "" then "" else " -I "^dirs)^(if pkg = "" then "" else " -package "^pkg^" -linkpkg")^" "^files^" 2> __build_errors__.txt"); 
 		if not (List.mem "-d" arg) then 
-		cmd ((if pkg = "" then "" else "ocamlfind ")^"ocamldoc -html "^(if dirs = "" then "" else " -I "^dirs)^(if pkg = "" then "" else " -package "^pkg)^" "^files^" 2> __make_errors__.txt");
-		let ic = open_in "__make_errors__.txt" in 
+		cmd ((if pkg = "" then "" else "ocamlfind ")^"ocamldoc -html "^(if dirs = "" then "" else " -I "^dirs)^(if pkg = "" then "" else " -package "^pkg)^" "^files^" 2> __build_errors__.txt");
+		let ic = open_in "__build_errors__.txt" in 
 		let result = In_channel.input_lines ic in 
 		close_in ic; 
 		ignore(
