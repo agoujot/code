@@ -93,8 +93,7 @@ bind((() => {
 	only([Download]);
 	}), 
 	dbtn, "D")
-bind((() => {
-	only([Upload])}), ubtn, "U")
+bind((() => {only([Upload])}), ubtn, "U")
 bind((() => { kill = true; choose() }), xbtn, "X");
 bind(info, ibtn, "I");
 hide([rbtn, mobtn, sbtn, dbtn, ubtn]);
@@ -115,9 +114,16 @@ function fileListener (e) {
 	files = e.target.files;
 	file = files[0];
 	reader = new FileReader();
-	reader.onload = ((a) => { filecontent = a.target.result } );
+	reader.onload = ((a) => {filecontent = a.target.result})
 	reader.readAsText(file);
-	sleep(100).then(load)
+	waitforfile()
+}
+function waitforfile() {
+	if (filecontent == "") {
+		setTimeout(waitforfile, 100) 
+	} else {
+		load()
+	}
 }
 function load() {
 	lines = filecontent.split("\n");
