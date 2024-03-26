@@ -1,0 +1,47 @@
+body {
+	background-color: #CCFFFF;
+	text-align: center;
+}
+
+input {
+	font-size: 150%
+}
+
+centerblock {
+	display: inline-block;
+	text-align: left
+}
+
+gi { /* greyed italics */
+	font-style: italic;
+	color: #777777
+}
+
+.float-right {
+	float: right
+}
+
+.float-left {
+	float : left
+}
+
+table {
+	border: 1px solid #888888;
+	background-color: #DDFFFF
+}
+
+thead {
+	background-color: #DDEEDD
+}
+
+td {
+	border: 1px solid #000000;
+	padding: 10px;
+}
+
+th {
+	font-size: 150%;
+	border: 1px solid #000000;
+	padding:10px;
+	text-align:center
+}

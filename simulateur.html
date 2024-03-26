@@ -1,0 +1,145 @@
+<!doctype html>
+<html>
+	<head>
+		<link rel="stylesheet" href="styles.css">
+		<link rel="icon" type="image/x-icon" href="favicon.ico"/>
+		<meta charset="utf-8"/>
+		<title>Simulateur</title>
+	</head>
+	<body>
+		<span class="float-left"><a href="index.html">Menu principal</a></span><br>
+		<center><h1>Simulateur</h1></center>
+		<hr>
+		<div id="CAlist"><h3>Menu</h3>
+			<label for="CA">Choisissez un automate cellulaire:</label>
+			<select name="CA" id="CA">
+				<option value="none">-</option>
+				<option value="gol">Le Jeu de la Vie</option>
+				<option value="bosco">La règle de Bosco</option>
+				<option value="daynight">Day & night</option>
+				<option value="marine">Marine</option>
+				<option value="sparks">Sparks</option>
+				<option value="wireworld">Wireworld</option>
+				<option value="eiii">Expérience III</option>
+				<option value="rand">Aléatoire</option>
+				<option value="create">Créer</option>
+				<option value="import">Importer</option>
+			</select>
+			<br/><br/>
+			<input style="background-color:black; color:white" type="button" value="&nbsp;⚙ " onclick="settings()"/>
+			<input style="background-color:blue; color:white" type="button" value="&ensp;ℹ&ensp;" onclick="info()"/>
+		</div>
+		<div id="Settings">
+			<centerblock>
+			<label for="delay">Délai entres les étapes (secondes):</label>
+			<br/>
+			<input id="delay" type="number" min="0" value="0.00" step = "0.01"/>
+			<br/><br/>
+			<label for="size">Taille en cellules (diviseur de 1000):</label>
+			<br/>
+			<input id="size" type="number" min="0" max="1000" value="100"/>
+			<br/><br/>
+			Voiins sur les bords:
+			<br/>
+			<input id="wrap" type="radio" name="border" checked="on"/>
+			<label for="wrap">Coté d'en face</label>
+			<br/>
+			<input id="death" type="radio" name="border"/>
+			<label for="death">Cellules mortes</label>
+			</centerblock>
+			<br/><br/>
+			<center><input style="background-color:lightgreen" id="validate" type="button" value="Valider" onclick="validate()"/></center>
+		</div>
+		<centerblock>
+			<div id="Options">
+				<div class="float-left">
+					<input id="x" style="background-color:red" type="button" value="&nbsp;✖&nbsp;"/>
+					<input id="i" style="background-color:blue; color:white" type="button" value="&ensp;ℹ&ensp;"/>
+					<input style="opacity:0.0" type="button" value="&nbsp;"/> <!-- pour empecher la hauteur de la ligne de varier selon si on est en pause ou pas -->
+				</div>
+				<div class="float-right">
+					<input id="m" type="button" value="&nbsp;✍&nbsp;"/>
+					<input id="s" type="button" value="&nbsp;✓&nbsp;"/> 
+					<input id="p" type="button" value="&nbsp;❚ ❚&nbsp;"/>
+					<input id="n" type="button" value="&nbsp;⟳&nbsp;"/>
+					<input id="e" type="button" value="&nbsp;▦&nbsp;"/>
+					<input id="r" type="button" value="&nbsp;◀&nbsp;"/>
+					<input id="-" type="button" value="&nbsp;➖&nbsp;"/>
+					<input id="+" type="button" value="&nbsp;➕&nbsp;"/>
+					<input id="a" type="button" value="&nbsp;▶&nbsp;"/> 
+				</div> 
+			</div>
+			<canvas width="1000" height="1000">
+			Les automates cellulaires sont animés ici.
+			</canvas>
+		</centerblock>
+		<div id="info">
+			<h3>Informations</h3>
+			<centerblock>
+			<input style="background-color:lightblue" class="float-left" type="button" value="<" onclick="back()"/><br/><br/>
+			Bienvenue au simulateur d'automates cellulaires.<br/>
+			Depuis le menu, vous pouvez choisir l'AC que vous voulez et régler les paramètres.<br/>
+			Options depuis le simulateur à proprement parler:<br/><br/>
+			<table>
+				<tr>
+					<td scope="col">Bouton</td>
+					<td scope="col">Raccourci</td>
+					<td scope="col">Effet</td>
+				</tr>
+				<tr>
+					<th>✖</th>
+					<td>x</td>
+					<td>Ferme le simulateur et retourne au menu de sélection d'automate cellulaire.</td>
+				</tr>
+				<tr>
+					<th>ℹ</th>
+					<td>i<gi>nformation</gi></td>
+					<td>Affiche ce message.</td>
+				</tr>
+				<tr>
+					<th>❚ ❚</th>
+					<td>p<gi>ause</gi></td>
+					<td>Met en pause le simulateur et donne accès aux boutons ci-dessous.</td>
+				</tr>
+				<tr>
+					<th>▶</th>
+					<td>a<gi>vancer</gi></td>
+					<td>Relance le simulateur.</td>
+				</tr>
+				<tr>
+					<th>➕</th>
+					<td>+</td>
+					<td>Avance d'une étape, puis revient en pause.</td>
+				</tr>
+				<tr>
+					<th>◀</th>
+					<td>r<gi>eculer</gi></td>
+					<td>Relance le simulateur en arrière.</td>
+				</tr>
+				<tr>
+					<th>➖</th>
+					<td>-</td>
+					<td>Recule d'une étape, puis revient en pause.</td>
+				</tr>
+				<tr>
+					<th>⟳</th>
+					<td>n<gi>ouveau</gi></td>
+					<td>Remplace la grille par une nouvelle grille aléatoire.</td>
+				</tr>
+				<tr>
+					<th>▦</th>
+					<td>e<gi>ffacer</gi></td>
+					<td>Efface la grille.</td/>
+				</tr>
+				<tr>
+					<th>✍</th>
+					<td>m<gi>odifier</gi></td>
+					<td>Passe en mode modification. Permet de changer l'état des cellules en leur cliquant dessus.<br/> Vous pouvez revenir en pause avec le bouton <span style="font-size:150%">✓</span> (raccourci s<gi>auver</gi>).</td>
+				</tr>
+			</table>
+			</centerblock>
+		</div>
+		<script src="simulateur.js">
+		</script>
+	</body>
+</html>
