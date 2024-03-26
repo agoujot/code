@@ -19,15 +19,15 @@
 				<option value="daynight">Day & night</option>
 				<option value="marine">Marine</option>
 				<option value="sparks">Sparks</option>
-				<option value="wireworld">Wireworld</option>
 				<option value="eiii">Expérience III</option>
 				<option value="rand">Aléatoire</option>
 				<option value="create">Créer</option>
 				<option value="import">Importer</option>
 			</select>
 			<br/><br/>
-			<input style="background-color:black; color:white" type="button" value="&nbsp;⚙ " onclick="settings()"/>
+			<input style="background-color:black; color:white" type="button" value="&nbsp;⚙ " onclick="only([Settings])"/>
 			<input style="background-color:blue; color:white" type="button" value="&ensp;ℹ&ensp;" onclick="info()"/>
+			<input type="button" value="⇧" style="text-decoration:overline" onclick="only([Upload])"/>
 		</div>
 		<div id="Settings">
 			<centerblock>
@@ -39,7 +39,7 @@
 			<br/>
 			<input id="size" type="number" min="0" max="1000" value="100"/>
 			<br/><br/>
-			Voiins sur les bords:
+			Voisins sur les bords:
 			<br/>
 			<input id="wrap" type="radio" name="border" checked="on"/>
 			<label for="wrap">Coté d'en face</label>
@@ -58,25 +58,33 @@
 					<input style="opacity:0.0" type="button" value="&nbsp;"/> <!-- pour empecher la hauteur de la ligne de varier selon si on est en pause ou pas -->
 				</div>
 				<div class="float-right">
-					<input id="m" type="button" value="&nbsp;✍&nbsp;"/>
-					<input id="s" type="button" value="&nbsp;✓&nbsp;"/> 
-					<input id="p" type="button" value="&nbsp;❚ ❚&nbsp;"/>
-					<input id="n" type="button" value="&nbsp;⟳&nbsp;"/>
-					<input id="e" type="button" value="&nbsp;▦&nbsp;"/>
-					<input id="r" type="button" value="&nbsp;◀&nbsp;"/>
-					<input id="-" type="button" value="&nbsp;➖&nbsp;"/>
-					<input id="+" type="button" value="&nbsp;➕&nbsp;"/>
-					<input id="a" type="button" value="&nbsp;▶&nbsp;"/> 
+					<input id="u" type="button" value="⇧" style="text-decoration:overline"/>
+					<input id="d" type="button" value="⇩" style="text-decoration:underline"/>
+					<input id="m" type="button" value="✍"/>
+					<input id="s" type="button" value="✓"/> 
+					<input id="p" type="button" value="❚ ❚"/>
+					<input id="n" type="button" value="⟳"/>
+					<input id="e" type="button" value="▦"/>
+					<input id="r" type="button" value="◀"/>
+					<input id="-" type="button" value="➖"/>
+					<input id="+" type="button" value="➕"/>
+					<input id="a" type="button" value="▶"/> 
 				</div> 
 			</div>
 			<canvas width="1000" height="1000">
 			Les automates cellulaires sont animés ici.
 			</canvas>
 		</centerblock>
+		<a id="Download" href="#" onclick="only(whereami)">Télécharger votre fichier.</a>
+		<div id="Upload">
+			<centerblock>
+			<label for="filename" style="font-size:150%">Choisissez votre fichier :</label><br/>
+			<input id="filename" type="file"/></centerblock>
+		</div>
 		<div id="info">
 			<h3>Informations</h3>
 			<centerblock>
-			<input style="background-color:lightblue" class="float-left" type="button" value="<" onclick="back()"/><br/><br/>
+			<input style="background-color:lightblue" class="float-left" type="button" value="<" onclick="only(whereami)"/><br/><br/>
 			Bienvenue au simulateur d'automates cellulaires.<br/>
 			Depuis le menu, vous pouvez choisir l'AC que vous voulez et régler les paramètres.<br/>
 			Options depuis le simulateur à proprement parler:<br/><br/>
@@ -98,27 +106,27 @@
 				</tr>
 				<tr>
 					<th>❚ ❚</th>
-					<td>p<gi>ause</gi></td>
-					<td>Met en pause le simulateur et donne accès aux boutons ci-dessous.</td>
+					<td>espace</td>
+					<td>Met en pause le simulateur et donne accès aux boutons ci-dessous. <br/>Re-espace relance le simulateur (dans le dernier sens qu'il a pris).</td>
 				</tr>
 				<tr>
 					<th>▶</th>
-					<td>a<gi>vancer</gi></td>
+					<td>flèche de droite</gi></td>
 					<td>Relance le simulateur.</td>
 				</tr>
 				<tr>
 					<th>➕</th>
-					<td>+</td>
+					<td>flèche d'en haut</td>
 					<td>Avance d'une étape, puis revient en pause.</td>
 				</tr>
 				<tr>
 					<th>◀</th>
-					<td>r<gi>eculer</gi></td>
+					<td>flèche de gauche</td>
 					<td>Relance le simulateur en arrière.</td>
 				</tr>
 				<tr>
 					<th>➖</th>
-					<td>-</td>
+					<td>flèche d'en bas</td>
 					<td>Recule d'une étape, puis revient en pause.</td>
 				</tr>
 				<tr>
