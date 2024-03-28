@@ -7,13 +7,12 @@
 		<title>Simulateur</title>
 	</head>
 	<body>
-		<span class="float-left"><a href="index.html">Menu principal</a></span><br>
-		<center><h1>Simulateur</h1></center>
-		<hr>
 		<div id="CAlist"><h3>Menu</h3>
-			<label for="CA">Choisissez un automate cellulaire:</label>
-			<select name="CA" id="CA">
-				<option value="none">-</option>
+			<input style="background-color:black; color:white" type="button" value="&nbsp;⚙ " onclick="only([Settings])"/>
+			<input style="background-color:blue; color:white" type="button" value="&ensp;ℹ&ensp;" onclick="if (!paused) { paused = true }; only([info])"/>
+			<br/><br/>
+			<select name="CA" id="CA" style="font-size:200%">
+				<option value="none"><gi>Choisissez une option</gi></option>
 				<option value="gol">Le Jeu de la Vie</option>
 				<option value="bosco">La règle de Bosco</option>
 				<option value="daynight">Day & night</option>
@@ -24,10 +23,9 @@
 				<option value="create">Créer</option>
 				<option value="import">Importer</option>
 			</select>
-			<br/><br/>
-			<input style="background-color:black; color:white" type="button" value="&nbsp;⚙ " onclick="only([Settings])"/>
-			<input style="background-color:blue; color:white" type="button" value="&ensp;ℹ&ensp;" onclick="info()"/>
-			<input type="button" value="⇧" style="text-decoration:overline" onclick="only([Upload])"/>
+			<br/>
+			<br/>
+			<input class="validate" type="button" value="Valider" id="CAvalid" style="font-size:130%">
 		</div>
 		<div id="Settings">
 			<centerblock>
@@ -48,43 +46,53 @@
 			<label for="death">Cellules mortes</label>
 			</centerblock>
 			<br/><br/>
-			<center><input style="background-color:lightgreen" id="validate" type="button" value="Valider" onclick="validate()"/></center>
+			<center><input class="validate" type="button" value="Valider" id="settingsvalid"/></center>
 		</div>
 		<centerblock>
 			<div id="Options">
 				<div class="float-left">
-					<input id="x" style="background-color:red" type="button" value="&nbsp;✖&nbsp;"/>
-					<input id="i" style="background-color:blue; color:white" type="button" value="&ensp;ℹ&ensp;"/>
-					<input style="opacity:0.0" type="button" value="&nbsp;"/> <!-- pour empecher la hauteur de la ligne de varier selon si on est en pause ou pas -->
+					<input id="xbtn" style="background-color:red" type="button" value="&nbsp;✖&nbsp;"/>
+					<input id="ibtn" style="background-color:blue; color:white" type="button" value="&ensp;ℹ&ensp;"/>
+					<input style="display:none" type="button" value="&nbsp;"/> <!-- pour empecher la hauteur de la ligne de varier selon si on est en pause ou pas -->
 				</div>
 				<div class="float-right">
-					<input id="u" type="button" value="⇧" style="text-decoration:overline"/>
-					<input id="d" type="button" value="⇩" style="text-decoration:underline"/>
-					<input id="m" type="button" value="✍"/>
-					<input id="s" type="button" value="✓"/> 
-					<input id="p" type="button" value="❚ ❚"/>
-					<input id="n" type="button" value="⟳"/>
-					<input id="e" type="button" value="▦"/>
-					<input id="r" type="button" value="◀"/>
-					<input id="-" type="button" value="➖"/>
-					<input id="+" type="button" value="➕"/>
-					<input id="a" type="button" value="▶"/> 
+					<input id="cbtn" type="button" value="↥"/>
+					<input id="sbtn" type="button" value="💾"/>
+					<input id="mbtn" type="button" value="✎"/>
+					<input id="vbtn" type="button" value="✓"/> 
+					<input id="pbtn" type="button" value="❚ ❚"/>
+					<input id="nbtn" type="button" value="⟳"/>
+					<input id="ebtn" type="button" value="▦"/>
+					<input id="rbtn" type="button" value="◀"/>
+					<input id="mobtn" type="button" value="➖"/>
+					<input id="plbtn" type="button" value="➕"/>
+					<input id="abtn" type="button" value="▶"/> 
 				</div> 
 			</div>
 			<canvas width="1000" height="1000">
 			Les automates cellulaires sont animés ici.
 			</canvas>
 		</centerblock>
-		<a id="Download" href="#" onclick="only(whereami)">Télécharger votre fichier.</a>
+		<div id="Save">
+			<input class="back" type="button" value="<" onclick="only(whereami)"/><br/><br/>
+			<a id="Download" href="#" style="font-size:150%"></a>
+			<br/><br/>ou<br/><br/>
+			<input id="stateidout" type="button" value="Copier l'identifiant de cet état" style="background-color:white"/>
+		</div>
 		<div id="Upload">
-			<centerblock>
-			<label for="filename" style="font-size:150%">Choisissez votre fichier :</label><br/>
-			<input id="filename" type="file"/></centerblock>
+			<input class="back" type="button" value="<" onclick="only(whereami)"/><br/><br/>
+			<label for="filename" style="font-size:150%">Choisissez votre fichier :</label><br/><br/>
+			<input id="filename" type="file"/>
+			<br/><br/>ou<br/><br/>
+			<label for="stateidin" style="font-size:150%">Entrez un identifiant d'état:</label><br/><br/>
+			<textarea id="stateidin" cols="50" rows="10" placeholder="Mettez ici l'identifiant"></textarea>
+			<br/><br/>
+			<input id="loadvalid" type="button" value="Valider" class="validate"/>
 		</div>
 		<div id="info">
 			<h3>Informations</h3>
 			<centerblock>
-			<input style="background-color:lightblue" class="float-left" type="button" value="<" onclick="only(whereami)"/><br/><br/>
+			<input class="back" type="button" value="<" onclick="only(whereami)"/><br/><br/>
 			Bienvenue au simulateur d'automates cellulaires.<br/>
 			Depuis le menu, vous pouvez choisir l'AC que vous voulez et régler les paramètres.<br/>
 			Options depuis le simulateur à proprement parler:<br/><br/>
@@ -140,9 +148,19 @@
 					<td>Efface la grille.</td/>
 				</tr>
 				<tr>
-					<th>✍</th>
+					<th>✎</th>
 					<td>m<gi>odifier</gi></td>
-					<td>Passe en mode modification. Permet de changer l'état des cellules en leur cliquant dessus.<br/> Vous pouvez revenir en pause avec le bouton <span style="font-size:150%">✓</span> (raccourci s<gi>auver</gi>).</td>
+					<td>Passe en mode modification. Permet de changer l'état des cellules en leur cliquant dessus.<br/> Vous pouvez revenir en pause avec le bouton <span style="font-size:150%">✓</span> (raccourci v<gi>alider</gi>).</td>
+				</tr>
+				<tr>
+					<th>💾</th>
+					<td>s<gi>auvegarder</gi></td>
+					<td>Permer de télécharger sous la forme d'un fichier ou d'obtenir un identifiant vers l'état actuel du simulateur.</td>
+				</tr>
+				<tr>
+					<th>↥</th>
+					<td>c<gi>harger</gi></td>
+					<td>Charge un état depuis un fichier ou un identifiant.</td>
 				</tr>
 			</table>
 			</centerblock>

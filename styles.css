@@ -25,6 +25,10 @@ gi { /* greyed italics */
 	float : left
 }
 
+.back {
+	background-color: lightblue
+}
+
 table {
 	border: 1px solid #888888;
 	background-color: #DDFFFF
@@ -44,4 +48,12 @@ th {
 	border: 1px solid #000000;
 	padding:10px;
 	text-align:center
+}
+
+.validate {
+	background-color: lightgreen
+}
+
+.transparent {
+	opacity: 0.0
 }
