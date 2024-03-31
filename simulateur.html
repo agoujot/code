@@ -7,12 +7,10 @@
 		<title>Simulateur</title>
 	</head>
 	<body>
-		<div id="CAlist"><h3>Menu</h3>
-			<input style="background-color:black; color:white" type="button" value="&nbsp;⚙ " onclick="only([Settings])"/>
-			<input style="background-color:blue; color:white" type="button" value="&ensp;ℹ&ensp;" onclick="if (!paused) { paused = true }; only([info])"/>
-			<br/><br/>
-			<select name="CA" id="CA" style="font-size:200%">
-				<option value="none"><gi>Choisissez une option</gi></option>
+		<div id="Menu">
+			<h3>Menu</h3><hr>
+			<select name="CA" id="CA" style="font-size:150%">
+				<option value="none">(choisissez une option)</option>
 				<option value="gol">Le Jeu de la Vie</option>
 				<option value="bosco">La règle de Bosco</option>
 				<option value="daynight">Day & night</option>
@@ -20,14 +18,18 @@
 				<option value="sparks">Sparks</option>
 				<option value="eiii">Expérience III</option>
 				<option value="rand">Aléatoire</option>
-				<option value="create">Créer</option>
+				<option value="create">Créer (En cours)</option>
 				<option value="import">Importer</option>
 			</select>
 			<br/>
 			<br/>
-			<input class="validate" type="button" value="Valider" id="CAvalid" style="font-size:130%">
+			<input class="other" type="button" value="&nbsp;⚙ " onclick="only([Settings])"/>
+			<input class="other" type="button" value="ℹ" onclick="if (!paused) { paused = true }; only([Info])"/>
+			<br/><br/>
+			<input class="validate" type="button" value="Valider" id="CAvalid">
 		</div>
 		<div id="Settings">
+			<h3>Paramètres</h3><hr>
 			<centerblock>
 			<label for="delay">Délai entres les étapes (secondes):</label>
 			<br/>
@@ -51,22 +53,22 @@
 		<centerblock>
 			<div id="Options">
 				<div class="float-left">
-					<input id="xbtn" style="background-color:red" type="button" value="&nbsp;✖&nbsp;"/>
-					<input id="ibtn" style="background-color:blue; color:white" type="button" value="&ensp;ℹ&ensp;"/>
-					<input style="display:none" type="button" value="&nbsp;"/> <!-- pour empecher la hauteur de la ligne de varier selon si on est en pause ou pas -->
+					<input id="xbtn" class="other" type="button" value="✖"/>
+					<input id="ibtn" class="other" type="button" value="ℹ"/>
+					<input style="opacity:0.0;height:50px" type="button" value="&nbsp;"/>
 				</div>
 				<div class="float-right">
-					<input id="cbtn" type="button" value="↥"/>
-					<input id="sbtn" type="button" value="💾"/>
-					<input id="mbtn" type="button" value="✎"/>
-					<input id="vbtn" type="button" value="✓"/> 
-					<input id="pbtn" type="button" value="❚ ❚"/>
-					<input id="nbtn" type="button" value="⟳"/>
-					<input id="ebtn" type="button" value="▦"/>
-					<input id="rbtn" type="button" value="◀"/>
-					<input id="mobtn" type="button" value="➖"/>
-					<input id="plbtn" type="button" value="➕"/>
-					<input id="abtn" type="button" value="▶"/> 
+					<input id="cbtn" class="option" title="Charger un état depuis un fichier/identifiant" type="button" value="↥"/>
+					<input id="sbtn" class="option" title="Sauvegarder l'état dans un fichier/identifiant" type="button" value="↧"/>
+					<input id="mbtn" class="option" title="Modifier manuellement des cellules" type="button" value="✎"/>
+					<input id="qbtn" class="back" title="Quitter le mode modification" type="button" value="↑"/> 
+					<input id="pbtn" class="option" title="Mettre en pause" type="button" value="❚ ❚"/>
+					<input id="nbtn" class="option" title="Remplir aléatoirement la grille" type="button" value="⟳"/>
+					<input id="ebtn" class="option" title="Vider" type="button" value="▦"/>
+					<input id="rbtn" class="option" title="Reculer" type="button" value="◀"/>
+					<input id="mobtn" class="option" title="Reculer une fois" type="button" value="⇠"/>
+					<input id="plbtn" class="option" title="Avancer une fois" type="button" value="⇢"/>
+					<input id="abtn" class="option" title="Avancer" type="button" value="▶"/> 
 				</div> 
 			</div>
 			<canvas width="1000" height="1000">
@@ -74,34 +76,103 @@
 			</canvas>
 		</centerblock>
 		<div id="Save">
-			<input class="back" type="button" value="<" onclick="only(whereami)"/><br/><br/>
+			<h3>Sauvegarder</h3><hr>
+			<input class="back" type="button" value="←" onclick="only(whereami)"/><br/><br/>
 			<a id="Download" href="#" style="font-size:150%"></a>
 			<br/><br/>ou<br/><br/>
-			<input id="stateidout" type="button" value="Copier l'identifiant de cet état" style="background-color:white"/>
+			<input id="stateidout" type="button" value="Copier l'identifiant de cet état" style="background-color:white;font-size:150%"/>
+			<span id="copied" style="font-size:150%;color:darkgreen">Identifiant copié.</span>
 		</div>
 		<div id="Upload">
-			<input class="back" type="button" value="<" onclick="only(whereami)"/><br/><br/>
+			<h3>Charger</h3><hr>
+			<input class="back" type="button" value="↑" onclick="only(whereami)"/><br/><br/>
 			<label for="filename" style="font-size:150%">Choisissez votre fichier :</label><br/><br/>
-			<input id="filename" type="file"/>
+			<input id="filename" type="file" style="font-size:150%"/>
 			<br/><br/>ou<br/><br/>
-			<label for="stateidin" style="font-size:150%">Entrez un identifiant d'état:</label><br/><br/>
+			<label for="stateidin" style="font-size:150%">Entrez un identifiant d'état :</label><br/><br/>
 			<textarea id="stateidin" cols="50" rows="10" placeholder="Mettez ici l'identifiant"></textarea>
 			<br/><br/>
 			<input id="loadvalid" type="button" value="Valider" class="validate"/>
 		</div>
-		<div id="info">
-			<h3>Informations</h3>
+		<div id="Create">
+			<h3>Créer</h3><hr>
+			<centerblock/>
+			<input class="back" type="button" value="↑" onclick="only([Menu])"/><br/><br/>
+			<b>États : </b><br/><br/>
+			<table id="colorlist">
+				<thead>
+				<tr>
+					<td scope="col">État</td>
+					<td scope="col">Couleur</td>
+					<td scope="col">RGB</td>
+				</tr>
+				</thead>
+				<tr>
+					<td>0</td>
+					<td style="background-color:#000000">&emsp;&emsp;&emsp;</td>
+					<td><code>#000000</code></td>
+				</tr>
+			</table>
+			<label for="colorpicker">Ajouter un état:</label>
+			<input type="color" id="colorpicker"/>
+			<input type="button" id="addcolor" value="+" class="stdbtn"/><br/>
+			<label for="coloremove">Retirer un état:</label>
+			<input type="number" id="statetorm" size="2"/>
+			<input type="button" class="stdbtn" id="rmstate" value="–"/><br/>
+			<br/><br/><br/>
+			<b>Voisinage : </b><br/><br/>
+			Sélectionner en cliquant le voisinage de la cellule blanche (elle peut être comprise.)<br/><br/>
+			<table id="neighborhood"></table>
+			<br/><br/><br/>
+			<b>Règle : </b><br/><br/>
+			<div id="manualrule">
+				<input id="tobs" type="button" class="stdbtn" value="Passer en mode B/S."/><br/>
+				Les conditions doivent être définies sous forme de test logiques. 
+				Sont autorisés (, ) , ||, &&, >, <, <=, =>, ==, !=, true et false.<br/>
+				Mettre cX pour le nombre de voisins à l'état X.<br/>
+				Toutes les cas possibles doivent être pris en compte.<br/>
+				Chaque cas implique que les précédents n'ont pas étés remplis.<br/>
+				<table id="cases">
+					<thead>
+					<tr>
+						<td scope="col">État actuel</td>
+						<td scope="col">Condition</td>
+						<td scope="col">&emsp;&emsp;&emsp;</td>
+						<td scope="col">État suivant</td>
+					</tr>
+					</thead>
+				</table><br/>
+				<span id="caseincreation">
+					<select id="currentstate"></select> et <input type="text" size="20" id="condition" placeholder="condition"/> →  <select id="result"></select>
+					<input type="button" class="stdbtn" value="✓" id="casevalid"/>
+				</span>
+				<input type="button" class="stdbtn" value="Ajouter un cas" id="addcase"/>
+				</div>
+			<div id="bsrule">
+				<input id="frombs" type="button" class="stdbtn" value="Revenir en mode manuel."/><br/>
+				Cette notation de règle, pour les CA à états, donne juste les nombres de voisins nécéssaire pour la naissance (noir en blanc) et la survie (blanc en blanc). <br/>Les intervalles peuvent être exprimés en séparant les bornes par des tirets, et les nombres individuels/intervalles doivent être séparés par des virgules.<br/>
+				Naissance : <input type="text" id="birthcounts"/><br/>
+				Survie : <input type="text" id="survivalcounts"/>
+			</div>
+			<br/><br/>
+			<input type="button" class="validate" value="Valider" id="createvalid"/>
+			</centerblock>
+		</div>
+		<div id="Info">
+			<h3>Informations</h3><hr>
 			<centerblock>
-			<input class="back" type="button" value="<" onclick="only(whereami)"/><br/><br/>
+			<input class="back" type="button" value="↑" onclick="only(whereami)"/><br/><br/>
 			Bienvenue au simulateur d'automates cellulaires.<br/>
 			Depuis le menu, vous pouvez choisir l'AC que vous voulez et régler les paramètres.<br/>
 			Options depuis le simulateur à proprement parler:<br/><br/>
 			<table>
+				<thead>
 				<tr>
 					<td scope="col">Bouton</td>
 					<td scope="col">Raccourci</td>
 					<td scope="col">Effet</td>
 				</tr>
+				</thead>
 				<tr>
 					<th>✖</th>
 					<td>x</td>
@@ -119,11 +190,11 @@
 				</tr>
 				<tr>
 					<th>▶</th>
-					<td>flèche de droite</gi></td>
+					<td>flèche de droite</td>
 					<td>Relance le simulateur.</td>
 				</tr>
 				<tr>
-					<th>➕</th>
+					<th>⇢</th>
 					<td>flèche d'en haut</td>
 					<td>Avance d'une étape, puis revient en pause.</td>
 				</tr>
@@ -133,7 +204,7 @@
 					<td>Relance le simulateur en arrière.</td>
 				</tr>
 				<tr>
-					<th>➖</th>
+					<th>⇠</th>
 					<td>flèche d'en bas</td>
 					<td>Recule d'une étape, puis revient en pause.</td>
 				</tr>
@@ -145,15 +216,15 @@
 				<tr>
 					<th>▦</th>
 					<td>e<gi>ffacer</gi></td>
-					<td>Efface la grille.</td/>
+					<td>Efface la grille.</td>
 				</tr>
 				<tr>
 					<th>✎</th>
 					<td>m<gi>odifier</gi></td>
-					<td>Passe en mode modification. Permet de changer l'état des cellules en leur cliquant dessus.<br/> Vous pouvez revenir en pause avec le bouton <span style="font-size:150%">✓</span> (raccourci v<gi>alider</gi>).</td>
+					<td>Passe en mode modification. Permet de changer l'état des cellules en leur cliquant dessus.<br/> Vous pouvez revenir en pause avec le bouton <span style="font-size:150%">↑</span> (raccourci q<gi>uitter</gi>).</td>
 				</tr>
 				<tr>
-					<th>💾</th>
+					<th>↧</th>
 					<td>s<gi>auvegarder</gi></td>
 					<td>Permer de télécharger sous la forme d'un fichier ou d'obtenir un identifiant vers l'état actuel du simulateur.</td>
 				</tr>

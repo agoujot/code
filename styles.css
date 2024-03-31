@@ -1,10 +1,39 @@
-body {
-	background-color: #CCFFFF;
-	text-align: center;
+:root {
+ --c1: rgb(39 102 120); /* bleuu foncé */
+ --c2: rgb(22 135 167); /* turquoise */
+ --c3: rgb(211 224 234); /* bleu clair */
+ --c4: rgb(255 255 255); /* blanc */
+ --c5: rgb(200 223 213); /* vert clair */
+ --c6: rgb(190 220 220); /* cyan clair */
 }
 
-input {
-	font-size: 150%
+body {
+	background-color: var(--c3);
+	text-align: center;
+	color: var(--c1)
+}
+
+table {
+	background-color: var(--c6);
+	border-collapse:collapse
+}
+
+thead {
+	background-color: var(--c2);
+	font-weight:bold;
+	color:var(--c3)
+}
+
+td {
+	padding:10px;
+	border: 1px solid #000000;
+}
+
+th {
+	font-size: 150%;
+	padding:10px;
+	border: 1px solid #000000;
+	text-align:center
 }
 
 centerblock {
@@ -13,6 +42,11 @@ centerblock {
 }
 
 gi { /* greyed italics */
+	font-style: italic;
+	color: #777777
+}
+
+.gi {
 	font-style: italic;
 	color: #777777
 }
@@ -26,34 +60,34 @@ gi { /* greyed italics */
 }
 
 .back {
-	background-color: lightblue
-}
-
-table {
-	border: 1px solid #888888;
-	background-color: #DDFFFF
-}
-
-thead {
-	background-color: #DDEEDD
-}
-
-td {
-	border: 1px solid #000000;
-	padding: 10px;
-}
-
-th {
-	font-size: 150%;
-	border: 1px solid #000000;
-	padding:10px;
-	text-align:center
+	background-color: var(--c5);
+	font-size:150%;
+	height:40px;
+	width:40px
 }
 
 .validate {
-	background-color: lightgreen
+	background-color: var(--c5);
+	font-size:130%
 }
 
-.transparent {
-	opacity: 0.0
+.other {
+	background-color:var(--c1);
+	color:var(--c4);
+	font-size:150%;
+	height:40px;
+	width:40px;
+}
+
+.option {
+	background-color:var(--c4);
+	color:var(--c1);
+	font-size:150%;
+	height:40px;
+	width:40px;
+}
+
+.stdbtn {
+	background-color:var(--c4);
+	color:var(--c1);
 }
