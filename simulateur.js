@@ -3,14 +3,14 @@
 //			histoire des changements
 //			avec positions relatives
 //			et valeurs par defaut
-//		compresser encore plus les grilles, pas sur que ca soit possible
+//		compresser encore plus les grilles, pas sur que ca soit possible avec les caracteres d'URL valides
 // initialisation de variables #ini (les balises en # permettent de venir avec une recherche)
 const canvas = document.querySelector("canvas");
 const ctx = canvas.getContext("2d");
 kill = false; // si le CA devrait etre arrete
 fileurl = null;
 groupes = [canvas, Options, Menu, Info, Settings, Save, Upload, Create]; // (groupes d')elements pour l'affichage
-CAs = ["gol", "bosco", "daynight", "marine", "sparks", "eiii"]; // liste des CA disponibles
+CAs = ["gol", "bosco", "daynight", "marine", "sparks", "eiii", "blob"]; // liste des CA disponibles
 pauseonlybuttons = [abtn, plbtn, mobtn, rbtn, mbtn, nbtn, ebtn, sbtn, cbtn];
 key_funcs = []; // cles : codes, valeurs : fonctions
 url = new URL (window.location.href);
@@ -22,24 +22,6 @@ blue = "0 0 255";
 white = "255 255 255"; // quelques couleurs predefinies
 paused = true;
 filecontent = "";
-toadd = "";
-ntable = []; // un tableau de carrés gris avec celui du mileu en blanc, en cliquant dessus ils deviennent noirs et on les ajoute au voisinage
-for (let i = 0; i <= 10; i++) {
-	toadd += "<tr>";
-	nl = [];
-	for (let j = 0; j <= 10; j++) {
-		if (i != 5 || j != 5) {
-			toadd += '<td style="background-color:#AAAAAA;width:20px;height:20px" id="n'+i.toString()+"I"+j.toString()+'t" onclick="flip('+i.toString()+","+j.toString()+')"><span style="visibility:hidden">&nbsp;</span></td>';
-			nl[j] = false;
-		} else {
-			toadd += '<td style="background-color:white;width:20px;height:20px" id="n5I5t" onclick="flip(5, 5)"><span style="visibility:hidden">&nbsp;<span></td>';
-			nl[j] = false;
-		}
-	}
-	ntable[i] = dcopy(nl);
-	toadd += "</tr>"
-}
-neighborhood.innerHTML += toadd;
 // quelques fonctions de base #basics
 function inarray(l, x) {
 	for (let i = 0; i < l.length; i++) {
@@ -188,9 +170,23 @@ function bs (bi, su) { // interprete la notation classique B/S, pour quand il y 
 }
 // pour montrer et cacher des trucs #display
 function hide_(e) { e.style.display = "none" }
-function hide(a) { for (let i = 0; i < a.length; i++) { hide_(a[i]) } }
+function hide(a) { 
+	for (let i = 0; i < a.length; i++) { 
+		hide_(a[i]) 
+	}; 
+	if (canvas.style.display == "none" && Options.style.display == "none") { // parce que sinon il reste un centerblock vide qui traine
+		hide_(optcanvas) 
+	} 
+}
 function show_(e) { e.style.display = ""  }
-function show(a) { for (let i = 0; i < a.length; i++) { show_(a[i]) } }
+function show(a) { 
+	for (let i = 0; i < a.length; i++) { 
+		show_(a[i]) 
+	}; 
+	if (canvas.style.display != "none" && Options.style.display != "none") { 
+		show_(optcanvas) 
+	} 
+}
 function only(a) {
 	hide(groupes);
 	show(a);
@@ -301,7 +297,7 @@ createvalid.onclick = () => { // pour lancer avec le n, col, et f construits
 	} else {
 		f_ = 'bs("'+birthcounts.value+'", "'+survivalcounts.value+'")';
 	}
-	go(f_+"."+JSON.stringify(n)+"."+JSON.stringify(col)+"_"+size.value+"_"+delay.value+"_"+wrap.checked+"_rand")
+	go(f_+"."+JSON.stringify(n)+"."+JSON.stringify(col)+"_"+si.toString()+"_"+delay.toString()+"_"+((dowrap)?"true":"false")+"_rand")
 }
 tobs.onclick = () => {hide_(manualrule); show_(bsrule)};
 frombs.onclick = () => {hide_(bsrule); show_(manualrule)};
@@ -315,6 +311,24 @@ function create() { // aller au menu de creation
 	show_(manualrule)
 	f_ = "";
 	nocase = true;
+	toadd = "";
+	ntable = []; // un tableau de carrés gris avec celui du mileu en blanc, en cliquant dessus ils deviennent noirs et on les ajoute au voisinage
+	for (let i = 0; i <= 10; i++) {
+		toadd += "<tr>";
+		nl = [];
+		for (let j = 0; j <= 10; j++) {
+			if (i != 5 || j != 5) {
+				toadd += '<td style="background-color:#AAAAAA;width:20px;height:20px" id="n'+i.toString()+"I"+j.toString()+'t" onclick="flip('+i.toString()+","+j.toString()+')"><span style="visibility:hidden">&nbsp;</span></td>';
+				nl[j] = false;
+			} else {
+				toadd += '<td style="background-color:white;width:20px;height:20px" id="n5I5t" onclick="flip(5, 5)"><span style="visibility:hidden">&nbsp;<span></td>';
+				nl[j] = false;
+			}
+		}
+		ntable[i] = dcopy(nl);
+		toadd += "</tr>"
+	}
+	neighborhood.innerHTML = toadd;
 }
 function actualisetable() { // actualise le tableau de col
 	colorlist.innerHTML = '<thead><tr><td scope="col">État</td><td scope="col">Couleur</td><td scope="col">RGB</td></tr></thead>';
@@ -359,8 +373,8 @@ function totext() { // renvoie une chaine decrivant etape actuelle, parametres e
 	return (
 	running + "_" + 
 	si.toString() + "_" + 
-	delay.value.toString() + "_" + 
-	wrap.checked + "_" + 
+	delay.toString() + "_" + 
+	((dowrap)?"true":"false") + "_" + 
 	compress(g_))
 }
 function compress (aa) { // tableau de tableau -> chaine
@@ -404,7 +418,10 @@ function compress (aa) { // tableau de tableau -> chaine
 	return res
 }
 // chargement d'états #load
-bind((() => {only([Upload])}), cbtn, "C") // charger
+bind((() => {
+	filename.value = "";
+	only([Upload])
+	}), cbtn, "C") // charger
 function waitforfile() { // pour ne pas que load s'execute avant que filecontent existe
 	if (filecontent == "") {
 		setTimeout(waitforfile, 100) 
@@ -435,8 +452,7 @@ function decompress (s) { // chaine -> tableau de tableau (a besoin des parametr
 			i += 3
 		} if (l[i] == "$") {
 			l1.push("$");
-			l1.push(fromb64(l[i+1]));
-			i += 2
+			i += 1
 		} else {
 			l1.push(fromb64(l[i]));
 			i ++
@@ -471,7 +487,7 @@ CAvalid.addEventListener("click", (() => {
 		case "none" : 
 			break
 		case "import" : 
-			only([Upload]);
+			cbtn.onclick();
 			break
 		case "create" : 
 			create();
@@ -530,10 +546,9 @@ function di() { // Do It, fait l'iteration principale
 							i_ = i+a[0];
 							j_ = j+a[1];
 							if (i_ < 0 || i_ >= si || j_ < 0 || j_ >= si) {
-								if (wrap.checked === true) { // si il faut prendre de l'autre cote
+								if (dowrap === true) { // si il faut prendre de l'autre cote
 									return g[w(i_)][w(j_)]
 								} else { // si il faut compter une bordure de cases vides
-									console.log(wrap.checked);
 									return black
 								}
 							} else {
@@ -553,7 +568,7 @@ function di() { // Do It, fait l'iteration principale
 				o = false;
 				paused = true;
 			}
-			sleep(delay.value*1000).then(() => {di()}) // meme si delai nul, remedie a la synchronalite de javascript, cad l'empeche d'essayer de tout calculer avant d'afficher, ce qui est problematique avec la boucle infinie intentionelle
+			sleep(delay*1000).then(() => {di()}) // meme si delai nul, remedie a la synchronalite de javascript, cad l'empeche d'essayer de tout calculer avant d'afficher, ce qui est problematique avec la boucle infinie intentionelle
 		} else {
 			hide_(pbtn);
 			show(pauseonlybuttons);
@@ -626,6 +641,12 @@ function getpars(na) { // donne les parametres correspondant au nom na
 				moore(1).concat([[0, 0]]),
 				[black, red, green, blue],
 				equ]
+		case "blob" :
+			return [
+				bs("6-8", "5-8"),
+				[[-1,-1],[-1,-2],[-2,-1],[-2,0],[-2,1],[-1,1],[-1,2],[0,2],[1,2],[1,1],[2,1],[2,0],[2,-1],[1,-2],[0,-2],[1,-1]],
+				["0 0 0","255 255 255"],
+				equ]
 		case "rand" :
 			CA.value = CAs[randint(CAs.length)];
 			return getpars(CA.value);
@@ -644,15 +665,17 @@ function go(s) { // lance le simulateur avec id s (si s vide, depuis CA)
 		lines = s.split("_");
 		kill = true;
 		pars = getpars(lines[0]);
-		size.value = lines[1];
-		delay.value = lines[2];
-		wrap.checked = (lines[3] == "true");
+		si = Number(lines[1]);
+		delay = Number(lines[2]);
+		dowrap = (lines[3] == "true");
 		running = lines[0];
 	} else {
 		pars = getpars(CA.value);
 		running = CA.value;
+		si = Number(size.value);
+		delay = Number(delay.value);
+		dowrap = (wrap.checked == "true");
 	}
-	si = Number(size.value);
 	f = pars[0];
 	n = pars[1];
 	col = pars[2];
@@ -661,7 +684,7 @@ function go(s) { // lance le simulateur avec id s (si s vide, depuis CA)
 	for (let i = 0; i < col.length; i++) {
 		coltoi[col[i]] = i
 	}
-	if (s && lines[4] != "rand") { // pour permetre (notamment avec create) d'avoir l'aleatoire avec un id
+	if (s && lines[4] != "rand" && lines[4] != "rand\n") { // pour permetre (notamment avec create) d'avoir l'aleatoire avec un id
 		g = decompress(lines[4])
 	} else {
 		g = b();

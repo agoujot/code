@@ -17,8 +17,9 @@
 				<option value="marine">Marine</option>
 				<option value="sparks">Sparks</option>
 				<option value="eiii">Expérience III</option>
+				<option value="blob">Blob</option>
 				<option value="rand">Aléatoire</option>
-				<option value="create">Créer (En cours)</option>
+				<option value="create">Créer</option>
 				<option value="import">Importer</option>
 			</select>
 			<br/>
@@ -50,7 +51,7 @@
 			<br/><br/>
 			<center><input class="validate" type="button" value="Valider" id="settingsvalid"/></center>
 		</div>
-		<centerblock>
+		<centerblock id="optcanvas">
 			<div id="Options">
 				<div class="float-left">
 					<input id="xbtn" class="other" type="button" value="✖"/>
@@ -150,7 +151,7 @@
 				</div>
 			<div id="bsrule">
 				<input id="frombs" type="button" class="stdbtn" value="Revenir en mode manuel."/><br/>
-				Cette notation de règle, pour les CA à états, donne juste les nombres de voisins nécéssaire pour la naissance (noir en blanc) et la survie (blanc en blanc). <br/>Les intervalles peuvent être exprimés en séparant les bornes par des tirets, et les nombres individuels/intervalles doivent être séparés par des virgules.<br/>
+				Cette notation de règle, pour les CA à 2 états, donne juste les nombres de voisins nécéssaire pour la naissance (noir en blanc) et la survie (blanc en blanc). <br/>Les intervalles peuvent être exprimés en séparant les bornes par des tirets, et les nombres individuels/intervalles doivent être séparés par des virgules.<br/>
 				Naissance : <input type="text" id="birthcounts"/><br/>
 				Survie : <input type="text" id="survivalcounts"/>
 			</div>
