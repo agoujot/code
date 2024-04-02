@@ -36,6 +36,10 @@ th {
 	text-align:center
 }
 
+a {
+	text-decoration:none
+}
+
 centerblock {
 	display: inline-block;
 	text-align: left
@@ -60,7 +64,8 @@ gi { /* greyed italics */
 }
 
 .back {
-	background-color: var(--c6);
+	background-color: var(--c4);
+	color:var(--c1);
 	font-size:150%;
 	height:40px;
 	width:40px

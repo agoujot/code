@@ -7,8 +7,15 @@
 		<title>Simulateur</title>
 	</head>
 	<body>
+		<b>
+		<div style="float:left;width:25%"><a href="index.html">Page principale</a></div>
+		<div style="float:left;width:25%"><a href="simulateur.html">Simulateur</a></div>
+		<div style="float:left;width:25%"><a href="random.html">Page aléatoire</a></div>
+		<div style="float:left;width:25%"><a href="about.html">À propos</a></div>
+		</b> 
+		<hr><!-- en-tête pour toutes les pages -->
 		<div id="Menu">
-			<h3>Menu</h3><hr>
+			<h2>Simulateur</h2>
 			<select name="CA" id="CA" style="font-size:150%">
 				<option value="none">(choisissez une option)</option>
 				<option value="gol">Le Jeu de la Vie</option>
@@ -30,7 +37,7 @@
 			<input class="validate" type="button" value="Valider" id="CAvalid">
 		</div>
 		<div id="Settings">
-			<h3>Paramètres</h3><hr>
+			<h3>Paramètres</h3>
 			<centerblock>
 			<label for="delay">Délai entres les étapes (secondes):</label>
 			<br/>
@@ -62,7 +69,7 @@
 					<input id="cbtn" class="option" title="Charger un état depuis un fichier/identifiant" type="button" value="↥"/>
 					<input id="sbtn" class="option" title="Sauvegarder l'état dans un fichier/identifiant" type="button" value="↧"/>
 					<input id="mbtn" class="option" title="Modifier manuellement des cellules" type="button" value="✎"/>
-					<input id="qbtn" class="back" title="Quitter le mode modification" type="button" value="↑"/> 
+					<input id="qbtn" class="other" title="Quitter le mode modification" type="button" value="↑"/> 
 					<input id="pbtn" class="option" title="Mettre en pause" type="button" value="❚ ❚"/>
 					<input id="nbtn" class="option" title="Remplir aléatoirement la grille" type="button" value="⟳"/>
 					<input id="ebtn" class="option" title="Vider" type="button" value="▦"/>
@@ -77,7 +84,7 @@
 			</canvas>
 		</centerblock>
 		<div id="Save">
-			<h3>Sauvegarder</h3><hr>
+			<h3>Sauvegarder</h3>
 			<input class="back" type="button" value="←" onclick="only(whereami)"/><br/><br/>
 			<a id="Download" href="#" style="font-size:150%"></a>
 			<br/><br/>ou<br/><br/>
@@ -85,7 +92,7 @@
 			<span id="copied" style="font-size:150%;color:darkgreen">Identifiant copié.</span>
 		</div>
 		<div id="Upload">
-			<h3>Charger</h3><hr>
+			<h3>Charger</h3>
 			<input class="back" type="button" value="↑" onclick="only(whereami)"/><br/><br/>
 			<label for="filename" style="font-size:150%">Choisissez votre fichier :</label><br/><br/>
 			<input id="filename" type="file" style="font-size:150%"/>
@@ -96,7 +103,7 @@
 			<input id="loadvalid" type="button" value="Valider" class="validate"/>
 		</div>
 		<div id="Create">
-			<h3>Créer</h3><hr>
+			<h3>Créer</h3>
 			<centerblock/>
 			<input class="back" type="button" value="↑" onclick="only([Menu])"/><br/><br/>
 			<b>États : </b><br/><br/>
@@ -160,11 +167,12 @@
 			</centerblock>
 		</div>
 		<div id="Info">
-			<h3>Informations</h3><hr>
+			<h3>Informations</h3>
 			<centerblock>
 			<input class="back" type="button" value="↑" onclick="only(whereami)"/><br/><br/>
 			Bienvenue au simulateur d'automates cellulaires.<br/>
 			Depuis le menu, vous pouvez choisir l'AC que vous voulez et régler les paramètres.<br/>
+			(Il est conseillé de dézoomer sur cette page pour pouvoir voir en entier le simulateur).<br/>
 			Options depuis le simulateur à proprement parler:<br/><br/>
 			<table>
 				<thead>

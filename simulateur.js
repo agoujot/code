@@ -289,6 +289,7 @@ casevalid.onclick = () => { // tente d'ajouter un cas a la regle
 	}
 }
 createvalid.onclick = () => { // pour lancer avec le n, col, et f construits
+	console.log("ehy");
 	if (bsrule.style.display == "none") {
 		for (let i = 0; i < col.length; i++) {
 			f_ = " c"+i.toString() +" = countof('"+col[i]+"', a);" + f_
@@ -297,7 +298,7 @@ createvalid.onclick = () => { // pour lancer avec le n, col, et f construits
 	} else {
 		f_ = 'bs("'+birthcounts.value+'", "'+survivalcounts.value+'")';
 	}
-	go(f_+"."+JSON.stringify(n)+"."+JSON.stringify(col)+"_"+si.toString()+"_"+delay.toString()+"_"+((dowrap)?"true":"false")+"_rand")
+	go(f_+"."+JSON.stringify(n)+"."+JSON.stringify(col)+"_"+size.value+"_"+delay.value+"_"+wrap.checked+"_rand")
 }
 tobs.onclick = () => {hide_(manualrule); show_(bsrule)};
 frombs.onclick = () => {hide_(bsrule); show_(manualrule)};
@@ -340,7 +341,7 @@ function flip(i, j) { // pour n, met une case blanche/grise en noir et vice-vers
 	nv = !(ntable[Number(i)][Number(j)]);
 	ntable[Number(i)][Number(j)] = nv;
 	idshouldbe = "n" + i.toString() + "I" + j.toString()+"t"
-	eval(idshouldbe+".style.backgroundColor = (nv) ? '#000000' : ((i == 5 && j == 5) ? '#FFFFFF' : '#AAAAAA')");
+	eval(idshouldbe+".style.backgroundColor = (nv) ? '#000088' : ((i == 5 && j == 5) ? '#FFFFFF' : '#AAAAAA')");
 	if (nv) {
 		n.push([i-5, j-5])
 	} else {
@@ -373,7 +374,7 @@ function totext() { // renvoie une chaine decrivant etape actuelle, parametres e
 	return (
 	running + "_" + 
 	si.toString() + "_" + 
-	delay.toString() + "_" + 
+	delaytime.toString() + "_" + 
 	((dowrap)?"true":"false") + "_" + 
 	compress(g_))
 }
@@ -568,7 +569,7 @@ function di() { // Do It, fait l'iteration principale
 				o = false;
 				paused = true;
 			}
-			sleep(delay*1000).then(() => {di()}) // meme si delai nul, remedie a la synchronalite de javascript, cad l'empeche d'essayer de tout calculer avant d'afficher, ce qui est problematique avec la boucle infinie intentionelle
+			sleep(delaytime*1000).then(() => {di()}) // meme si delai nul, remedie a la synchronalite de javascript, cad l'empeche d'essayer de tout calculer avant d'afficher, ce qui est problematique avec la boucle infinie intentionelle
 		} else {
 			hide_(pbtn);
 			show(pauseonlybuttons);
@@ -666,15 +667,15 @@ function go(s) { // lance le simulateur avec id s (si s vide, depuis CA)
 		kill = true;
 		pars = getpars(lines[0]);
 		si = Number(lines[1]);
-		delay = Number(lines[2]);
-		dowrap = (lines[3] == "true");
+		delaytime = Number(lines[2]);
+		dowrap = (lines[3] === "true" || lines[3] === true);
 		running = lines[0];
 	} else {
 		pars = getpars(CA.value);
 		running = CA.value;
 		si = Number(size.value);
-		delay = Number(delay.value);
-		dowrap = (wrap.checked == "true");
+		delaytime = Number(delay.value);
+		dowrap = (wrap.checked === "true" || wrap.checked === true);
 	}
 	f = pars[0];
 	n = pars[1];
