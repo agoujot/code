@@ -1,6 +1,7 @@
 em = "\u2014";
-di = {
-	" 1 ":		" I ", 
+layers = [{ // multiple layers of OCR errors because some need to be checked for before others, for example ]3 before ].
+	" 1 ":		" I ",
+	"$":		"S",
 	"]3":		"B", 
 	"]B":		"B", 
 	"I3":		"B", 
@@ -15,47 +16,49 @@ di = {
 	"liim":		"Him", 
 	"liis":		"His", 
 	"lng":		"ing", 
-	"\u007f"	:", ", 
 	"5I":		"M", 
 	"tile":		"the", 
 	"xv":		"w",  
 	"\u007fv":	"w", 
 	";v":		"w", 
 	",v":		"w", 
+	"sv":		"w",
 	"XV":		"W", 
 	"\u007fV":	"W", 
 	"Xv":		"W", 
 	",V":		"W", 
 	";V":		"W", 
-	"tnv":		"ow", 
+	"tnv":		"ow",
+	"mv":		"ow",
 "\n\u007fnd":	"\nAnd", 
 	"])":		"D", 
 	"]D": 		"D", 
 	"]N":		"N", 
 	"/I":		"A",
-	".A":		"A", 
+	".A":		"A"}, {
+	"\u007f "	:", ", 
 	"]":		"!", 
 	"%":		"e,", 
 	"“":		'"',
 	"”":		'"',
 	"‘":		"'",
 	"’":		"'",
-	" --- ":	em, 
+	" --- ":	em,
 	"--- ":		em, 
 	" ---":		em, 
-	" -- ":		em, 
+	" -- ":		em }, { 
 	"-- ":		em, 
 	" --":		em, 
-	" - ":		em,
+	" - ":		em }, {
 	" -":		em, 
 	"- ":		em, 
-	"---"		:em, 
+	"---"		:em}, {
 	"--":		em, 
-	"\u007f":		"", 
+	"\u007f":	"", 
 	" !":		"!", 
 	" ?":		"?", 
 	" ;":		";"
-	}
+	}]
 function opsplit(s, o) {
 	r = [];
 	i = 0;
@@ -115,28 +118,32 @@ function pr(s) {
 rhyme = ["0"];
 textin.onchange = () => {
 	l = textin.value;
-	a = "";
-	ci = 0;
-	while (ci < l.length) {
-		found = false;
-		for (key of Object.keys(di)) {
-			if (l.slice(ci, ci+key.length) == key) {
-				a += di[key];
-				ci += key.length;
-				console.log("'"+key + "' -> '"+di[key]+"'");
-				found = true;
-				break
+	a = l;
+	for (di of layers) {
+		a = "";
+		ci = 0;
+		while (ci < l.length) {
+			found = false;
+			for (key of Object.keys(di)) {
+				if (l.slice(ci, ci+key.length) == key) {
+					a += di[key];
+					ci += key.length;
+					console.log("'"+key + "' -> '"+di[key]+"'");
+					found = true;
+					break
+				}
+			}
+			if (!found) {
+				a += l[ci];
+				ci += 1
 			}
 		}
-		if (!found) {
-			a += l[ci];
-			ci += 1
-		}
+		l = a;
 	}
 	t = [];
-	a = a.split("\n");
+	l = l.split("\n");
 	ri = 0;
-	for (ll of a) {
+	for (ll of l) {
 		if (ll.slice(0, 3) == "=r ") {
 			rhyme = pr(ll.slice(3));
 		} else if (ll.slice (0, 3) == "=i ") {
