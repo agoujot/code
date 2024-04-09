@@ -1,64 +1,21 @@
 em = "\u2014";
-layers = [{ // multiple layers of OCR errors because some need to be checked for before others, for example ]3 before ].
-	" 1 ":		" I ",
-	"$":		"S",
-	"]3":		"B", 
-	"]B":		"B", 
-	"I3":		"B", 
-	"0 ":		"O ", 
-	"I-I":		"H", 
-	"/t":		"H", 
-	"iug":		 "ing", 
-	"5V":		"W", 
-	"Sd":		"èd", 
-	"5d":		"èd", 
-	"I)":		"D", 
-	"liim":		"Him", 
-	"liis":		"His", 
-	"lng":		"ing", 
-	"5I":		"M", 
-	"tile":		"the", 
-	"xv":		"w",  
-	"\u007fv":	"w", 
-	";v":		"w", 
-	",v":		"w", 
-	"sv":		"w",
-	"XV":		"W", 
-	"\u007fV":	"W", 
-	"Xv":		"W", 
-	",V":		"W", 
-	";V":		"W", 
-	"tnv":		"ow",
-	"mv":		"ow",
-"\n\u007fnd":	"\nAnd", 
-	"])":		"D", 
-	"]D": 		"D", 
-	"]N":		"N", 
-	"/I":		"A",
-	".A":		"A"}, {
-	"\u007f "	:", ", 
-	"]":		"!", 
-	"%":		"e,", 
-	"“":		'"',
-	"”":		'"',
-	"‘":		"'",
-	"’":		"'",
-	" --- ":	em,
-	"--- ":		em, 
-	" ---":		em, 
-	" -- ":		em }, { 
-	"-- ":		em, 
-	" --":		em, 
-	" - ":		em }, {
-	" -":		em, 
-	"- ":		em, 
-	"---"		:em}, {
-	"--":		em, 
-	"\u007f":	"", 
-	" !":		"!", 
-	" ?":		"?", 
-	" ;":		";"
-	}]
+err = [
+	"“","\"", 
+	"”", "\"",
+	" ;",";",
+	" !","!",
+	" ?", "?",
+	"’","'",
+	" ;", ";",
+	"‘","'",
+	"–","—",
+	"―","—",
+	" — ", "—",
+	"— ", "—",
+	" —", "—",
+	" :",":",
+	"  ", " "
+]
 function opsplit(s, o) {
 	r = [];
 	i = 0;
@@ -115,33 +72,18 @@ function pr(s) {
 		return s.split("")
 	}
 }
+function clean(s) {
+	for (i = 0; i < err.length; i+=2) {
+		s = s.replaceAll(err[i], err[i+1]);
+	}
+	return s
+}
 rhyme = ["0"];
 textin.onchange = () => {
 	l = textin.value;
-	a = l;
-	for (di of layers) {
-		a = "";
-		ci = 0;
-		while (ci < l.length) {
-			found = false;
-			for (key of Object.keys(di)) {
-				if (l.slice(ci, ci+key.length) == key) {
-					a += di[key];
-					ci += key.length;
-					console.log("'"+key + "' -> '"+di[key]+"'");
-					found = true;
-					break
-				}
-			}
-			if (!found) {
-				a += l[ci];
-				ci += 1
-			}
-		}
-		l = a;
-	}
-	t = [];
 	l = l.split("\n");
+	l = l.map(clean);
+	t = [];
 	ri = 0;
 	for (ll of l) {
 		if (ll.slice(0, 3) == "=r ") {
