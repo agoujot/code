@@ -48,13 +48,9 @@ function op(s, o) {
 	return false
 }
 function concat(ll) {
-	r = "";
+	r = [];
 	for (l of ll) {
-		if (typeof(l) == "string") {
-			r += l
-		} else {
-			r += concat(l)
-		}
+		r = r.concat(l);
 	}
 	return r
 }
@@ -63,13 +59,17 @@ multiplyArray = (arr, length) =>
 function pr(s) {
 	if (s.charAt(0) == "(" && s.slice(-1) == ")") {
 		return pr(s.slice(1, -1))
-	} else if (op(s, "+")) {
-		return concat(opsplit(s, "+").map(pr))
+	} else if (op(s, ",")) {
+		return concat(opsplit(s, ",").map(pr))
 	} else if (op(s, "*")) {
 		l = opsplit(s,  "*");
 		return multiplyArray(pr(l.slice(1).join("*")), Number(l[0]))
+	} else if (s.charAt(0) == "'") {
+		return [s.slice(1)]
+	} else if (s.length > 1) {
+		return [s.charAt(0)].concat(pr(s.slice(1)))
 	} else {
-		return s.split("")
+		return [s]
 	}
 }
 function clean(s) {
@@ -88,6 +88,7 @@ textin.onchange = () => {
 	for (ll of l) {
 		if (ll.slice(0, 3) == "=r ") {
 			rhyme = pr(ll.slice(3));
+			console.log(ll, rhyme);
 		} else if (ll.slice (0, 3) == "=i ") {
 			ri = Number(ll.slice(3));
 		} else if (ll != "") {
