@@ -1,27 +1,20 @@
-// TODO:
-//		reoptimiser l'histoire, pistes:
-//			histoire des changements
-//			avec positions relatives
-//			et valeurs par defaut
-//		compresser encore plus les grilles, pas sur que ca soit possible avec les caracteres d'URL valides
-// initialisation de variables #ini (les balises en # permettent de venir avec une recherche)
 const canvas = document.querySelector("canvas");
 const ctx = canvas.getContext("2d");
 kill = false; // si le CA devrait etre arrete
 fileurl = null;
-groupes = [canvas, Options, Menu, Info, Settings, Save, Upload, Create]; // (groupes d')elements pour l'affichage
-CAs = ["gol", "bosco", "daynight", "marine", "sparks", "eiii", "blob"]; // liste des CA disponibles
+groupes = [canvas, Options, Menu, Info, Save, Upload, Create]; // (groupes d')elements pour l'affichage
+CAs = ["gol", "bosco", "daynight", "marine", "A", "B", "C"]; // liste des CA disponibles
 pauseonlybuttons = [abtn, plbtn, mobtn, rbtn, mbtn, nbtn, ebtn, sbtn, cbtn];
 key_funcs = []; // cles : codes, valeurs : fonctions
 url = new URL (window.location.href);
-stateid = (new URLSearchParams(url.search)).get("id");
+search = new URLSearchParams(url.search);
+CAvalue = search.get("CA");
 black = "0 0 0";
 red = "255 0 0";
 green = "0 255 0";
 blue = "0 0 255";
 white = "255 255 255"; // quelques couleurs predefinies
 paused = true;
-filecontent = "";
 // quelques fonctions de base #basics
 function inarray(l, x) {
 	for (let i = 0; i < l.length; i++) {
@@ -29,8 +22,10 @@ function inarray(l, x) {
 	}
 	return false;
 }
-function hextorgb(hex) { return [hex.slice(1, 3), hex.slice(3, 5), hex.slice(5, 7)].map((x) => Number("0x"+x)).join(" ") } // "#HHHHHH" en "DDD DDD DDD"
-function tob64(n) { // en base 64, cad 0 .. 9 + A .. Z + a .. z + _ + . (Assume, dans son implementation actuelle, que il y a moins de 2**12 couleurs.)
+function hextorgb(hex) { 
+	return [hex.slice(1, 3), hex.slice(3, 5), hex.slice(5, 7)].map((x) => Number("0x"+x)).join(" ")
+} // "#HHHHHH" en "DDD DDD DDD"
+function tob64(n) { // en base 64, cad 0 .. 9 + A .. Z + a .. z + - + . (Assume, dans son implementation actuelle, que il y a moins de 2**12 couleurs.)
 	if (n < 10) {
 		return n.toString() // chiffres
 	} else if (n < 36) {
@@ -105,13 +100,16 @@ function w(k) { // w(rap) (k parce que i, j, k, puisque c'est en i ou en j)
 		return k;
 	}
 }
-function b() { // b(uild), construit un tableau de tableaux de si*si rempli avec les resultats de e(col)
+function b(symm) { // b(uild), construit un tableau de tableaux de si*si rempli avec les resultats de e(col), possiblement symmétrique pour la recherche de motifs
 	element = e(col); // fun fact: le e vient de element
 	res = [];
 	for (let i = 0; i<si; i++) {
 		ligne = [];
-		for (let j = 0; j<si; j++) {
+		for (let j = 0; j<(symm?(si/2):si); j++) {
 			ligne[j] = element();
+			if (symm) {
+				ligne[si-j-1] = ligne[j]
+			}
 		}
 		res[i] = ligne;
 	}
@@ -154,7 +152,7 @@ function bs (bi, su) { // interprete la notation classique B/S, pour quand il y 
 			return black
 		} else {
 			for (let j = 0; j < su.length; j++) {
-				if (typeof(su[j]) == "number") {	
+				if (typeof(su[j]) == "number") {
 					if (count == su[j]) {
 						return white
 					}
@@ -178,7 +176,7 @@ function hide(a) {
 		hide_(optcanvas) 
 	} 
 }
-function show_(e) { e.style.display = ""  }
+function show_(e) { e.style.display = "" }
 function show(a) { 
 	for (let i = 0; i < a.length; i++) { 
 		show_(a[i]) 
@@ -200,7 +198,7 @@ function choose() { // efface canvas (au cas ou) et passe au menu de selection
 function move(x) { whereami = x; only(x) }
 // modifications #edit
 bind(() => { 
-	g_ = b(); 
+	g_ = b(search.get("symm")?true:false); // conversion en bool
 	for (let i = 0; i < si; i++) {
 		for (let j = 0; j < si; j++) {
 				draw(i, j, g_[i][j])
@@ -238,10 +236,6 @@ bind(() => {
 bind(() => { hide_(qbtn); show(pauseonlybuttons) }, qbtn, "Q"); // quitter (modifier)
 bind((() => { kill = true; choose() }), xbtn, "X"); // fermer
 bind(() => only([Info]), ibtn, "I"); // informations
-settingsvalid.onclick = () => {
-	if ( 1000 % size.value == 0 ) { only (whereami) } 
-	else { alert("Entree invalide. La taille doit etre un diviseur de 1000.") }
-}
 window.addEventListener("keydown", keyListener);
 // creation de CAs #create
 addcolor.onclick = () =>  { // ajoute un etat a col
@@ -257,61 +251,81 @@ rmstate.onclick = () => { // retire un etat de col
 	}
 	actualisetable()
 }
-addcase.onclick = () => { // affiche le menu de creation de cas
-	show_(caseincreation);
-	hide_(addcase);
-	result.innerHTML = "";
+function createstateselect () { // transforme col en une liste d'<option>
+	res = "";
 	for (let i = 0; i < col.length; i++) {
-		result.innerHTML += '<option value="'+i.toString()+'">'+i.toString()+'</option>'; // liste des etats
+		res += '<option value="'+i.toString()+'">'+i.toString()+'</option>';
 	}
-	currentstate.innerHTML = result.innerHTML;
+	return res
 }
-casevalid.onclick = () => { // tente d'ajouter un cas a la regle
-	ok = true;
-	for (let i = 0; i < condition.value.length; i++) {
-		if (!inarray([" ", "(", ")", "<", ">", "=", "&", "|", "c", "0", "1", "2", "3", "4", "5", "6", "7", "8", "9", "!", "t", "r", "u", "e"], condition.value.charAt(i))) {
-			ok = false;
-			alert("Condition invalide");
-			break
+function resultblock (i) { // un résultat avec indentation i, un select qui peut devenir un conditionblock
+	nb += 1;
+	newchange = "if (this.value == 'new') { result"+nb.toString()+".innerHTML = conditionblock("+i.toString()+")}";
+	return (
+		'<span id="result'+
+		nb.toString()+
+		'"><select class="resultselect" onchange="'+newchange+'">'+
+		createstateselect()+
+		'<option value="new">nouvelle condition</option></select></span>');
+}
+function conditionblock (i) { // if/then/else avec indentation i
+		 return (
+		'si <input class="condition" type="text" placeholder="condition">'+"<br/>"+
+		"&emsp;".repeat(i+2)+
+		resultblock(i+2)+"<br/>"+
+		"&emsp;".repeat(i)+
+		'sinon'+"<br/>"+
+		"&emsp;".repeat(i+2)+
+		resultblock(i+2)+"<br/>");
+}
+function buildf_(e) { // lit ifthenelse récursivement pour identifier l'abre logique, et construit la fonction JS correspondante
+	let l = [];
+	for (i = 0; i < e.children.length; i++) {
+		if (e.children[i].tagName != "BR") {
+			l.push(e.children[i])
 		}
-	};
-	if (ok) {
-		if (nocase) {
-			nocase = false;
-			show_(cases);
-		} else {
-			f_ += "else"
+	}
+	if (l.length > 2) {
+		let condition = l[0].value;
+		for (c of condition) {
+			if (!(["<", ">", "=", "!", "(", ")", "&", " ", "|", "c", "e", "v"].includes(c))) { return "INVALID" }
 		}
-		f_ += " if ( v == col[" + currentstate.value + "] && (" + condition.value + ") ) { return col[" + result.value + "] } ";
-		cases.innerHTML += '<tr>'+rgbtotd(col[Number(currentstate.value)])+'<td>'+condition.value+'</td><td>&emsp;→&emsp;</td>'+rgbtotd(col[Number(result.value)])+"</tr>"
-		hide_(caseincreation);
-		show_(addcase);
+		let left = buildf_(l[1]);
+		let right = buildf_(l[2]);
+		if (left == "INVALID" || right == "INVALID") { return "INVALID" }
+		else return "if ("+condition+") { "+left+" } else { "+right+" }"
+	} else if (l.length == 1) {
+		return 'return "'+col[l[0].value]+'"'
+	} else {
+		return ""
 	}
 }
 createvalid.onclick = () => { // pour lancer avec le n, col, et f construits
-	console.log("ehy");
 	if (bsrule.style.display == "none") {
-		for (let i = 0; i < col.length; i++) {
-			f_ = " c"+i.toString() +" = countof('"+col[i]+"', a);" + f_
-		};
-		f_ = "(a, v) => { " + f_ + "}";
+		f_ = buildf_(ifthenelse);
+		if (f_ != "INVALID") {
+			for (let i = 0; i < col.length; i++) {
+				f_ = " c"+i.toString() +" = countof('"+col[i]+"', a);" + " e"+i.toString() + ' = "' + col[i] + '";'+ f_
+			};
+			f_ = "(a, v) => { " + f_ + "}";
+		}
 	} else {
 		f_ = 'bs("'+birthcounts.value+'", "'+survivalcounts.value+'")';
 	}
-	go(f_+"."+JSON.stringify(n)+"."+JSON.stringify(col)+"_"+size.value+"_"+delay.value+"_"+wrap.checked+"_rand")
+	if (f_ != "INVALID") {
+		window.location.href = window.location.pathname+"?CA="+f_+"."+JSON.stringify(n)+"."+JSON.stringify(col)+"&si="+size.value+"&delay="+delay.value+(search.get("wrap")?"&wrap=true":"")
+	} else { 
+		alert("Caractères invalides détectés dans une condition") 
+	}
 }
 tobs.onclick = () => {hide_(manualrule); show_(bsrule)};
 frombs.onclick = () => {hide_(bsrule); show_(manualrule)};
 function create() { // aller au menu de creation
 	move([Create]);
 	col = [black];
-	actualisetable();
 	n = [];
-	condition.value = "";
-	hide([caseincreation, cases, bsrule]);
-	show_(manualrule)
-	f_ = "";
-	nocase = true;
+	hide_(bsrule);
+	show_(manualrule);
 	toadd = "";
 	ntable = []; // un tableau de carrés gris avec celui du mileu en blanc, en cliquant dessus ils deviennent noirs et on les ajoute au voisinage
 	for (let i = 0; i <= 10; i++) {
@@ -330,14 +344,18 @@ function create() { // aller au menu de creation
 		toadd += "</tr>"
 	}
 	neighborhood.innerHTML = toadd;
+	nb = 0;
+	ifthenelse.innerHTML = conditionblock(0);
+	actualisetable();
 }
 function actualisetable() { // actualise le tableau de col
 	colorlist.innerHTML = '<thead><tr><td scope="col">État</td><td scope="col">Couleur</td><td scope="col">RGB</td></tr></thead>';
 	for (let i = 0; i < col.length; i++) {
 		colorlist.innerHTML = colorlist.innerHTML + "<tr>"+"<td>"+i.toString() + '</td>' + rgbtotd(col[i]) + '<td><code>'+col[i]+'</code></td></tr>';
 	}
+	ifthenelse.innerHTML = conditionblock(0); // pour ne pas avoir de select obsolètes
 }
-function flip(i, j) { // pour n, met une case blanche/grise en noir et vice-versa
+function flip(i, j) { // pour n, met une case blanche/grise en bleu et vice-versa
 	nv = !(ntable[Number(i)][Number(j)]);
 	ntable[Number(i)][Number(j)] = nv;
 	idshouldbe = "n" + i.toString() + "I" + j.toString()+"t"
@@ -372,11 +390,11 @@ stateidout.onclick = () => { // le bouton "copier l'ID"
 }
 function totext() { // renvoie une chaine decrivant etape actuelle, parametres et CA
 	return (
-	running + "_" + 
-	si.toString() + "_" + 
-	delaytime.toString() + "_" + 
-	((dowrap)?"true":"false") + "_" + 
-	compress(g_))
+	"?CA="+running + 
+	"&size="+si.toString() +
+	"&delay="+delaytime.toString() +
+	"&wrap="+ (dowrap?"true":"false")+
+	"&grid="+compress(g_))
 }
 function compress (aa) { // tableau de tableau -> chaine
 	res = "";
@@ -427,11 +445,12 @@ function waitforfile() { // pour ne pas que load s'execute avant que filecontent
 	if (filecontent == "") {
 		setTimeout(waitforfile, 100) 
 	} else {
-		go(filecontent)
+		window.location.href = window.location.pathname+filecontent
 	}
 }
 loadvalid.onclick = () => { // charger depuis textarea ou file input
 	if (stateidin.value == "") {
+		filecontent = "";
 		files = filename.files;
 		file = files[0];
 		reader = new FileReader();
@@ -439,7 +458,7 @@ loadvalid.onclick = () => { // charger depuis textarea ou file input
 		reader.readAsText(file);
 		waitforfile()
 	} else {
-		go(stateidin.value)
+		window.location.href = window.location.pathname+stateidin.value
 	}
 }
 function decompress (s) { // chaine -> tableau de tableau (a besoin des parametres)
@@ -483,32 +502,22 @@ function decompress (s) { // chaine -> tableau de tableau (a besoin des parametr
 	return res
 }
 // faire vraiment tourner le simulateur #run
-CAvalid.addEventListener("click", (() => {
-	switch (CA.value) { 
-		case "none" : 
-			break
-		case "import" : 
-			cbtn.onclick();
-			break
-		case "create" : 
-			create();
-			break
-		default : 
-			go()
-	} 
-}));
 function spacebar () { // pour faire a la fois play et pause
 	if (pbtn.style.display != "none") {
 		paused = true
-	} else {
+	} else if (qbtn.style.display == "none") { // pour ne pas permettre de relancer avec espace alors qu'on est en mode modif
 		restart(d, false)
 	}
 }
 key_funcs[" ".charCodeAt(0)] = spacebar; // cas special, pas lie a un bouton.
-bind(() => restart(true, false), abtn, String.fromCharCode(39)); // fleche de droite
-bind(() => restart(true, true), plbtn, String.fromCharCode(38)); // d'en haut
-bind(() => restart(false, false), rbtn, String.fromCharCode(37)); // de gauche
-bind(() => restart(false, true), mobtn, String.fromCharCode(40)); // d'en bas
+bind(() => restart(true, false), 
+	abtn, String.fromCharCode(39)); // fleche de droite
+bind(() => restart(true, true), 
+	plbtn, String.fromCharCode(38)); // d'en haut
+bind(() => restart(false, false), 
+	rbtn, String.fromCharCode(37)); // de gauche
+bind(() => restart(false, true), 
+	mobtn, String.fromCharCode(40)); // d'en bas
 function restart(vd, vo) {
 	d = vd;
 	o = vo;
@@ -602,10 +611,10 @@ function getpars(na) { // donne les parametres correspondant au nom na
 		case "marine" :
 			return [
 			bs("6-8", "4,6-9"),
-			moore(1).concat([[-2, 1], [-2, 0], [-2, -1], [-2, -2], [-1, -2], [0, -2], [1, -2]]),
+			moore(1).concat([[2, -1], [2, 0], [2, 1], [2, 2], [1, 2], [0, 2], [-1, 2]]),
 			[black, white],
 			equ]
-		case "sparks"  :
+		case "C"  :
 			return [( (a, v) => {
 				orth = a.slice(0, 4);
 				diag = a.slice(4, 8);
@@ -627,7 +636,7 @@ function getpars(na) { // donne les parametres correspondant au nom na
 			[[0, 1],[0,-1],[1,0],[-1,0],[-1,-1],[-1,1],[1,-1],[1,1]],
 			[black, red, green, blue],
 			pondered([0.45, 0.65, 0.85, 1])]
-		case "eiii" :
+		case "B" :
 			return [
 				( (a, v) => {
 					v1 = countof(red, a);
@@ -642,7 +651,7 @@ function getpars(na) { // donne les parametres correspondant au nom na
 				moore(1).concat([[0, 0]]),
 				[black, red, green, blue],
 				equ]
-		case "blob" :
+		case "A" :
 			return [
 				bs("6-8", "5-8"),
 				[[-1,-1],[-1,-2],[-2,-1],[-2,0],[-2,1],[-1,1],[-1,2],[0,2],[1,2],[1,1],[2,1],[2,0],[2,-1],[1,-2],[0,-2],[1,-1]],
@@ -654,7 +663,7 @@ function getpars(na) { // donne les parametres correspondant au nom na
 		default: // c'est que ca vient de create
 			a = na.split(".");
 			return [
-				eval(a[0]), // normalement dangereux, mais avec les restrictions de caracteres ca devrait passer
+				eval(a[0]), // normalement dangereux, mais avec les restrictions de caractères ça devrait passer
 				JSON.parse(a[1]),
 				JSON.parse(a[2]),
 				equ]
@@ -662,21 +671,11 @@ function getpars(na) { // donne les parametres correspondant au nom na
 }
 function go(s) { // lance le simulateur avec id s (si s vide, depuis CA)
 	move([canvas, Options]);
-	if (s) {
-		lines = s.split("_");
-		kill = true;
-		pars = getpars(lines[0]);
-		si = Number(lines[1]);
-		delaytime = Number(lines[2]);
-		dowrap = (lines[3] === "true" || lines[3] === true);
-		running = lines[0];
-	} else {
-		pars = getpars(CA.value);
-		running = CA.value;
-		si = Number(size.value);
-		delaytime = Number(delay.value);
-		dowrap = (wrap.checked === "true" || wrap.checked === true);
-	}
+	pars = getpars(search.get("CA"));
+	si = Number(search.get("size"));
+	delaytime = Number(search.get("delay"));
+	dowrap = (search.get("wrap")?true:false);
+	running = search.get("CA");
 	f = pars[0];
 	n = pars[1];
 	col = pars[2];
@@ -685,10 +684,10 @@ function go(s) { // lance le simulateur avec id s (si s vide, depuis CA)
 	for (let i = 0; i < col.length; i++) {
 		coltoi[col[i]] = i
 	}
-	if (s && lines[4] != "rand" && lines[4] != "rand\n") { // pour permetre (notamment avec create) d'avoir l'aleatoire avec un id
-		g = decompress(lines[4])
+	if (search.get("grid")) { // pour permetre (notamment avec create) d'avoir l'aleatoire avec un id
+		g = decompress(search.get("grid"))
 	} else {
-		g = b();
+		g = b(search.get("symm")?true:false); // bool
 	}
 	z = Math.floor(1000)/si; // taille d'une cellule en pixels
 	for (let i = 0; i < si; i++) {
@@ -705,9 +704,26 @@ function go(s) { // lance le simulateur avec id s (si s vide, depuis CA)
 	kill = false;
 	di()
 }
-// le seul endroit ou on fait vraiment des choses
-if (stateid) {
-	go(stateid)
+if (CAvalue) {
+	switch (CAvalue) { 
+		case "none" : 
+			choose();
+			alert("Sélectionnez une option");
+			break
+		case "import" : 
+			cbtn.onclick();
+			break
+		case "create" : 
+			create();
+			break
+		default : 
+			if (1000 % Number(search.get("size")) != 0 || Number(search.get("size")) == 0) {
+				choose();
+				alert("Entrée invalide. La taille doit être un diviseur de 1000.");
+			} else {
+				go()
+			}
+	}
 } else {
 	choose();
 }
