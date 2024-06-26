@@ -1,0 +1,90 @@
+<html style="background-color:#777">
+	<head>
+		<title>Dungeon master</title>
+		<style>
+			* {
+				font-size:20px;
+			}
+			input, body, #btns, .no {
+				padding:0;
+				margin:0;
+			}
+			td:not(.no)::after {
+				display:inline-block;
+				width:1em;
+				content:"";
+			}
+			#output, #input {
+				background-color:#002;
+				border:1px solid grey;
+				border-radius:4px;
+				width:100%;
+			}
+			#infodiv > span {
+				font-family:monospace;
+			}
+			#infodiv > span::after {
+				display:inline-block;
+				width:4em;
+				content:" ";
+			}
+			#infodiv {
+				background:#111;
+				color:#0F0;
+				text-align:right;
+			}
+			.in, #input {
+				color:white;
+			}
+			#input {
+				height:50px;
+				font-family:monospace;
+			}
+			#output {
+				overflow-y:scroll;
+				display:flex;
+				flex-direction:column-reverse;
+				height:850px;
+			}
+			.out {
+				color:#0F0;
+			}
+			.error {
+				color:#F00;
+			}
+			.in::before {
+				display:inline-block;
+				width:1em;
+				content:">";
+			}
+			.in.cont::before {
+				content:"--";
+			}
+			input, button, #btns {
+				background:black;
+				color:white;
+				border:1px groove grey;
+				border-radius:5px;
+			}
+			sc {
+				font-variant:small-caps;
+				font-size:80%;
+			}
+		</style>
+	</head>
+	<body>
+		<script> dm = true;</script>
+		<table style="width:100%">
+			<tr>
+				<td class="no"><canvas id="canv" width="900" height="900" style="background:black"></canvas></td>
+				<td class="no" style="height:100%;width:100%">
+					<div id="output"><table><tbody id="log"></tbody></table></div>
+					<input list="commandlist" type="text" id="input" placeholder="Commands (help for info)"></input>
+					<datalist id="commandlist"></datalist>
+				</td>
+			</tr>
+		</table>
+		<div id="infodiv"><sc>Zoom: </sc><span id="zoomspan"></span> <sc>Level: </sc><span id="levelspan"></span> <sc>Scroll: </sc><span id="scrollspan"></span> <sc>Freeze: </sc><span id="freezespan"></span></div>
+		<script src="dm.js"></script>
+	</body>
+</html>
