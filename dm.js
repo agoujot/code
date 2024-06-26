@@ -71,7 +71,7 @@ commands = {
 	"view":"view",
 	"hide":"hide",
 };
-var openp = () => { window.open("dp.html", "Players", "popup"); setTimeout(display, 500); };
+var openp = () => { window.open("http://htmlpreview.github.io/?https://github.com/agoujot/code/blob/main/dp.html", "Players", "popup"); setTimeout(display, 500); };
 var setCookie = (value) => {
 	document.cookie = cname + value + "; path=/";
 	return true;
