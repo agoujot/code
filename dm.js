@@ -1,37 +1,37 @@
 // #init2
-var cname = "cookie-dm-dp=";
-var ctx = canv.getContext("2d");
+var cname = "cookie-dm-dp="; // cookie name
+var ctx = canv.getContext("2d"); // drawing context
 var scroll = [0, 0];
 var z, scroll, eta, freeze
-var fr = (x, y, w, h, co, vis = true) => {
+var fr = (x, y, w, h, co, vis = true) => { // fill rect
 	ctx.fillStyle = "#"+co;
 	ctx.fillRect(x, y, w, h);
-//	console.log(x, y, w, h, co);
 	if (dm && !freeze && vis) {
+		if (co == "F00") co = "7F7F7F"; // red appears as floor to the players, for traps
+		if (co == "FF0") co = "FFF"; // yellow appears as wall, for passages
 		buffer += JSON.stringify([x, y, w, h, co]) + "|";
 	}
 };
 if (dm) { //  #dm #event
 canv.addEventListener("click", (e) => {
-	let rect = canv.getBoundingClientRect();
+	let rect = canv.getBoundingClientRect(); // get the coordinates of the click relative to canvas
 	let x = e.clientX - rect.left;
 	let y = e.clientY - rect.top;
 	if (0 <= x && x < 900 && 0 <= y && y < 900) {
 		x = Math.floor((x-scroll[0])/z);
 		y = Math.floor((y-scroll[1])/z);
-		if (picking) {
-//			console.log("picked",  x, y);
+		if (picking) { // resolves some promises
 			picked([x, y]);
-		} else if (!done) {
+		} else if (!done) { // editing
 			colors[x+" "+y] = c;
 			draw(x, y, cols[c]);
 		}
 	}
 })
 addEventListener("keydown", (e) => {
-	if (/^\d$/.test(e.key) && !done) {
+	if (/^\d$/.test(e.key) && !done) { // color
 		c = Number(e.key);
-	} else if (e.key == "s" && !done) {
+	} else if (e.key == "s" && !done) { // save
 		done = true;
 		rmlastline();
 		finished(constructmat());
@@ -74,36 +74,36 @@ commands = {
 	"rotate":"rotate",
 	"copy":"copyroom",
 };
-var openp = () => { window.open("http://htmlpreview.github.io/?https://github.com/agoujot/code/blob/main/dp.html", "Players", "popup"); setTimeout(display, 500); };
-var setCookie = (value) => {
+var openp = () => { window.open("http://htmlpreview.github.io/?https://github.com/agoujot/code/blob/main/dp.html", "Players", "popup"); setTimeout(display, 500); }; // open player window
+var setCookie = (value) => { // send cookie
 	document.cookie = cname + value + "; path=/";
 	return true;
 }
 // #graphic
-var gotoroom = () => {
+var gotoroom = () => { // put room in top left
 	selectroom().then((na) => {
 		let co = bl(salles[na].c);
 		sets("0", "="+(-co[0]*z).toString());
 		sets("1", "="+(-co[1]*z).toString());
 	})
 }
-var hide = () => {
+var hide = () => { // from players
 	selectroom().then((na) => {
 		salles[na].v = false;
 		display();
 		show(na + " was hidden to the players.");
 	})
 }
-var view = () => {
+var view = () => { // also players
 	selectroom().then((na) => {
 		salles[na].v = true;
 		display();
 		show(na + " was shown to the players.");
 	})
 }
-var bl = ([s, x, y]) => 
+var bl = ([s, x, y]) => // build location maybe?
 	(s=="0")?[x, y]:[bl(salles[s].c)[0]+x, bl(salles[s].c)[1]+y]
-var draw = (i, j, co, show=true) => fr(i*z+scroll[0], j*z+scroll[1], z, z, co, show);
+var draw = (i, j, co, show=true) => fr(i*z+scroll[0], j*z+scroll[1], z, z, co, show); // draw a cell
 var displayroom = (nom) => {
 	let s = salles[nom];
 	let coord = bl(s.c);
@@ -113,14 +113,14 @@ var displayroom = (nom) => {
 		}
 	}
 	let args = [nom, coord[0]*z+scroll[0], coord[1]*z+scroll[1]+12];
-	ctx.font = "12px serif";
+	ctx.font = "12px serif"; // make a black shadow beneath the white text. the shadow's cut, so not very pretty, but allows to see it everywhere
 	ctx.fillStyle = "black";
 	ctx.fillText(args[0], args[1], args[2]);
 	ctx.fillStyle = "white";
 	ctx.fillText(args[0], args[1]+2, args[2]+2);
 }
-var erase = () => fr(0, 0, 900,900, "000");
-var display = () => {
+var erase = () => fr(0, 0, 900,900, "000"); // the canvas
+var display = () => { // all rooms on this floor || what's being edited
 	erase();
 	if (done) {
 		for (nom of Object.keys(salles)) {
@@ -134,23 +134,23 @@ var display = () => {
 	}
 	flush();
 }
-var setz = (s) => {
+var setz = (s) => { // set zoom
 	eval("z"+s);
 	zoomspan.innerHTML = z.toString();
 	display();
 }
-var setl = (s) => {
+var setl = (s) => { // set level
 	eval("eta"+s);
 	levelspan.innerHTML = eta.toString();
 	display();
 }
-var sets = (a, b) => {
+var sets = (a, b) => { // set scroll
 	eval("scroll["+a+"]"+b);
 	scrollspan.innerHTML = scroll.map((x) => x.toString()).join(" ");
 	display();
 }
-var flush = () => {setCookie(buffer); buffer = "" };
-var freez = () => {
+var flush = () => {setCookie(buffer); buffer = "" }; // if cookies are sent cell by cell there's not enough delay and some of them get cleacookie()'d
+var freez = () => { // toggle freeze
 	if (freeze) {
 		freeze = false;
 		display();
@@ -163,7 +163,7 @@ var freez = () => {
 var gotolevel = (s) => setl("= Number("+s+")");
 var gotozoom = (s) => setz("= Number("+s+")");
 // #console
-var escap = (s) => s
+var escap = (s) => s // escape for HTML
 	.replaceAll('"', "&quot;")
 	.replaceAll("'", "&apos;")
 	.replaceAll("&", "&amp;")
@@ -175,24 +175,24 @@ var ssl = (s) => { // show single line
 rmlastline = () => {
 	log.lastChild.remove();
 }
-var cs = (co) => '<span style="background-color:#' + cols[co] + '">&emsp;</span>'
-var inp = () => {
+var cs = (co) => '<span style="background-color:#' + cols[co] + '">&emsp;</span>' // colored span
+var inp = () => { // input
 	log.innerHTML = log.innerHTML.replaceAll(/<\/?(button|input).*?>/g, ""); // remove interface from last commands
 	[picking, done] = [false, true];
-	let l = input.value;
+	let l = input.value; // input's the ID of the input element
 	write(l, "in");
 	input.value = "";
-	let com = Object.keys(commands).find((comm) => l.startsWith(comm+" ") || l == comm);
+	let com = Object.keys(commands).find((comm) => l.startsWith(comm+" ") || l == comm); // match a command
 	let f = commands[com];
 	if (f) {
 		eval(f+"('" + l.slice(com.length).trim() + "')");
 	}
 	else write("Unknown command", "error");
 };
-input.addEventListener("keyup", (e) => { if (e.keyCode == "13" && !e.shiftKey) inp() });
-var write = (s, clas) => log.innerHTML += ("<tr><td class='" + clas + "'>" + s.trim().split("\n").join("</td></tr><tr><td class='cont " + clas + "'>") + "</td></tr>");
-commandlist.innerHTML = Object.keys(commands).map((x) => '<option>' + x + '</option>').join("");
-var show = (s) => s.split("\n").map((l) => (l)?l:"&nbsp;").forEach((s) => write(s, "out"));
+input.addEventListener("keyup", (e) => { if (e.keyCode == "13" && !e.shiftKey) inp() }); // enter
+var write = (s, clas) => log.innerHTML += ("<tr><td class='" + clas + "'>" + s.trim().split("\n").join("</td></tr><tr><td class='cont " + clas + "'>") + "</td></tr>"); //  add a tr to log, with clas
+commandlist.innerHTML = Object.keys(commands).map((x) => '<option>' + x + '</option>').join(""); // datalist of commands for autosuggest
+var show = (s) => s.split("\n").map((l) => (l)?l:"&nbsp;").forEach((s) => write(s, "out")); // show text as "out"
 // #file
 function tob64(n) { // en base 64, cad 0 .. 9 + A .. Z + a .. z + - + . (Assume, dans son implementation actuelle, que il y a moins de 2**12 couleurs.)
 	if (n < 10) {
@@ -222,21 +222,21 @@ function fromb64(s) { // ne prend que les chiffres, decompress pretraite les '
 		return 63
 	}
 }
-var dcopy = (aa) => JSON.parse(JSON.stringify(aa));
+var dcopy = (aa) => JSON.parse(JSON.stringify(aa)); // deepcopy of array array
 var frg = (aa) => { // tableau de tableau -> chaine
-	let res = tob64(aa[0].length);
-	let lt = -1;
+	let res = tob64(aa[0].length); // encode length of a line for later
+	let lt = -1; // not a color id
 	let ti = 0;
 	for (let i = 0; i < aa.length; i++) {
 		if (i > 0 && JSON.stringify(aa[i]) == JSON.stringify(aa[i-1])) {
-			if (lt == "$") {
+			if (lt == "$") { // already same line
 				ti += 1;
 			} else {
-				lt = "$";
+				lt = "$"; // switch to same-line
 				ti = 1
 			}
 		} else {
-			if (lt == "$") {
+			if (lt == "$") { // flush the same-line's
 				res += "$" + tob64(ti);
 			}
 			lt = -1;
@@ -263,9 +263,9 @@ var frg = (aa) => { // tableau de tableau -> chaine
 	}
 	return res
 }
-var tog = (s) => { // chaine -> tableau de tableau (a besoin des parametres)
+var tog = (s) => { // chaine -> tableau de tableaux
 	let res = [];
-	if (s[0] == "'") {
+	if (s[0] == "'") { // decode the length of a line
 		si = fromb64(s[1])*64 + fromb64(s[2]);
 		s = s.slice(3);
 	} else {
@@ -310,7 +310,7 @@ var tog = (s) => { // chaine -> tableau de tableau (a besoin des parametres)
 	}
 	return res
 }
-var save = () => {
+var save = () => { // save settings & salles to file
 	let txt = Math.abs(z).toString()+"\n"+eta.toString()+"\n"+scroll[0].toString() + " " + scroll[1].toString() + "\n" + ((freeze)?"yes":"no") + "\n";
 	for (let na in salles) {
 		let s = salles[na];
@@ -330,9 +330,9 @@ var save = () => {
 	document.body.removeChild(a);
 	show("File downloaded.");
 }
-var load = () => {
+var load = () => { // load settings & salles from file
 	show(`Enter file: <input type="file" id="filegetter" accept="text/txt"/> <button id="filevalid" onclick="take()">Submit</button>`);
-	take = () => {
+	take = () => { // take from filegetter
 		salles = {};
 		files = filegetter.files;
 		file = files[0];
@@ -385,17 +385,17 @@ Also some shortcuts when not typing:
 `<ul><li>the arrows : navigate in the map
 + and - : zoom more/less
 pageup and pagedown : change floor</li></ul>`.replaceAll("\n", "</li><li>")
-);
-var listrooms = () => {
-	let mess = "Rooms:\n<table class='out'><tr><td>Name&emsp;</td><td>Size&emsp;</td><td>Level&emsp;</td><td>Visible?</td></tr>";
+); // info message
+var listrooms = () => { // DEWISOTT
+	let mess = "Rooms:\n<table class='out'><tr><td>Name&emsp;</td><td>Size&emsp;</td><td>Level&emsp;</td><td>Visible?</td><td>Description</td></tr>";
 	for (let nom in salles) {
 		let s = salles[nom];
-		mess += "<tr><td>" + [nom, s.g.length.toString() + "x" + s.g[0].length.toString(), s.f.toString(), (s.v)?"Yes":"No"].join("</td><td>") + "</td></tr>";
+		mess += "<tr><td>" + [nom, s.g.length.toString() + "x" + s.g[0].length.toString(), s.f.toString(), (s.v)?"Yes":"No", s.d].join("</td><td>") + "</td></tr>";
 	}
 	show(mess);
 };
 // #edit #add
-var selectroom = () => {
+var selectroom = () => { // pick a room by clicking on it/entering it in the input
 	display();
 	show(`Selection: <input list="selelist" type="text" id="senainp" placeholder="enter a name"/><datalist id="selelist">` + Object.keys(salles).map((x) => `<option>` + x + `</option>`) + `</datalist> and then <button onclick="if (Object.keys(salles).includes(senainp.value)) {let val = senainp.value; rmlastline(); selected(val)} else { alert('This room does not exist.') }">submit</button> or click on a room on the left.`);
 	picking = true;
@@ -433,7 +433,7 @@ var place = () => {
 	});
 	return new Promise ((yes, no) => {placed = yes})
 }
-var create = () => {
+var create = () => { // create the grid (coming from addroom's buttons)
 	rmlastline();
 	editgrid([]).then((grid) => {
 		place().then((co) => {
@@ -461,7 +461,7 @@ var copyroom = () => {
 		};
 	})
 }
-var rotatearray = (g) => {
+var rotatearray = (g) => { // 90° clockwise
 	let res = [];
 	for (let j=0;j<g[0].length;j++) {
 		let line = [];
@@ -472,7 +472,7 @@ var rotatearray = (g) => {
 	}
 	return res
 }
-var rotate = () => {
+var rotate = () => { // rotate a room
 	selectroom().then((na) => {
 		quarterturn = () => {
 			salles[na].g = rotatearray(salles[na].g);
@@ -482,7 +482,7 @@ var rotate = () => {
 <button onclick="rmlastline()">Validate</button>`)
 	})
 }
-var update = () => {
+var update = () => { // update grid/position (coming from editroom's buttons)
 	rmlastline();
 	let s = salles[nam];
 	editgrid(s.g).then((grid) => { 
@@ -490,18 +490,18 @@ var update = () => {
 		askmove();
 	})
 }
-var askmove = () => show(`Move? <button onclick="roomfloor = salles[nam].f; salles[nam].f = []; place().then((co) => { rmlastline(); salles[nam].c = co; salles[nam].f = roomfloor;  endedit()})">Yes</button> <button onclick="endedit()">No</button>`);
+var askmove = () => show(`Move? <button onclick="roomfloor = salles[nam].f; salles[nam].f = []; place().then((co) => { rmlastline(); salles[nam].c = co; salles[nam].f = roomfloor;  endedit()})">Yes</button> <button onclick="endedit()">No</button>`); // ask and maybe move the room named nam
 endedit = () => {
 	rmlastline();
 	show("Saved.");
 	display();
 }
-var editgrid = (grid) => {
-	colors = {};
+var editgrid = (grid) => { // edit grid
+	colors = {}; // keys coordinates, values colors. Allows for unlimited size, scroll, zoom, etc.
 	for (i=0;i<grid.length;i++) {
 		for (j=0;j<grid[i].length;j++) {
 			if (grid[i][j]) { 
-				colors[i+" "+j] = grid[i][j];
+				colors[i+" "+j] = grid[i][j]; // get the colors already there
 			}
 		}
 	}
@@ -509,7 +509,7 @@ var editgrid = (grid) => {
 The room is opened at the left.
 Current drawing color is: ` + cs(c) + `
 Press ` + [0, 1, 2, 3, 4, 5].map((n) => n.toString() + " for " + cs(n)).join(", ") + `
-Press s when you are satisfied.`);
+Press s when you are satisfied.`); // the default colors
 	done = false;
 	display();
 	return new Promise ((yes, no) => {finished = yes})
@@ -518,7 +518,7 @@ var removeroom = () => {
 	selectroom().then((na) => {
 		let coord = bl(salles[na].c);
 		delete salles[na];
-		for (let nam of Object.keys(salles)) {
+		for (let nam of Object.keys(salles)) { // sort out the dependencies
 			if (salles[nam].c[0] == na) {
 				salles[nam].c = ["0", coord[0]+salles[nam].c[1], coord[1]+salles[nam].c[2]]
 			}
@@ -527,7 +527,7 @@ var removeroom = () => {
 		display();
 	})
 }
-var constructmat = () => {
+var constructmat = () => { // construct a matrix from edigrid's object
 	var [imin, jmin, imax, jmax] = [Infinity, Infinity, 0, 0];
 	var tmp = [];
 	for (p of Object.keys(colors)) {
@@ -563,14 +563,14 @@ var editroom = () => {
 	}); 
 }
 freez();
-freez();
+freez(); // do it twice to keep it false at the end of the day
 setz("=50");
 sets("0", "=0");
-setl("=1");
+setl("=1"); // these are the default values, will be overriden by any load
 display();
 } else { // #dp
-clearcookie();
-var getCookie = () => {
+clearcookie(); // to not show the last thing
+var getCookie = () => { // get the message sent by setcookie()
 	let res = "";
 	let ca = document.cookie.split(";");
 	for (c of ca) {
@@ -581,7 +581,7 @@ var getCookie = () => {
 			}
 		}
 	}
-	if (res) clearcookie(); // defined in dp.html because vim syntax coloring doesn't like it.
+	if (res) clearcookie(); // defined in dp.html because vim syntax coloring doesn't like it. Also only clearing at the end in case setcookie was trigerred multiple times since last check
 	return res
 }
 let updateMessage = () => {
@@ -593,7 +593,7 @@ let updateMessage = () => {
 			fr(x, y, w, h, co);
 		}
 	}
-	setTimeout(updateMessage, 100);
+	setTimeout(updateMessage, 100); // and repeat ad infinitam. not very clean, but only cookies worked.
 }
 updateMessage();
 }
