@@ -20,6 +20,7 @@ canv.addEventListener("click", (e) => {
 		x = Math.floor((x-scroll[0])/z);
 		y = Math.floor((y-scroll[1])/z);
 		if (picking) {
+//			console.log("picked",  x, y);
 			picked([x, y]);
 		} else if (!done) {
 			colors[x+" "+y] = c;
@@ -32,7 +33,7 @@ addEventListener("keydown", (e) => {
 		c = Number(e.key);
 	} else if (e.key == "s" && !done) {
 		done = true;
-		inhespan.remove();
+		rmlastline();
 		finished(constructmat());
 	} else if (document.activeElement.nodeName != "INPUT") {
 		switch (e.key) {
@@ -70,6 +71,8 @@ commands = {
 	"remove":"removeroom",
 	"view":"view",
 	"hide":"hide",
+	"rotate":"rotate",
+	"copy":"copyroom",
 };
 var openp = () => { window.open("http://htmlpreview.github.io/?https://github.com/agoujot/code/blob/main/dp.html", "Players", "popup"); setTimeout(display, 500); };
 var setCookie = (value) => {
@@ -160,21 +163,30 @@ var freez = () => {
 var gotolevel = (s) => setl("= Number("+s+")");
 var gotozoom = (s) => setz("= Number("+s+")");
 // #console
-var cs = (co) => '<span style="background-color:#' + cols[co] + '">&emsp;</span>'
-var obsolete = (id, f = () => {}) => {
-	it = document.getElementById(id)
-	if (it) {
-		it.id = "__OBSOLETE__";
-		f();
-	}
+var escap = (s) => s
+	.replaceAll('"', "&quot;")
+	.replaceAll("'", "&apos;")
+	.replaceAll("&", "&amp;")
+	.replaceAll("<", "&lt;")
+	.replaceAll(">", "&gt;");
+var ssl = (s) => { // show single line
+	show(s.replaceAll("\n", "<br>"));
 }
+rmlastline = () => {
+	log.lastChild.remove();
+}
+var cs = (co) => '<span style="background-color:#' + cols[co] + '">&emsp;</span>'
 var inp = () => {
+	log.innerHTML = log.innerHTML.replaceAll(/<\/?(button|input).*?>/g, ""); // remove interface from last commands
+	[picking, done] = [false, true];
 	let l = input.value;
 	write(l, "in");
 	input.value = "";
 	let com = Object.keys(commands).find((comm) => l.startsWith(comm+" ") || l == comm);
 	let f = commands[com];
-	if (f) eval(f+"('" + l.slice(com.length).trim() + "')")
+	if (f) {
+		eval(f+"('" + l.slice(com.length).trim() + "')");
+	}
 	else write("Unknown command", "error");
 };
 input.addEventListener("keyup", (e) => { if (e.keyCode == "13" && !e.shiftKey) inp() });
@@ -182,13 +194,127 @@ var write = (s, clas) => log.innerHTML += ("<tr><td class='" + clas + "'>" + s.t
 commandlist.innerHTML = Object.keys(commands).map((x) => '<option>' + x + '</option>').join("");
 var show = (s) => s.split("\n").map((l) => (l)?l:"&nbsp;").forEach((s) => write(s, "out"));
 // #file
-var frg = JSON.stringify;
-var tog = JSON.parse;
+function tob64(n) { // en base 64, cad 0 .. 9 + A .. Z + a .. z + - + . (Assume, dans son implementation actuelle, que il y a moins de 2**12 couleurs.)
+	if (n < 10) {
+		return n.toString() // chiffres
+	} else if (n < 36) {
+		return String.fromCharCode(n-10+65) // A-Z
+	} else if (n < 62) {
+		return String.fromCharCode(n-36+97) // a-z
+	} else if (n == 62) {
+		return "-"
+	} else if (n == 63) {
+		return "."
+	} else if (n > 63) { // un nombre a max deux chiffres (le 2**12), donc on met ' pour dire un nombre a deux chiffres
+		return ("'"+tob64(Math.floor(n / 64)) + tob64(n % 64))
+	}
+}
+function fromb64(s) { // ne prend que les chiffres, decompress pretraite les '
+	if (s >= "0" && s <= "9") {
+		return Number(s)
+	} else if (s >= "A" && s <= "Z") {
+		return (s.charCodeAt()-65+10)
+	} else if (s >= "a" && s <= "z") {
+		return (s.charCodeAt()-97+36)
+	} else if (s == "-") {
+		return 62
+	} else {
+		return 63
+	}
+}
+var dcopy = (aa) => JSON.parse(JSON.stringify(aa));
+var frg = (aa) => { // tableau de tableau -> chaine
+	let res = tob64(aa[0].length);
+	let lt = -1;
+	let ti = 0;
+	for (let i = 0; i < aa.length; i++) {
+		if (i > 0 && JSON.stringify(aa[i]) == JSON.stringify(aa[i-1])) {
+			if (lt == "$") {
+				ti += 1;
+			} else {
+				lt = "$";
+				ti = 1
+			}
+		} else {
+			if (lt == "$") {
+				res += "$" + tob64(ti);
+			}
+			lt = -1;
+			ti = 0;
+			for (let j = 0; j < aa[0].length; j++) {
+				k = aa[i][j];
+				if (k != lt) {
+					if (lt != -1) {
+						res += tob64(lt) + tob64(ti); 
+					}
+					lt = k;
+					ti = 1;
+				} else {
+					ti += 1
+				}
+			}
+		}
+		if (lt != "$") {
+			res += tob64(lt) + tob64(ti);
+		}
+	}
+	if (lt == "$") {
+		res += lt + tob64(ti);
+	}
+	return res
+}
+var tog = (s) => { // chaine -> tableau de tableau (a besoin des parametres)
+	let res = [];
+	if (s[0] == "'") {
+		si = fromb64(s[1])*64 + fromb64(s[2]);
+		s = s.slice(3);
+	} else {
+		si = fromb64(s[0]);
+		s = s.slice(1);
+	}
+	let l = s.split("");
+	let l1 = [];
+	let i = 0;
+	while (i < l.length) {
+		if (l[i] == "'") {
+			l1.push(fromb64(l[i+1])*64+fromb64(l[i+2]));
+			i += 3
+		} if (l[i] == "$") {
+			l1.push("$");
+			i += 1
+		} else {
+			l1.push(fromb64(l[i]));
+			i ++
+		}
+	}
+	let l2 = [];
+	let c = 0;
+	i = 0;
+	while (i < l1.length) {
+		if (l1[i] == "$") {
+			for (let j = 0; j < l1[i+1]; j++) {
+				res.push(dcopy(res.slice(-1)[0]));
+			}
+		} else {
+			for (let j = 0; j < l1[i+1]; j++) {
+				l2.push(l1[i]);
+				c += 1;
+			}
+		}
+		i += 2;
+		if (c == si) {
+			c = 0;
+			res.push(dcopy(l2));
+			l2 = [];
+		}
+	}
+	return res
+}
 var save = () => {
 	let txt = Math.abs(z).toString()+"\n"+eta.toString()+"\n"+scroll[0].toString() + " " + scroll[1].toString() + "\n" + ((freeze)?"yes":"no") + "\n";
 	for (let na in salles) {
 		let s = salles[na];
-		txt += "_" + na + "\n" + s.f.join(" ") + "\n" + frg(s.g) + "\n "+ s.d + "\n" + JSON.stringify(s.c) + "\n" + (s.v?"yes":"no") + "\n";
+		txt += na + "\n" + s.f.join(" ") + "\n" + frg(s.g) + "\n"+ s.d + "\n" + JSON.stringify(s.c) + "\n" + (s.v?"yes":"no") + "\n";
 	}
 	let file = new Blob([txt]);
 	if (fileurl) {
@@ -205,8 +331,6 @@ var save = () => {
 	show("File downloaded.");
 }
 var load = () => {
-	obsolete("filegetter");
-	obsolete("filevalid");
 	show(`Enter file: <input type="file" id="filegetter" accept="text/txt"/> <button id="filevalid" onclick="take()">Submit</button>`);
 	take = () => {
 		salles = {};
@@ -224,9 +348,10 @@ var load = () => {
 			((freeze)?"yes":"no"==l[3])?undefined:freez();
 			l = l.slice(4);
 			while (l.length > 0) {
-				salles[l[0].slice(1)] = { f:l[1].split(" ").map(Number), g:tog(l[2]),  d:l[3], c:JSON.parse(l[4]), v:(l[5]=="yes") };
+				salles[l[0]] = { f:l[1].split(" ").map(Number), g:tog(l[2]),  d:l[3], c:JSON.parse(l[4]), v:(l[5]=="yes") };
 				l = l.slice(6);
 			};
+			rmlastline();
 			show("Loaded successfully.");
 			display();
 		})
@@ -251,7 +376,9 @@ save/s : download the file
 load/l : load a file
 view: show a room to the players
 hide : hide a room to the players
-remove : remove a room</li></ul>`.replaceAll("\n", "</li><li>") +
+remove : remove a room
+rotate : turn a room 90, 180, or 270°
+copy : create a new room that is a copy of another</li></ul>`.replaceAll("\n", "</li><li>") +
 `
 Also some shortcuts when not typing:
 ` +
@@ -270,9 +397,7 @@ var listrooms = () => {
 // #edit #add
 var selectroom = () => {
 	display();
-	obsolete("senainp");
-	obsolete("selelist");
-	show(`<span id="selespan">Selection: <input list="selelist" type="text" id="senainp" placeholder="enter a name"/><datalist id="selelist">` + Object.keys(salles).map((x) => `<option>` + x + `</option>`) + `</datalist> and then <button onclick="if (Object.keys(salles).includes(senainp.value)) {let val = senainp.value; selespan.remove(); selected(val)} else { alert('This room does not exist.') }">submit</button> or click on a room on the left.</span>`);
+	show(`Selection: <input list="selelist" type="text" id="senainp" placeholder="enter a name"/><datalist id="selelist">` + Object.keys(salles).map((x) => `<option>` + x + `</option>`) + `</datalist> and then <button onclick="if (Object.keys(salles).includes(senainp.value)) {let val = senainp.value; rmlastline(); selected(val)} else { alert('This room does not exist.') }">submit</button> or click on a room on the left.`);
 	picking = true;
 	new Promise ((yes, no) => { picked = yes })
 	.then(([x, y]) => {
@@ -281,7 +406,7 @@ var selectroom = () => {
 			let s = salles[na];
 			[i, j] = bl(s.c);
 			if (i <= x && x < i + s.g.length && j <= y && y < j + s.g[0].length) {
-				selespan.remove();
+				rmlastline();
 				selected(na);
 				break
 			}
@@ -291,21 +416,25 @@ var selectroom = () => {
 	return new Promise ((yes, no) => { selected = yes })
 }
 var place = () => {
-	show(`<span id="placspan">First select a room to anchor on (or in the void for independent positioning).</span>`);
+	show(`First select a room to anchor on (or in the void for independent positioning).`);
 	selectroom().then((anchor) => {
-		placspan.remove();
-		show(`<span id="anchspan">Anchored on: ` + ((anchor=="0")?"(0; 0)":anchor) + `. Click where the top-left corner should go.</span>`);
+		rmlastline();
+		show(`Anchored on: ` + ((anchor=="0")?"(0, 0)":anchor) + `. Click where the top-left corner should go.`);
 		picking = true;
 		new Promise ((yes, no) => picked = yes)
 		.then(([x, y]) => { 
 			picking = false;
-			anchspan.remove();
-			placed([anchor, x, y])
+			let co = bl(salles[anchor].c);
+			x -= co[0];
+			y -= co[1];
+			show("Room placed.");
+			placed([anchor, x, y]);
 		}) 
 	});
 	return new Promise ((yes, no) => {placed = yes})
 }
 var create = () => {
+	rmlastline();
 	editgrid([]).then((grid) => {
 		place().then((co) => {
 		new Promise ((y, n) => {
@@ -317,24 +446,57 @@ var create = () => {
 		})})
 	})
 }
-var update = (tmp) => {
-	obsolete("roomform", () => it.remove());
-	roombeingupdated = tmp[0];
-	salles[roombeingupdated].d = tmp[1];
-	salles[roombeingupdated].f = tmp[2];
-	let s = salles[roombeingupdated];
-	editgrid(s.g).then((grid) => { salles[roombeingupdated].g = grid; askmove() })
-	let askmove = () => {
-		show(`<span id="askmovespan">Move? <button onclick="place().then((co) => { salles[roombeingupdated].c = co; endedit()})">Yes</button> <button onclick="endedit()">No</button></span>`);
-	};
+var copyroom = () => {
+	show("Choose the room to copy.");
+	selectroom().then((na) => {
+		rmlastline();
+		show(`<input type="text" placeholder="enter new name" id="nameinp"/> and then <button onclick="let val = nameinp.value; rmlastline(); copyto(val)">submit</button> (or <button onclick="rmlastline();">cancel</button>).`);
+		copyto = (dest) => {
+			salles[dest] = structuredClone(salles[na]);
+			rmlastline();
+			display();
+			show("Room copied.");
+			nam = dest;
+			askmove(); // because also cloned the coordinates, so overlap.
+		};
+	})
 }
+var rotatearray = (g) => {
+	let res = [];
+	for (let j=0;j<g[0].length;j++) {
+		let line = [];
+		for (let i=g.length-1;i>-1;i--) {
+			line.push(g[i][j]);
+		}
+		res.push(line);
+	}
+	return res
+}
+var rotate = () => {
+	selectroom().then((na) => {
+		quarterturn = () => {
+			salles[na].g = rotatearray(salles[na].g);
+			display();
+		}
+		ssl(`<button onclick="quarterturn()">Rotate 90° clockwise</button>
+<button onclick="rmlastline()">Validate</button>`)
+	})
+}
+var update = () => {
+	rmlastline();
+	let s = salles[nam];
+	editgrid(s.g).then((grid) => { 
+		salles[nam].g = grid;
+		askmove();
+	})
+}
+var askmove = () => show(`Move? <button onclick="roomfloor = salles[nam].f; salles[nam].f = []; place().then((co) => { rmlastline(); salles[nam].c = co; salles[nam].f = roomfloor;  endedit()})">Yes</button> <button onclick="endedit()">No</button>`);
 endedit = () => {
-	obsolete("askmovespan", () => it.remove());
+	rmlastline();
 	show("Saved.");
 	display();
 }
 var editgrid = (grid) => {
-	obsolete("inhespan", () => it.remove());
 	colors = {};
 	for (i=0;i<grid.length;i++) {
 		for (j=0;j<grid[i].length;j++) {
@@ -343,11 +505,11 @@ var editgrid = (grid) => {
 			}
 		}
 	}
-	write((`<span id="inhespan">Editing mode.
+	ssl(`Editing mode.
 The room is opened at the left.
 Current drawing color is: ` + cs(c) + `
 Press ` + [0, 1, 2, 3, 4, 5].map((n) => n.toString() + " for " + cs(n)).join(", ") + `
-Press s when you are satisfied.</span>`).replaceAll("\n", "<br>"), "out");
+Press s when you are satisfied.`);
 	done = false;
 	display();
 	return new Promise ((yes, no) => {finished = yes})
@@ -384,21 +546,21 @@ var constructmat = () => {
 	return mat
 }
 var addroom = () => {
-	obsolete("roomform", () => { it.remove() });
-	write(`<span id="roomform">Adding a room (lists must be separated by commas with no spaces):
+	ssl(`Adding a room (lists must be separated by commas with no spaces):
 <input type="text" id="nameinp" placeholder="name"/>
 <input type="text" id="descinp" placeholder="description"/>
 <input type="text" id="storinp" placeholder="level list"/>
-<button onclick="tmp = [nameinp.value, descinp.value, storinp.value.split(',').map(Number)]; create()">Create grid</button> (or <button onclick="roomform.innerHTML = 'Canceled.'">cancel</button>)</span>`.replaceAll("\n", "<br>"), "out");
+<button onclick="tmp = [nameinp.value.trim(), escap(descinp.value.trim()), storinp.value.split(',').map(Number)]; create()">Create grid</button> (or <button onclick="rmlastline();">cancel</button>)`);
 }
 var editroom = () => {
 	selectroom().then((na) => {
 	nam = na;
 	let s = salles[na];
-	write((`<span id="roomform">Editing `+na+` (lists must be separated by commas with no spaces):
+	ssl(`Editing `+na+` (lists must be separated by commas with no spaces):
 <input type="text" id="descinp" placeholder="description" value="`+s.d+`"/>
 <input type="text" id="storinp" placeholder="level list" value="`+s.f.join(",")+`"/>
-<button onclick="update([nam, descinp.value, storinp.value.split(',').map(Number)])">Next</button> (or <button onclick="roomform.innerHTML = 'Canceled.'">cancel</button>)</span>`).replaceAll("\n", "<br>"), "out")});
+<button onclick="salles[nam].d = escap(descinp.value.trim()), salles[nam].f = storinp.value.split(',').map(Number); update()">Next</button> (or <button onclick="rmlastline()">cancel</button>)`)
+	}); 
 }
 freez();
 freez();
