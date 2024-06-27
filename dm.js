@@ -154,7 +154,7 @@ var setl = (s) => { // set level
 }
 var sets = (a, b) => { // set scroll
 	eval("scroll["+a+"]"+b);
-	scrollspan.innerHTML = scroll.map((x) => x.toString()).join("px,") + "px;
+	scrollspan.innerHTML = scroll.map((x) => x.toString()).join("px,") + "px";
 	display();
 }
 var flush = () => {setCookie(buffer); buffer = "" }; // if cookies are sent cell by cell there's not enough delay and some of them get cleacookie()'d
