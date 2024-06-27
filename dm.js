@@ -24,7 +24,7 @@ canv.addEventListener("click", (e) => {
 			picked([x, y]);
 		} else if (!done) { // editing
 			colors[x+" "+y] = c;
-			draw(x, y, cols[c]);
+			draw(x, y, cols(c));
 		}
 	}
 })
@@ -53,7 +53,14 @@ var salles = {};
 var fileurl = null;
 var done = true;
 var picking = false;
-var cols = ["000", "FFF", "7f7f7f", "F00", "FF0", "8B4513"];
+var cols = (s) => 
+	(s==0)?"000":
+	(s==1)?"FFF":
+	(s==2)?"7f7f7f":
+	(s==3)?"F00":
+	(s==4)?"FF0":
+	(s==5)?"8B4513":
+	s.slice(1);
 var c = 1;
 var buffer = "";
 commands = {
@@ -109,7 +116,7 @@ var displayroom = (nom) => {
 	let coord = bl(s.c);
 	for (i=0;i<s.g.length;i++) {
 		for (j=0;j<s.g[i].length;j++) {
-			if (s.g[i][j]) {draw(i+coord[0], j+coord[1], cols[s.g[i][j]], s.v)};
+			if (s.g[i][j]) {draw(i+coord[0], j+coord[1], cols(s.g[i][j]), s.v)};
 		}
 	}
 	let args = [nom, coord[0]*z+scroll[0], coord[1]*z+scroll[1]+12];
@@ -129,7 +136,7 @@ var display = () => { // all rooms on this floor || what's being edited
 	} else {
 		for (p of Object.keys(colors)) {
 			let [i, j] = p.split(" ").map(Number);
-			if (colors[p]) {draw(i, j, cols[colors[p]])}
+			if (colors[p]) {draw(i, j, cols(colors[p]))}
 		}
 	}
 	flush();
@@ -175,7 +182,7 @@ var ssl = (s) => { // show single line
 rmlastline = () => {
 	log.lastChild.remove();
 }
-var cs = (co) => '<span style="background-color:#' + cols[co] + '">&emsp;</span>' // colored span
+var cs = (co) => '<span style="background-color:#' + cols(co) + '">&emsp;</span>' // colored span
 var inp = () => { // input
 	log.innerHTML = log.innerHTML.replaceAll(/<\/?(button|input).*?>/g, ""); // remove interface from last commands
 	[picking, done] = [false, true];
@@ -227,6 +234,11 @@ var frg = (aa) => { // tableau de tableau -> chaine
 	let res = tob64(aa[0].length); // encode length of a line for later
 	let lt = -1; // not a color id
 	let ti = 0;
+	let customs_ = []; // custom colors
+	aa.forEach((l) => l.forEach((c) => (typeof(c) == "string")?customs_.push(c):undefined));
+	let customs = {};
+	customs_.map((c, i) => customs[c] = i+6);
+	res += customs_.join("")+"|";
 	for (let i = 0; i < aa.length; i++) {
 		if (i > 0 && JSON.stringify(aa[i]) == JSON.stringify(aa[i-1])) {
 			if (lt == "$") { // already same line
@@ -243,6 +255,9 @@ var frg = (aa) => { // tableau de tableau -> chaine
 			ti = 0;
 			for (let j = 0; j < aa[0].length; j++) {
 				k = aa[i][j];
+				if (typeof(k) == "string") {
+					k = customs[k];
+				}
 				if (k != lt) {
 					if (lt != -1) {
 						res += tob64(lt) + tob64(ti); 
@@ -272,6 +287,13 @@ var tog = (s) => { // chaine -> tableau de tableaux
 		si = fromb64(s[0]);
 		s = s.slice(1);
 	}
+	s = s.split("|");
+	let customs_ = s[0];
+	let customs = [];
+	for (let i=0;i<customs_.length;i+=7) {
+		customs[Math.round(i/7) + 6] = customs_.slice(i, i+7);
+	}
+	s = s[1];
 	let l = s.split("");
 	let l1 = [];
 	let i = 0;
@@ -288,7 +310,7 @@ var tog = (s) => { // chaine -> tableau de tableaux
 		}
 	}
 	let l2 = [];
-	let c = 0;
+	let n = 0;
 	i = 0;
 	while (i < l1.length) {
 		if (l1[i] == "$") {
@@ -297,13 +319,16 @@ var tog = (s) => { // chaine -> tableau de tableaux
 			}
 		} else {
 			for (let j = 0; j < l1[i+1]; j++) {
+				if (l1[i] > 5) {
+					l1[i] = customs[l1[i]];
+				}
 				l2.push(l1[i]);
-				c += 1;
+				n += 1;
 			}
 		}
 		i += 2;
-		if (c == si) {
-			c = 0;
+		if (n == si) {
+			n = 0;
 			res.push(dcopy(l2));
 			l2 = [];
 		}
@@ -424,7 +449,7 @@ var place = () => {
 		new Promise ((yes, no) => picked = yes)
 		.then(([x, y]) => { 
 			picking = false;
-			let co = bl(salles[anchor].c);
+			let co = (anchor=="0")?[0, 0]:bl(salles[anchor].c);
 			x -= co[0];
 			y -= co[1];
 			show("Room placed.");
@@ -441,7 +466,7 @@ var create = () => { // create the grid (coming from addroom's buttons)
 			salles[tmp[0]] = {d:tmp[1], f:tmp[2], v:false, g:grid, c:co};
 			y();
 		}).then(() => {
-		roomform.innerHTML = "Room successfully created.";
+		show("Room successfully created.");
 		display();
 		})})
 	})
@@ -507,9 +532,9 @@ var editgrid = (grid) => { // edit grid
 	}
 	ssl(`Editing mode.
 The room is opened at the left.
-Current drawing color is: ` + cs(c) + `
-Press ` + [0, 1, 2, 3, 4, 5].map((n) => n.toString() + " for " + cs(n)).join(", ") + `
+Press ` + [0, 1, 2, 3, 4, 5].map((n) => n.toString() + " for " + cs(n)).join(", ") + `, or pick a custom color:<input type="color" id="colinp"/>.
 Press s when you are satisfied.`); // the default colors
+	colinp.onchange = () => c = colinp.value;
 	done = false;
 	display();
 	return new Promise ((yes, no) => {finished = yes})
