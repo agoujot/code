@@ -34,6 +34,7 @@ addEventListener("keydown", (e) => {
 	} else if (e.key == "s" && !done) { // save
 		done = true;
 		rmlastline();
+		if (!oldfreeze) freez();
 		finished(constructmat());
 	} else if (document.activeElement.nodeName != "INPUT") {
 		switch (e.key) {
@@ -143,7 +144,7 @@ var display = () => { // all rooms on this floor || what's being edited
 }
 var setz = (s) => { // set zoom
 	eval("z"+s);
-	zoomspan.innerHTML = z.toString();
+	zoomspan.innerHTML = z.toString() + " px/sq";
 	display();
 }
 var setl = (s) => { // set level
@@ -153,7 +154,7 @@ var setl = (s) => { // set level
 }
 var sets = (a, b) => { // set scroll
 	eval("scroll["+a+"]"+b);
-	scrollspan.innerHTML = scroll.map((x) => x.toString()).join(" ");
+	scrollspan.innerHTML = scroll.map((x) => x.toString()).join("px, ");
 	display();
 }
 var flush = () => {setCookie(buffer); buffer = "" }; // if cookies are sent cell by cell there's not enough delay and some of them get cleacookie()'d
@@ -530,9 +531,11 @@ var editgrid = (grid) => { // edit grid
 			}
 		}
 	}
+	oldfreeze = freeze;
+	if (!freeze) freez();
 	ssl(`Editing mode.
 The room is opened at the left.
-Press ` + [0, 1, 2, 3, 4, 5].map((n) => n.toString() + " for " + cs(n)).join(", ") + `, or pick a custom color:<input type="color" id="colinp"/>.
+Press ` + [0, 1, 2, 3, 4, 5].map((n) => n.toString() + " for " + cs(n)).join(", ") + `, or pick a custom color:<input type="color" id="colinp" style="height:1em;width:2em;border:none"/>.
 Press s when you are satisfied.`); // the default colors
 	colinp.onchange = () => c = colinp.value;
 	done = false;
