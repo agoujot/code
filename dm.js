@@ -431,7 +431,7 @@ var selectroom = () => { // pick a room by clicking on it/entering it in the inp
 		for (na in salles) {
 			let s = salles[na];
 			[i, j] = bl(s.c);
-			if (i <= x && x < i + s.g.length && j <= y && y < j + s.g[0].length) {
+			if (i <= x && x < i + s.g.length && j <= y && y < j + s.g[0].length && s.f.includes(eta)) {
 				rmlastline();
 				selected(na);
 				break
