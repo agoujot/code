@@ -1,18 +1,17 @@
-// #init2
 var cname = "cookie-dm-dp="; // cookie name
 var ctx = canv.getContext("2d"); // drawing context
 var scroll = [0, 0];
 var z, scroll, eta, freeze
-var fr = (x, y, w, h, co, vis = true) => { // fill rect
+var fr = (x, y, w, co, vis = true) => { // fill rect
 	ctx.fillStyle = "#"+co;
-	ctx.fillRect(x, y, w, h);
+	ctx.fillRect(x, y, w, w);
 	if (dm && !freeze && vis) {
 		if (co == "F00") co = "7F7F7F"; // red appears as floor to the players, for traps
 		if (co == "FF0") co = "FFF"; // yellow appears as wall, for passages
-		buffer += JSON.stringify([x, y, w, h, co]) + "|";
+		buffer += JSON.stringify([x, y, w, co]) + "|"; // could have gone for better encoding, too lazy to
 	}
 };
-if (dm) { //  #dm #event
+if (dm) {
 canv.addEventListener("click", (e) => {
 	let rect = canv.getBoundingClientRect(); // get the coordinates of the click relative to canvas
 	let x = e.clientX - rect.left;
@@ -49,11 +48,13 @@ addEventListener("keydown", (e) => {
 		}
 	}
 }, true)
-// #init
 var salles = {};
+var groups = {};
 var fileurl = null;
 var done = true;
 var picking = false;
+var nextid = 1;
+var nextgroupid = -1;
 var cols = (s) => 
 	(s==0)?"000":
 	(s==1)?"FFF":
@@ -81,53 +82,85 @@ commands = {
 	"hide":"hide",
 	"rotate":"rotate",
 	"copy":"copyroom",
+	"group":"makegroup",
 };
-var openp = () => { window.open("http://htmlpreview.github.io/?https://github.com/agoujot/code/blob/main/dp.html", "Players", "popup"); setTimeout(display, 500); }; // open player window
+var openp = () => { window.open("http://htmlpreview.github.io/?https://github.com/agoujot/code/blob/main/dp.html", "Players", "popup"); setTimeout(display, 1000); }; // open player window and make it display in a second if nothing has already (and if something has, but eh)
 var setCookie = (value) => { // send cookie
 	document.cookie = cname + value + "; path=/";
 	return true;
 }
-var needsroom = (callback) => (arg) => { if (arg) { callback(arg) } else { selectroom().then( (arg) => callback(arg) ) } };
-// #graphic
-var gotoroom = needsroom((na) =>  {
-	let co = bl(salles[na].c);
+var needsroom = (callback, list=false) => (arg) => { // metafunction to make commands
+	if (arg) { // command-line argument
+		for (id of Object.keys(salles)) {
+			if (salles[id].n == arg) {
+				callback(id);
+				return;
+			}
+		}
+		for (id of Object.keys(groups)) {
+			if (groups[id].n == arg) {
+				for (x of groups[id].l) {
+					callback(x)
+				}
+				return
+			}
+		}
+		return write("No room or group of that name exists.", "error")
+	} else { // go fetch from selectroom
+		selectroom().then( (arg) => { 
+			if (arg > 0) {
+				callback(arg);
+			} else {
+				if (list) {
+					for (x of groups[arg].l) {
+						callback(x);
+					}
+				} else {
+					write("This command does not accept groups.", "error");
+				}
+			}
+		}) 
+	}
+};
+var gotoroom = needsroom((id) =>  { // more precisely, put it in top left
+	let co = bl(salles[id].c);
 	sets("0", "="+(-co[0]*z).toString());
 	sets("1", "="+(-co[1]*z).toString());
 })
-var hide = needsroom( (na) => { // from players
-	salles[na].v = false;
+var hide = needsroom( (id) => { // from players
+	salles[id].v = false;
 	display();
-	show(na + " was hidden to the players.");
-})
-var view = needsroom( (na) => { // also players
-	salles[na].v = true;
+	show(salles[id].n + " was hidden to the players.");
+}, true)
+var view = needsroom( (id) => { // also players
+	salles[id].v = true;
 	display();
-	show(na + " was shown to the players.");
-})
-var bl = ([s, x, y]) => // build location maybe?
-	(s=="0")?[x, y]:[bl(salles[s].c)[0]+x, bl(salles[s].c)[1]+y]
-var draw = (i, j, co, show=true) => fr(i*z+scroll[0], j*z+scroll[1], z, z, co, show); // draw a cell
-var displayroom = (nom) => {
-	let s = salles[nom];
+	show(salles[id].n + " was shown to the players.");
+}, true)
+var bl = ([s, x, y]) => // build location maybe? it was a while ago
+	(s==0)?[x, y]:[bl(salles[s].c)[0]+x, bl(salles[s].c)[1]+y]
+var draw = (i, j, co, show=true) => fr(i*z+scroll[0], j*z+scroll[1], z, co, show); // draw a cell
+var displayroom = (id) => {
+	let s = salles[id];
 	let coord = bl(s.c);
 	for (i=0;i<s.g.length;i++) {
 		for (j=0;j<s.g[i].length;j++) {
-			if (s.g[i][j]) {draw(i+coord[0], j+coord[1], cols(s.g[i][j]), s.v)};
+			if (s.g[i][j]) {draw(i+coord[0], j+coord[1], cols(s.g[i][j]), s.v)}; // draw the cells of the room
 		}
 	}
-	let args = [nom, coord[0]*z+scroll[0], coord[1]*z+scroll[1]+12];
-	ctx.font = "12px serif"; // make a black shadow beneath the white text. the shadow's cut, so not very pretty, but allows to see it everywhere
+	let args = [s.n, coord[0]*z+scroll[0], coord[1]*z+scroll[1]+12];
+	ctx.font = "12px serif"; // make a black shadow beneath the white text. the shadow's cut, so not very pretty, but allows to see it on any background
 	ctx.fillStyle = "black";
 	ctx.fillText(args[0], args[1], args[2]);
 	ctx.fillStyle = "white";
 	ctx.fillText(args[0], args[1]+2, args[2]+2);
 }
-var erase = () => fr(0, 0, 900,900, "000"); // the canvas
+var erase = () => fr(0, 0, 900, "000"); // the canvas
 var display = () => { // all rooms on this floor || what's being edited
 	erase();
 	if (done) {
-		for (nom of Object.keys(salles)) {
-			if (salles[nom].f.includes(eta)) {displayroom(nom)};
+		for (id of Object.keys(salles)) {
+			if (salles[id].f.includes(eta)) {displayroom(id)};
 		};
 	} else {
 		for (p of Object.keys(colors)) {
@@ -152,7 +185,7 @@ var sets = (a, b) => { // set scroll
 	scrollspan.innerHTML = scroll.map((x) => x.toString()).join("px,") + "px";
 	display();
 }
-var flush = () => {setCookie(buffer); buffer = "" }; // if cookies are sent cell by cell there's not enough delay and some of them get cleacookie()'d
+var flush = () => {setCookie(buffer); buffer = "" }; // if cookies are sent cell by cell there's not enough delay and some of them get cleacookie()'d, this makes frames arrive intact or not at all
 var freez = () => { // toggle freeze
 	if (freeze) {
 		freeze = false;
@@ -165,39 +198,76 @@ var freez = () => { // toggle freeze
 }
 var gotolevel = (s) => setl("= Number("+s+")");
 var gotozoom = (s) => setz("= Number("+s+")");
-// #console
 var escap = (s) => s // escape for HTML
 	.replaceAll('"', "&quot;")
 	.replaceAll("'", "&apos;")
 	.replaceAll("&", "&amp;")
 	.replaceAll("<", "&lt;")
 	.replaceAll(">", "&gt;");
-var ssl = (s) => { // show single line
+var ssl = (s) => { // show single line (multiple lines in one tr)
 	show(s.replaceAll("\n", "<br>"));
 }
-rmlastline = () => {
+rmlastline = () => { // technically last tr, which is where ssl comes in
 	log.lastChild.remove();
 }
 var cs = (co) => '<span style="background-color:#' + cols(co) + '">&emsp;</span>' // colored span
 var inp = () => { // input
-	log.innerHTML = log.innerHTML.replaceAll(/<\/?(button|input).*?>/g, ""); // remove interface from last commands
+	log.innerHTML = log.innerHTML.replaceAll(/<\/?(butto|inpu).*?[^=]>/g, ""); // remove interface from last commands
 	[picking, done] = [false, true];
 	let l = input.value; // input's the ID of the input element
 	write(l, "in");
 	input.value = "";
-	let com = Object.keys(commands).find((comm) => l.startsWith(comm+" ") || l == comm); // match a command
+	let com = Object.keys(commands).find((comm) => l.startsWith(comm+" ") || l == comm); // match a command. the +" " and the trim at 223 might be duplicates but not sure
 	let f = commands[com];
 	if (f) {
 		eval(f+"('" + l.slice(com.length).trim() + "')");
 	}
 	else write("Unknown command", "error");
 };
-input.addEventListener("keyup", (e) => { if (e.keyCode == "13" && !e.shiftKey) inp() }); // enter
-var write = (s, clas) => log.innerHTML += ("<tr><td class='" + clas + "'>" + s.trim().split("\n").join("</td></tr><tr><td class='cont " + clas + "'>") + "</td></tr>"); //  add a tr to log, with clas
+input.addEventListener("keyup", (e) => { if (e.keyCode == "13" && !e.shiftKey) inp() }); // send on enter
+var write = (s, clas) => log.innerHTML += ("<tr><td class='" + clas + "'>" + s.trim().split("\n").join("</td></tr><tr><td class='" + clas + "'>") + "</td></tr>"); //  add a tr to log, with clas
 commandlist.innerHTML = Object.keys(commands).map((x) => '<option>' + x + '</option>').join(""); // datalist of commands for autosuggest
 var show = (s) => s.split("\n").map((l) => (l)?l:"&nbsp;").forEach((s) => write(s, "out")); // show text as "out"
-// #file
-function tob64(n) { // en base 64, cad 0 .. 9 + A .. Z + a .. z + - + . (Assume, dans son implementation actuelle, que il y a moins de 2**12 couleurs.)
+var makegroup = (s) => { // technically also update, but behaves the same
+	new Promise((y, n) => gnf = y).then((na) => {
+	ide = 0
+	for (id of Object.keys(groups)) {
+		if (groups[id].n == na) {
+			ide = id;
+			break;
+		}
+	}
+	if (!ide) {
+		ide = nextgroupid;
+		nextgroupid --;
+		groups[ide] = { n:na, l:new Set() };
+	}
+	ssl(`Current rooms: <ul id="grouplist"></ul>
+<button onclick="selectroom().then((id) => { groups[ide].l.add(id); updategrouplist() } )">Add a room</button><button onclick="selectroom().then((id) => { groups[ide].l.delete(id); updategrouplist() })">Remove a room</button><button onclick="savegroup()">Save</button>`);
+	updategrouplist = () => {
+		if (groups[ide].l.size == 0) {
+			grouplist.innerHTML = "(None)";
+		} else {
+			grouplist.innerHTML = "";
+			for (iden of groups[ide].l) {
+				grouplist.innerHTML += "<li>"+salles[iden].n+"</li>"
+			}
+		}
+	}
+	savegroup = () => { // my save buttons are often a sham, everything's already saved, I'm just making sure you finished to try and not resort to input's ugly methods
+		rmlastline();
+		show("Group saved.");
+	};
+
+	updategrouplist();
+	})
+	if (s) { // can't rely on needsroom and selectroom here
+		gnf(s); // group, name, and something in f (finished?) I forgot very quickly
+	} else {
+		show(`<input type="text" id="nameinp" placeholder="Enter name"/> and then <button onclick="let val = nameinp.value; rmlastline(); gnf(val);">continue</button>`)
+	}
+}
+function tob64(n) { // en base 64, cad 0 .. 9 + A .. Z + a .. z + - + . (Assume, dans son implementation actuelle, que il y a moins de 2**12 couleurs et qu'aucune salle ne fait plus de 2**12 cases de large)
 	if (n < 10) {
 		return n.toString() // chiffres
 	} else if (n < 36) {
@@ -212,7 +282,7 @@ function tob64(n) { // en base 64, cad 0 .. 9 + A .. Z + a .. z + - + . (Assume,
 		return ("'"+tob64(Math.floor(n / 64)) + tob64(n % 64))
 	}
 }
-function fromb64(s) { // ne prend que les chiffres, decompress pretraite les '
+function fromb64(s) { // ne prend que les chiffres, tog pretraite les '
 	if (s >= "0" && s <= "9") {
 		return Number(s)
 	} else if (s >= "A" && s <= "Z") {
@@ -225,13 +295,13 @@ function fromb64(s) { // ne prend que les chiffres, decompress pretraite les '
 		return 63
 	}
 }
-var dcopy = (aa) => JSON.parse(JSON.stringify(aa)); // deepcopy of array array
+var dcopy = (aa) => JSON.parse(JSON.stringify(aa)); // deepcopy of array array. worst part is it's apparently the best way
 var frg = (aa) => { // tableau de tableau -> chaine
 	let res = tob64(aa[0].length); // encode length of a line for later
-	let lt = -1; // not a color id
+	let lt = -1; // pointedly not a color id
 	let ti = 0;
-	let customs_ = []; // custom colors
-	aa.forEach((l) => l.forEach((c) => (typeof(c) == "string")?customs_.push(c):undefined));
+	let customs_ = []; // custom colors. my underscores are a bad habit
+	aa.forEach((l) => l.forEach((c) => (typeof(c) == "string" && !(c in customs_))?customs_.push(c):undefined));
 	let customs = {};
 	customs_.map((c, i) => customs[c] = i+6);
 	res += customs_.join("")+"|";
@@ -251,7 +321,7 @@ var frg = (aa) => { // tableau de tableau -> chaine
 			ti = 0;
 			for (let j = 0; j < aa[0].length; j++) {
 				k = aa[i][j];
-				if (typeof(k) == "string") {
+				if (typeof(k) == "string") { // -> not a number -> custom color
 					k = customs[k];
 				}
 				if (k != lt) {
@@ -287,7 +357,7 @@ var tog = (s) => { // chaine -> tableau de tableaux
 	let customs_ = s[0];
 	let customs = [];
 	for (let i=0;i<customs_.length;i+=7) {
-		customs[Math.round(i/7) + 6] = customs_.slice(i, i+7);
+		customs[Math.floor(i/7) + 6] = customs_.slice(i, i+7);
 	}
 	s = s[1];
 	let l = s.split("");
@@ -331,15 +401,20 @@ var tog = (s) => { // chaine -> tableau de tableaux
 	}
 	return res
 }
-var save = () => { // save settings & salles to file
+var save = () => { // save settings & salles & groups to file
 	let txt = Math.abs(z).toString()+"\n"+eta.toString()+"\n"+scroll[0].toString() + " " + scroll[1].toString() + "\n" + ((freeze)?"yes":"no") + "\n";
-	for (let na in salles) {
-		let s = salles[na];
-		txt += na + "\n" + s.f.join(" ") + "\n" + frg(s.g) + "\n"+ s.d + "\n" + JSON.stringify(s.c) + "\n" + (s.v?"yes":"no") + "\n";
+	for (let id=1;id<nextid;id++) { // to put them in the right order because groups mention IDs
+		let s = salles[id];
+		txt += s.n + "\n" + s.f.join(" ") + "\n" + frg(s.g) + "\n"+ s.d + "\n" + JSON.stringify(s.c) + "\n" + (s.v?"yes":"no") + "\n";
+	}
+	txt += "\t\n";
+	for (let id in groups) { // I ''think'' we don't care about those IDs?
+		let g = groups[id];
+		txt += g.n + "\n" + Array.from(g.l).join(" ") + "\n";
 	}
 	let file = new Blob([txt]);
 	if (fileurl) {
-		window.URL.revokeObjectURL(fileurl)
+		window.URL.revokeObjectURL(fileurl);
 	}
 	fileurl = window.URL.createObjectURL(file);
 	let a = document.createElement("A");
@@ -366,19 +441,25 @@ var load = () => { // load settings & salles from file
 			setl("=Number("+l[1]+")");
 			sets("0", "=Number("+l[2].split(" ")[0]+")");
 			sets("1", "=Number("+l[2].split(" ")[1]+")");
-			((freeze)?"yes":"no"==l[3])?undefined:freez();
+			(((freeze)?"yes":"no")==l[3])?undefined:freez();
 			l = l.slice(4);
-			while (l.length > 0) {
-				salles[l[0]] = { f:l[1].split(" ").map(Number), g:tog(l[2]),  d:l[3], c:JSON.parse(l[4]), v:(l[5]=="yes") };
+			while (l.length > 0 && l[0] != "\t") { // took \t because it can't be typed in input fields, so not a valid room/group name
+				salles[nextid] = { n:l[0], f:l[1].split(" ").map(Number), g:tog(l[2]),  d:l[3], c:JSON.parse(l[4]), v:(l[5]=="yes") };
 				l = l.slice(6);
+				nextid ++;
 			};
+			l = l.slice(1);
+			while (l.length > 0) {
+				groups[nextgroupid] = { n:l[0], l:new Set(l[1].split(" ")) };
+				l = l.slice(2);
+				nextgroupid --;
+			}
 			rmlastline();
 			show("Loaded successfully.");
 			display();
 		})
 	}
 }
-// #help
 var help = () => show(`
 Help page:
 
@@ -389,8 +470,8 @@ list : lists the rooms
 add/a : add a room
 edit/e : edit a room
 level [number] : go to a specific level
-zoom [number] : go to a specific zoom, minimum 1
-freeze/f : toggle whether the players see changesf
+zoom [number] : go to a specific zoom
+freeze/f : toggle whether the players see changes
 goto : go to a room
 open/o : open the player window
 save/s : download the file
@@ -399,6 +480,7 @@ view: show a room to the players
 hide : hide a room to the players
 remove : remove a room
 rotate : turn a room 90, 180, or 270°
+group : create a groop of rooms that can be used in commands
 copy : create a new room that is a copy of another</li></ul>`.replaceAll("\n", "</li><li>") +
 `
 Also some shortcuts when not typing:
@@ -406,33 +488,36 @@ Also some shortcuts when not typing:
 `<ul><li>the arrows : navigate in the map
 + and - : zoom more/less
 pageup and pagedown : change floor</li></ul>`.replaceAll("\n", "</li><li>")
-); // info message
-var listrooms = () => { // DEWISOTT
-	let mess = "Rooms:\n<table class='out'><tr><td>Name&emsp;</td><td>Size&emsp;</td><td>Level&emsp;</td><td>Visible?</td><td>Description</td></tr>";
-	for (let nom in salles) {
-		let s = salles[nom];
-		mess += "<tr><td>" + [nom, s.g.length.toString() + "x" + s.g[0].length.toString(), s.f.toString(), (s.v)?"Yes":"No", s.d].join("</td><td>") + "</td></tr>";
+); // info message, maybe a way to automatize this
+var listrooms = () => {
+	if (nextid == 1) {
+		var mess = "No rooms.";
+	} else {
+		var mess = "Rooms:\n<table class='out'><tr><td>Name&emsp;</td><td>Size&emsp;</td><td>Level&emsp;</td><td>Visible?</td><td>Description</td></tr>";
+		for (let id in salles) {
+			let s = salles[id];
+			mess += "<tr><td>" + [s.n, s.g.length.toString() + "x" + s.g[0].length.toString(), s.f.toString(), (s.v)?"Yes":"No", s.d].join("</td><td>") + "</td></tr>";
+		}
 	}
 	show(mess);
 };
-// #edit #add
-var selectroom = () => { // pick a room by clicking on it/entering it in the input
+var selectroom = () => { // pick a room/group by clicking on it/entering it in the input
 	display();
-	show(`Selection: <input list="selelist" type="text" id="senainp" placeholder="enter a name"/><datalist id="selelist">` + Object.keys(salles).map((x) => `<option>` + x + `</option>`) + `</datalist> and then <button onclick="if (Object.keys(salles).includes(senainp.value)) {let val = senainp.value; rmlastline(); selected(val)} else { alert('This room does not exist.') }">submit</button> or click on a room on the left.`);
+	show(`Selection: Enter the <input list="selelist" type="text" id="senainp" placeholder="name"/><datalist id="selelist">` + Object.keys(salles).map((x) => `<option>` + salles[x].n + `</option>`) + Object.keys(groups).map((x) => "<option>" + groups[x].n + "</option>") + `</datalist> of a room or group and then <button onclick="let val = senainp.value; rmlastline(); for (id of Object.keys(salles)) { if (salles[id].n == val) { selected(id) } }; for (id of Object.keys(groups)) { if (groups[id].n == val) { selected(id) } };">submit</button> or click on a room on the left.`);
 	picking = true;
 	new Promise ((yes, no) => { picked = yes })
 	.then(([x, y]) => {
 		picking = false;
-		for (na in salles) {
-			let s = salles[na];
+		for (id in salles) {
+			let s = salles[id];
 			[i, j] = bl(s.c);
 			if (i <= x && x < i + s.g.length && j <= y && y < j + s.g[0].length && s.f.includes(eta)) {
 				rmlastline();
-				selected(na);
+				selected(id);
 				break
 			}
 		}
-		selected("0");
+		selected(0);
 	});
 	return new Promise ((yes, no) => { selected = yes })
 }
@@ -440,7 +525,7 @@ var place = () => {
 	show(`First select a room to anchor on (or in the void for independent positioning).`);
 	selectroom().then((anchor) => {
 		rmlastline();
-		show(`Anchored on: ` + ((anchor=="0")?"(0, 0)":anchor) + `. Click where the top-left corner should go.`);
+		show(`Anchored on: ` + ((anchor=="0")?"(0, 0)":salles[anchor].n) + `. Click where the top-left corner should go.`);
 		picking = true;
 		new Promise ((yes, no) => picked = yes)
 		.then(([x, y]) => { 
@@ -459,7 +544,8 @@ var create = () => { // create the grid (coming from addroom's buttons)
 	editgrid([]).then((grid) => {
 		place().then((co) => {
 		new Promise ((y, n) => {
-			salles[tmp[0]] = {d:tmp[1], f:tmp[2], v:false, g:grid, c:co};
+			salles[nextid] = {n:tmp[0], d:tmp[1], f:tmp[2], v:false, g:grid, c:co};
+			nextid++;
 			y();
 		}).then(() => {
 		show("Room successfully created.");
@@ -467,19 +553,21 @@ var create = () => { // create the grid (coming from addroom's buttons)
 		})})
 	})
 }
-var copyroom = needsroom( (na) => {
+var copyroom = needsroom( (id) => {
 	rmlastline();
 	show(`<input type="text" placeholder="enter new name" id="nameinp"/> and then <button onclick="let val = nameinp.value; rmlastline(); copyto(val)">submit</button> (or <button onclick="rmlastline();">cancel</button>).`);
-	copyto = (dest) => {
-		salles[dest] = structuredClone(salles[na]);
+	copyto = (dest) => { // dest is only the name
+		salles[nextid] = structuredClone(salles[id]);
+		salles[nextid].n = dest;
+		ide = nextid
+		nextid++;
 		rmlastline();
 		display();
 		show("Room copied.");
-		nam = dest;
 		askmove(); // because also cloned the coordinates, so overlap.
 	};
 })
-var rotatearray = (g) => { // 90° clockwise
+var rotatearray = (g) => { // 90° clockwise, a bit brutish but eh
 	let res = [];
 	for (let j=0;j<g[0].length;j++) {
 		let line = [];
@@ -490,9 +578,9 @@ var rotatearray = (g) => { // 90° clockwise
 	}
 	return res
 }
-var rotate = needsroom( (na) => {
+var rotate = needsroom( (id) => { // rotate a room, with the form and all
 	quarterturn = () => {
-		salles[na].g = rotatearray(salles[na].g);
+		salles[id].g = rotatearray(salles[id].g);
 		display();
 	}
 	ssl(`<button onclick="quarterturn()">Rotate 90° clockwise</button>
@@ -500,19 +588,19 @@ var rotate = needsroom( (na) => {
 })
 var update = () => { // update grid/position (coming from editroom's buttons)
 	rmlastline();
-	let s = salles[nam];
+	let s = salles[ide];
 	editgrid(s.g).then((grid) => { 
-		salles[nam].g = grid;
+		salles[ide].g = grid;
 		askmove();
 	})
 }
-var askmove = () => show(`Move? <button onclick="roomfloor = salles[nam].f; salles[nam].f = []; place().then((co) => { rmlastline(); salles[nam].c = co; salles[nam].f = roomfloor;  endedit()})">Yes</button> <button onclick="endedit()">No</button>`); // ask and maybe move the room named nam
-endedit = () => {
+var askmove = () => show(`Move? <button onclick="rmlastline();roomfloor = salles[ide].f; salles[ide].f = []; place().then((co) => { salles[ide].c = co; salles[ide].f = roomfloor; endedit()})">Yes</button> <button onclick="endedit()">No</button>`); // ask and maybe move the room named ide
+endedit = () => { // used by askmove's buttons
 	rmlastline();
 	show("Saved.");
 	display();
 }
-var editgrid = (grid) => { // edit grid
+var editgrid = (grid) => {
 	colors = {}; // keys coordinates, values colors. Allows for unlimited size, scroll, zoom, etc.
 	for (i=0;i<grid.length;i++) {
 		for (j=0;j<grid[i].length;j++) {
@@ -526,24 +614,24 @@ var editgrid = (grid) => { // edit grid
 	ssl(`Editing mode.
 The room is opened at the left.
 Press ` + [0, 1, 2, 3, 4, 5].map((n) => n.toString() + " for " + cs(n)).join(", ") + `, or pick a custom color:<input type="color" id="colinp" style="height:1em;width:2em;border:none"/>.
-Press s when you are satisfied.`); // the default colors
+Press s when you are satisfied.`); // ^ the default colors
 	colinp.onchange = () => c = colinp.value;
 	done = false;
 	display();
 	return new Promise ((yes, no) => {finished = yes})
 }
-var removeroom = needsroom( (na => {
-	let coord = bl(salles[na].c);
-	delete salles[na];
-	for (let nam of Object.keys(salles)) { // sort out the dependencies
-		if (salles[nam].c[0] == na) {
-			salles[nam].c = ["0", coord[0]+salles[nam].c[1], coord[1]+salles[nam].c[2]]
+var removeroom = needsroom( (id) => {
+	let coord = bl(salles[id].c);
+	delete salles[id];
+	for (let ide of Object.keys(salles)) { // sort out the dependencies
+		if (salles[ide].c[0] == id) {
+			salles[ide].c = [0, coord[0]+salles[ide].c[1], coord[1]+salles[ide].c[2]]
 		}
 	}
 	show("Room deleted. Rooms depending on it are now independent.");
 	display();
 })
-var constructmat = () => { // construct a matrix from edigrid's object
+var constructmat = () => { // construct a cropped matrix from edigrid's object
 	var [imin, jmin, imax, jmax] = [Infinity, Infinity, 0, 0];
 	var tmp = [];
 	for (p of Object.keys(colors)) {
@@ -568,13 +656,14 @@ var addroom = () => {
 <input type="text" id="storinp" placeholder="level list"/>
 <button onclick="tmp = [nameinp.value.trim(), escap(descinp.value.trim()), storinp.value.split(',').map(Number)]; create()">Create grid</button> (or <button onclick="rmlastline();">cancel</button>)`);
 }
-var editroom = needsroom( (na) => {
-	nam = na;
-	let s = salles[na];
-	ssl(`Editing `+na+` (lists must be separated by commas with no spaces):
+var editroom = needsroom( (id) => {
+	ide = id;
+	let s = salles[id];
+	ssl(`Editing: (lists must be separated by commas with no spaces):
+<input type="text" id="nameinp" placeholder="name" value="`+s.n+`"/>
 <input type="text" id="descinp" placeholder="description" value="`+s.d+`"/>
 <input type="text" id="storinp" placeholder="level list" value="`+s.f.join(",")+`"/>
-<button onclick="salles[nam].d = escap(descinp.value.trim()), salles[nam].f = storinp.value.split(',').map(Number); update()">Next</button> (or <button onclick="rmlastline()">cancel</button>)`)
+<button onclick="salles[ide].n = nameinp.value; salles[ide].d = escap(descinp.value.trim()), salles[ide].f = storinp.value.split(',').map(Number); update()">Next</button> (or <button onclick="rmlastline()">cancel</button>)`)
 });
 freez();
 freez(); // do it twice to keep it false at the end of the day
@@ -582,7 +671,9 @@ setz("=50");
 sets("0", "=0");
 setl("=1"); // these are the default values, will be overriden by any load
 display();
-} else { // #dp
+} else {
+window.addEventListener("click", () => parenthtml.requestFullscreen()); // can't make it automatic because of some security thing or other
+eval('clearcookie = () => {document.cookie.replace(/(?<=^|;).+?(?=\=|;|$)/g, name => location.hostname.split(".").reverse().reduce(domain => (domain=domain.replace(/^\.?[^.]+/, ""),document.cookie=`${name}=;max-age=0;path=/;domain=${domain}`,domain), location.hostname));}'); // trick because it messes with my syntax coloring
 clearcookie(); // to not show the last thing
 var getCookie = () => { // get the message sent by setcookie()
 	let res = "";
@@ -595,19 +686,19 @@ var getCookie = () => { // get the message sent by setcookie()
 			}
 		}
 	}
-	if (res) clearcookie(); // defined in dp.html because vim syntax coloring doesn't like it. Also only clearing at the end in case setcookie was trigerred multiple times since last check
+	if (res) clearcookie(); // only clearing at the end in case setcookie was trigerred multiple times since last check
 	return res
 }
-let updateMessage = () => {
+let updateMessage = () => { // check if cookie's been received
 	let text = getCookie();
 	if (text) {
 		console.log(text);
 		for (s of text.split("|").slice(0, -1)) {
-			let [x, y, w, h, co] = JSON.parse(s);
-			fr(x, y, w, h, co);
+			let [x, y, w, co] = JSON.parse(s);
+			fr(x, y, w, co);
 		}
 	}
-	setTimeout(updateMessage, 100); // and repeat ad infinitam. not very clean, but only cookies worked.
+	setTimeout(updateMessage, 33); // and repeat ad infinitam, at ~30fps. not very clean, but only cookies worked.
 }
 updateMessage();
 }
