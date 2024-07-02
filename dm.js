@@ -87,28 +87,23 @@ var setCookie = (value) => { // send cookie
 	document.cookie = cname + value + "; path=/";
 	return true;
 }
+var needsroom = (callback) => (arg) => if (arg) { callback(arg) } else { selectroom().then( (arg) => callback(arg) ) };
 // #graphic
-var gotoroom = () => { // put room in top left
-	selectroom().then((na) => {
-		let co = bl(salles[na].c);
-		sets("0", "="+(-co[0]*z).toString());
-		sets("1", "="+(-co[1]*z).toString());
-	})
-}
-var hide = () => { // from players
-	selectroom().then((na) => {
-		salles[na].v = false;
-		display();
-		show(na + " was hidden to the players.");
-	})
-}
-var view = () => { // also players
-	selectroom().then((na) => {
-		salles[na].v = true;
-		display();
-		show(na + " was shown to the players.");
-	})
-}
+var gotoroom = needsroom((na) =>  {
+	let co = bl(salles[na].c);
+	sets("0", "="+(-co[0]*z).toString());
+	sets("1", "="+(-co[1]*z).toString());
+})
+var hide = needsroom( (na) => { // from players
+	salles[na].v = false;
+	display();
+	show(na + " was hidden to the players.");
+})
+var view = needsroom( (na) => { // also players
+	salles[na].v = true;
+	display();
+	show(na + " was shown to the players.");
+})
 var bl = ([s, x, y]) => // build location maybe?
 	(s=="0")?[x, y]:[bl(salles[s].c)[0]+x, bl(salles[s].c)[1]+y]
 var draw = (i, j, co, show=true) => fr(i*z+scroll[0], j*z+scroll[1], z, z, co, show); // draw a cell
@@ -472,21 +467,18 @@ var create = () => { // create the grid (coming from addroom's buttons)
 		})})
 	})
 }
-var copyroom = () => {
-	show("Choose the room to copy.");
-	selectroom().then((na) => {
+var copyroom = needsroom( (na) => {
+	rmlastline();
+	show(`<input type="text" placeholder="enter new name" id="nameinp"/> and then <button onclick="let val = nameinp.value; rmlastline(); copyto(val)">submit</button> (or <button onclick="rmlastline();">cancel</button>).`);
+	copyto = (dest) => {
+		salles[dest] = structuredClone(salles[na]);
 		rmlastline();
-		show(`<input type="text" placeholder="enter new name" id="nameinp"/> and then <button onclick="let val = nameinp.value; rmlastline(); copyto(val)">submit</button> (or <button onclick="rmlastline();">cancel</button>).`);
-		copyto = (dest) => {
-			salles[dest] = structuredClone(salles[na]);
-			rmlastline();
-			display();
-			show("Room copied.");
-			nam = dest;
-			askmove(); // because also cloned the coordinates, so overlap.
-		};
-	})
-}
+		display();
+		show("Room copied.");
+		nam = dest;
+		askmove(); // because also cloned the coordinates, so overlap.
+	};
+})
 var rotatearray = (g) => { // 90° clockwise
 	let res = [];
 	for (let j=0;j<g[0].length;j++) {
@@ -498,16 +490,14 @@ var rotatearray = (g) => { // 90° clockwise
 	}
 	return res
 }
-var rotate = () => { // rotate a room
-	selectroom().then((na) => {
-		quarterturn = () => {
-			salles[na].g = rotatearray(salles[na].g);
-			display();
-		}
-		ssl(`<button onclick="quarterturn()">Rotate 90° clockwise</button>
+var rotate = needsroom( (na) => {
+	quarterturn = () => {
+		salles[na].g = rotatearray(salles[na].g);
+		display();
+	}
+	ssl(`<button onclick="quarterturn()">Rotate 90° clockwise</button>
 <button onclick="rmlastline()">Validate</button>`)
-	})
-}
+})
 var update = () => { // update grid/position (coming from editroom's buttons)
 	rmlastline();
 	let s = salles[nam];
@@ -542,19 +532,17 @@ Press s when you are satisfied.`); // the default colors
 	display();
 	return new Promise ((yes, no) => {finished = yes})
 }
-var removeroom = () => {
-	selectroom().then((na) => {
-		let coord = bl(salles[na].c);
-		delete salles[na];
-		for (let nam of Object.keys(salles)) { // sort out the dependencies
-			if (salles[nam].c[0] == na) {
-				salles[nam].c = ["0", coord[0]+salles[nam].c[1], coord[1]+salles[nam].c[2]]
-			}
+var removeroom = needsroom( (na => {
+	let coord = bl(salles[na].c);
+	delete salles[na];
+	for (let nam of Object.keys(salles)) { // sort out the dependencies
+		if (salles[nam].c[0] == na) {
+			salles[nam].c = ["0", coord[0]+salles[nam].c[1], coord[1]+salles[nam].c[2]]
 		}
-		show("Room deleted. Rooms depending on it are now independent.");
-		display();
-	})
-}
+	}
+	show("Room deleted. Rooms depending on it are now independent.");
+	display();
+})
 var constructmat = () => { // construct a matrix from edigrid's object
 	var [imin, jmin, imax, jmax] = [Infinity, Infinity, 0, 0];
 	var tmp = [];
@@ -580,16 +568,14 @@ var addroom = () => {
 <input type="text" id="storinp" placeholder="level list"/>
 <button onclick="tmp = [nameinp.value.trim(), escap(descinp.value.trim()), storinp.value.split(',').map(Number)]; create()">Create grid</button> (or <button onclick="rmlastline();">cancel</button>)`);
 }
-var editroom = () => {
-	selectroom().then((na) => {
+var editroom = needsroom( (na) => {
 	nam = na;
 	let s = salles[na];
 	ssl(`Editing `+na+` (lists must be separated by commas with no spaces):
 <input type="text" id="descinp" placeholder="description" value="`+s.d+`"/>
 <input type="text" id="storinp" placeholder="level list" value="`+s.f.join(",")+`"/>
 <button onclick="salles[nam].d = escap(descinp.value.trim()), salles[nam].f = storinp.value.split(',').map(Number); update()">Next</button> (or <button onclick="rmlastline()">cancel</button>)`)
-	}); 
-}
+});
 freez();
 freez(); // do it twice to keep it false at the end of the day
 setz("=50");
