@@ -87,7 +87,7 @@ var setCookie = (value) => { // send cookie
 	document.cookie = cname + value + "; path=/";
 	return true;
 }
-var needsroom = (callback) => (arg) => if (arg) { callback(arg) } else { selectroom().then( (arg) => callback(arg) ) };
+var needsroom = (callback) => (arg) => { if (arg) { callback(arg) } else { selectroom().then( (arg) => callback(arg) ) } };
 // #graphic
 var gotoroom = needsroom((na) =>  {
 	let co = bl(salles[na].c);
