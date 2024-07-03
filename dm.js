@@ -82,15 +82,34 @@ commands = {
 	"hide":"hide",
 	"rotate":"rotate",
 	"copy":"copyroom",
-	"group":"makegroup",
+	"set":"makegroup",
 };
-var openp = () => { window.open("http://htmlpreview.github.io/?https://github.com/agoujot/code/blob/main/dp.html", "Players", "popup"); setTimeout(display, 1000); }; // open player window and make it display in a second if nothing has already (and if something has, but eh)
+var openp = () => { 
+	window.open("http://htmlpreview.github.io/?https://github.com/agoujot/code/blob/main/dp.html", "Players", "popup"); setTimeout(display, 1000);
+	show(`Window opened.
+If it didn't make sure you allowed pop-ups for this website (your browser probably gave you a notice).
+Click on the player window to make it go fullscreen.`)
+}; // open player window and make it display in a second if nothing has already (and if something has, but eh)
 var setCookie = (value) => { // send cookie
 	document.cookie = cname + value + "; path=/";
 	return true;
 }
 var needsroom = (callback, list=false) => (arg) => { // metafunction to make commands
 	if (arg) { // command-line argument
+		if (arg[0] == "+" && arg.slice(1) in salles) {
+			callback(arg.slice(1));
+			return;
+		}
+		if (arg[0] == "-" && arg in groups) {
+			if (list) {
+				for (x of groups[arg].l) {
+					callback(x);
+				}
+			} else {
+				write("This command does not accept sets.", "error");
+			}
+			return
+		}
 		for (id of Object.keys(salles)) {
 			if (salles[id].n == arg) {
 				callback(id);
@@ -99,24 +118,28 @@ var needsroom = (callback, list=false) => (arg) => { // metafunction to make com
 		}
 		for (id of Object.keys(groups)) {
 			if (groups[id].n == arg) {
-				for (x of groups[id].l) {
-					callback(x)
+				if (list) {
+					for (x of groups[id].l) {
+						callback(x)
+					}
+				} else {
+					write("This command does not accpt sets.", "error");
 				}
 				return
 			}
 		}
-		return write("No room or group of that name exists.", "error")
+		return write("No room or set of that name exists.", "error")
 	} else { // go fetch from selectroom
-		selectroom().then( (arg) => { 
-			if (arg > 0) {
-				callback(arg);
+		selectroom().then( (arg) => {
+			if (Number(arg) > 0) {
+				callback(Number(arg).toString()); // eliminate unary +s
 			} else {
 				if (list) {
 					for (x of groups[arg].l) {
 						callback(x);
 					}
 				} else {
-					write("This command does not accept groups.", "error");
+					write("This command does not accept sets.", "error");
 				}
 			}
 		}) 
@@ -243,6 +266,7 @@ var makegroup = (s) => { // technically also update, but behaves the same
 		groups[ide] = { n:na, l:new Set() };
 	}
 	ssl(`Current rooms: <ul id="grouplist"></ul>
+Empty the set to destroy it.
 <button onclick="selectroom().then((id) => { groups[ide].l.add(id); updategrouplist() } )">Add a room</button><button onclick="selectroom().then((id) => { groups[ide].l.delete(id); updategrouplist() })">Remove a room</button><button onclick="savegroup()">Save</button>`);
 	updategrouplist = () => {
 		if (groups[ide].l.size == 0) {
@@ -254,9 +278,14 @@ var makegroup = (s) => { // technically also update, but behaves the same
 			}
 		}
 	}
-	savegroup = () => { // my save buttons are often a sham, everything's already saved, I'm just making sure you finished to try and not resort to input's ugly methods
+	savegroup = () => { // my save buttons are often a sham, everything's already saved, I'm just making sure you finished to try and not resort to inp's ugly methods
 		rmlastline();
-		show("Group saved.");
+		if (groups[ide].l.size == 0) {
+			delete groups[ide];
+			show("Set deleted as empty.");
+		} else {
+			show("Set saved.");
+		}
 	};
 
 	updategrouplist();
@@ -264,7 +293,7 @@ var makegroup = (s) => { // technically also update, but behaves the same
 	if (s) { // can't rely on needsroom and selectroom here
 		gnf(s); // group, name, and something in f (finished?) I forgot very quickly
 	} else {
-		show(`<input type="text" id="nameinp" placeholder="Enter name"/> and then <button onclick="let val = nameinp.value; rmlastline(); gnf(val);">continue</button>`)
+		show(`<input type="text" id="nameinp" placeholder="Enter name"/> and then <button onclick="if (!(nameinp.value.includes('+') || nameinp.value.includes('-'))) { let val = nameinp.value; rmlastline(); gnf(val); } else { alert('+ and - are reserved for IDs.') }">continue</button>`)
 	}
 }
 function tob64(n) { // en base 64, cad 0 .. 9 + A .. Z + a .. z + - + . (Assume, dans son implementation actuelle, que il y a moins de 2**12 couleurs et qu'aucune salle ne fait plus de 2**12 cases de large)
@@ -403,14 +432,14 @@ var tog = (s) => { // chaine -> tableau de tableaux
 }
 var save = () => { // save settings & salles & groups to file
 	let txt = Math.abs(z).toString()+"\n"+eta.toString()+"\n"+scroll[0].toString() + " " + scroll[1].toString() + "\n" + ((freeze)?"yes":"no") + "\n";
-	for (let id=1;id<nextid;id++) { // to put them in the right order because groups mention IDs
+	for (let id of Object.keys(salles).sort()) { // to put them in the right order because groups mention IDs
 		let s = salles[id];
-		txt += s.n + "\n" + s.f.join(" ") + "\n" + frg(s.g) + "\n"+ s.d + "\n" + JSON.stringify(s.c) + "\n" + (s.v?"yes":"no") + "\n";
+		txt += id + "\n" + s.n + "\n" + s.f.join(" ") + "\n" + frg(s.g) + "\n"+ s.d + "\n" + JSON.stringify(s.c) + "\n" + (s.v?"yes":"no") + "\n";
 	}
 	txt += "\t\n";
-	for (let id in groups) { // I ''think'' we don't care about those IDs?
+	for (let id of Object.keys(groups).sort((a, b) => b-a)) { // I ''think'' we don't care about those IDs?
 		let g = groups[id];
-		txt += g.n + "\n" + Array.from(g.l).join(" ") + "\n";
+		txt += id + "\n" + g.n + "\n" + Array.from(g.l).join(" ") + "\n";
 	}
 	let file = new Blob([txt]);
 	if (fileurl) {
@@ -444,15 +473,15 @@ var load = () => { // load settings & salles from file
 			(((freeze)?"yes":"no")==l[3])?undefined:freez();
 			l = l.slice(4);
 			while (l.length > 0 && l[0] != "\t") { // took \t because it can't be typed in input fields, so not a valid room/group name
-				salles[nextid] = { n:l[0], f:l[1].split(" ").map(Number), g:tog(l[2]),  d:l[3], c:JSON.parse(l[4]), v:(l[5]=="yes") };
-				l = l.slice(6);
-				nextid ++;
+				salles[l[0]] = { n:l[1], f:l[2].split(" ").map(Number), g:tog(l[3]),  d:l[4], c:JSON.parse(l[5]), v:(l[6]=="yes") };
+				nextid = Number(l[0])+1;
+				l = l.slice(7);
 			};
 			l = l.slice(1);
 			while (l.length > 0) {
-				groups[nextgroupid] = { n:l[0], l:new Set(l[1].split(" ")) };
-				l = l.slice(2);
-				nextgroupid --;
+				groups[l[0]] = { n:l[1], l:new Set(l[2].split(" ")) };
+				nextgroupid = Number(l[0])-1;
+				l = l.slice(3);
 			}
 			rmlastline();
 			show("Loaded successfully.");
@@ -460,8 +489,7 @@ var load = () => { // load settings & salles from file
 		})
 	}
 }
-var help = () => show(`
-Help page:
+var help = () => show(`Help page.
 
 Commands available: 
 ` + 
@@ -480,30 +508,41 @@ view: show a room to the players
 hide : hide a room to the players
 remove : remove a room
 rotate : turn a room 90, 180, or 270°
-group : create a groop of rooms that can be used in commands
+set : create a set of rooms that can be used in commands
 copy : create a new room that is a copy of another</li></ul>`.replaceAll("\n", "</li><li>") +
-`
+`Rooms can be chosen by entering their name, their ID (starting with a +), a set name, or the ID of a set (starting with a -).
+
 Also some shortcuts when not typing:
 ` +
 `<ul><li>the arrows : navigate in the map
 + and - : zoom more/less
 pageup and pagedown : change floor</li></ul>`.replaceAll("\n", "</li><li>")
 ); // info message, maybe a way to automatize this
-var listrooms = () => {
+var listrooms = () => { // and groups
 	if (nextid == 1) {
 		var mess = "No rooms.";
 	} else {
-		var mess = "Rooms:\n<table class='out'><tr><td>Name&emsp;</td><td>Size&emsp;</td><td>Level&emsp;</td><td>Visible?</td><td>Description</td></tr>";
-		for (let id in salles) {
+		var mess = "Rooms:\n<table class='out'><tr><td>Id</td><td>Name</td><td>Size</td><td>Level</td><td>Visible?</td><td>Description</td></tr>";
+		for (let id of Object.keys(salles).sort()) {
 			let s = salles[id];
-			mess += "<tr><td>" + [s.n, s.g.length.toString() + "x" + s.g[0].length.toString(), s.f.toString(), (s.v)?"Yes":"No", s.d].join("</td><td>") + "</td></tr>";
+			mess += "<tr><td>+" + [id, s.n, s.g.length.toString() + "x" + s.g[0].length.toString(), s.f.toString(), (s.v)?"Yes":"No", s.d].join("</td><td>") + "</td></tr>";
 		}
 	}
 	show(mess);
+	if (nextgroupid == -1) {
+		mess = "No sets.";
+	} else {
+		mess = "Sets:\n<table class='out'<tr><td>Id</td><td>Name</td><td>Rooms</td></tr>";
+		for (let id of Object.keys(groups).sort((a, b) => b-a)) {
+			let g = groups[id];
+			mess += "<tr><td>" + [id, g.n, Array.from(g.l).join(',')].join("</td><td>") + "</td></tr>";
+		}
+	}
+	show(mess)
 };
 var selectroom = () => { // pick a room/group by clicking on it/entering it in the input
 	display();
-	show(`Selection: Enter the <input list="selelist" type="text" id="senainp" placeholder="name"/><datalist id="selelist">` + Object.keys(salles).map((x) => `<option>` + salles[x].n + `</option>`) + Object.keys(groups).map((x) => "<option>" + groups[x].n + "</option>") + `</datalist> of a room or group and then <button onclick="let val = senainp.value; rmlastline(); for (id of Object.keys(salles)) { if (salles[id].n == val) { selected(id) } }; for (id of Object.keys(groups)) { if (groups[id].n == val) { selected(id) } };">submit</button> or click on a room on the left.`);
+	show(`Selection: Enter the <input list="selelist" type="text" id="senainp" placeholder="name or ID"/><datalist id="selelist">` + Object.keys(salles).map((x) => `<option>` + salles[x].n + `</option>`) + Object.keys(groups).map((x) => "<option>" + groups[x].n + "</option>") + `</datalist> of a room or set and then <button onclick="let val = senainp.value; rmlastline(); for (id of Object.keys(salles)) { if (salles[id].n == val) { selected(id) } }; for (id of Object.keys(groups)) { if (groups[id].n == val) { selected(id) } }; if (val[0] == '+' && Number(val) < nextid && val[1] != '0') {selected(val)}; if (val[0] == '-' && Number(val) > nextgroupid && val[1] != '0') {selected(val)}">submit</button> or click on a room on the left.`);
 	picking = true;
 	new Promise ((yes, no) => { picked = yes })
 	.then(([x, y]) => {
@@ -555,7 +594,7 @@ var create = () => { // create the grid (coming from addroom's buttons)
 }
 var copyroom = needsroom( (id) => {
 	rmlastline();
-	show(`<input type="text" placeholder="enter new name" id="nameinp"/> and then <button onclick="let val = nameinp.value; rmlastline(); copyto(val)">submit</button> (or <button onclick="rmlastline();">cancel</button>).`);
+	show(`<input type="text" placeholder="enter new name" id="nameinp"/> and then <button onclick="if (!(nameinp.value.includes('+') || nameinp.value.includes('-'))) { let val = nameinp.value; rmlastline(); copyto(val) } else { alert('+ and - are reserved for IDs.') }">submit</button> (or <button onclick="rmlastline();">cancel</button>).`);
 	copyto = (dest) => { // dest is only the name
 		salles[nextid] = structuredClone(salles[id]);
 		salles[nextid].n = dest;
@@ -628,7 +667,10 @@ var removeroom = needsroom( (id) => {
 			salles[ide].c = [0, coord[0]+salles[ide].c[1], coord[1]+salles[ide].c[2]]
 		}
 	}
-	show("Room deleted. Rooms depending on it are now independent.");
+	for (let ide of Object.keys(groups)) {
+		groups[ide].l.delete(id);
+	}
+	show("Room deleted. Rooms depending on it are now independent and it has been removed from all sets.");
 	display();
 })
 var constructmat = () => { // construct a cropped matrix from edigrid's object
@@ -654,7 +696,7 @@ var addroom = () => {
 <input type="text" id="nameinp" placeholder="name"/>
 <input type="text" id="descinp" placeholder="description"/>
 <input type="text" id="storinp" placeholder="level list"/>
-<button onclick="tmp = [nameinp.value.trim(), escap(descinp.value.trim()), storinp.value.split(',').map(Number)]; create()">Create grid</button> (or <button onclick="rmlastline();">cancel</button>)`);
+<button onclick="if (!(nameinp.value.includes('+') || nameinp.value.includes('-'))) { tmp = [nameinp.value.trim(), escap(descinp.value.trim()), storinp.value.split(',').map(Number)]; create() } else { alert('+ and - are reserved for IDs.') }">Create grid</button> (or <button onclick="rmlastline();">cancel</button>)`);
 }
 var editroom = needsroom( (id) => {
 	ide = id;
@@ -663,7 +705,7 @@ var editroom = needsroom( (id) => {
 <input type="text" id="nameinp" placeholder="name" value="`+s.n+`"/>
 <input type="text" id="descinp" placeholder="description" value="`+s.d+`"/>
 <input type="text" id="storinp" placeholder="level list" value="`+s.f.join(",")+`"/>
-<button onclick="salles[ide].n = nameinp.value; salles[ide].d = escap(descinp.value.trim()), salles[ide].f = storinp.value.split(',').map(Number); update()">Next</button> (or <button onclick="rmlastline()">cancel</button>)`)
+<button onclick="if (!(nameinp.value.includes('+') || nameinp.value.includes('-'))) { salles[ide].n = nameinp.value; salles[ide].d = escap(descinp.value.trim()), salles[ide].f = storinp.value.split(',').map(Number); update() } else { alert('+ and - are reserved for IDs.') } ">Next</button> (or <button onclick="rmlastline()">cancel</button>)`)
 });
 freez();
 freez(); // do it twice to keep it false at the end of the day
