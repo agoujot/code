@@ -764,7 +764,7 @@ var editgrid = (grid) => {
 	}
 	ssl(`Editing mode.
 The room is opened at the left.
-Press ` + [0, 1, 2, 3, 4, 5].map((n) => n.toString() + " for " + cs(n)).join(", ") + `(transparent, floor below/no border), or pick a custom color:<input type="color" id="colinp" style="height:1em;width:2em;border:none" onchange="c = colinp.value"/>.
+Press ` + [0, 1, 2, 3, 4, 5].map((n) => n.toString() + " for " + cs(n)).join(", ") + `(transparent), or pick a custom color:<input type="color" id="colinp" style="height:1em;width:2em;border:none" onchange="c = colinp.value"/>.
 Modes: <button onclick="picking=false">Single tiles</button><button onclick="editrect()">Rectangles</button><button onclick="editborder()">Edit a border</button>
 For rectangles, click on the top left corner and then the bottom right one.
 <button onclick="let mat = constructmat(); if (continuous(mat)) { done = true; rmlastline(); if (!oldfreeze) freez(); scroll = oldscroll; finished([mat, borders]) } else { alert('Room not connected.'); }">Save</button><button onclick="done = true; rmlastline(); finished([oldmat, {}])">Discard changes</button>`); // ^ the default colors
