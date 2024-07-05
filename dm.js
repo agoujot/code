@@ -2,13 +2,13 @@ var cname = "cookie-dm-dp="; // cookie name
 var ctx = canv.getContext("2d"); // drawing context
 var scroll = [0, 0];
 var z, scroll, eta, freeze
-var fr = (x, y, w, co, vis = true) => { // fill rect
-	ctx.fillStyle = "#"+co;
-	ctx.fillRect(x, y, w, w);
+var fr = (x, y, w, h, co, vis = true) => { // fill rect
+	ctx.fillStyle = (co=="transparent")?co:("#"+co);
+	ctx.fillRect(x, y, w, h);
 	if (dm && !freeze && vis) {
 		if (co == "F00") co = "7F7F7F"; // red appears as floor to the players, for traps
 		if (co == "FF0") co = "FFF"; // yellow appears as wall, for passages
-		buffer += JSON.stringify([x, y, w, co]) + "|"; // could have gone for better encoding, too lazy to
+		buffer += JSON.stringify([x, y, w, h, co]) + "|"; // could have gone for better encoding, too lazy to
 	}
 };
 if (dm) {
@@ -21,20 +21,15 @@ canv.addEventListener("click", (e) => {
 		y = Math.floor((y-scroll[1])/z);
 		if (picking) { // resolves some promises
 			picked([x, y]);
-		} else if (!done) { // editing
+		} else if (!done) { // editing mode 0
 			colors[x+" "+y] = c;
 			draw(x, y, cols(c));
 		}
 	}
 })
 addEventListener("keydown", (e) => {
-	if (/^\d$/.test(e.key) && !done) { // color
+	if (/^\d$/.test(e.key)) { // color
 		c = Number(e.key);
-	} else if (e.key == "s" && !done) { // save
-		done = true;
-		rmlastline();
-		if (!oldfreeze) freez();
-		finished(constructmat());
 	} else if (document.activeElement.nodeName != "INPUT") {
 		switch (e.key) {
 			case("ArrowUp"): sets(1, "-=20"); break
@@ -57,13 +52,13 @@ var nextid = 1;
 var nextgroupid = -1;
 var cols = (s) => 
 	(s==0)?"000":
-	(s==1)?"FFF":
-	(s==2)?"7f7f7f":
-	(s==3)?"F00":
-	(s==4)?"FF0":
-	(s==5)?"8B4513":
+	(s==1)?"7f7f7f":
+	(s==2)?"F00":
+	(s==3)?"FF0":
+	(s==4)?"8B4513":
+	(s==5)?"transparent":
 	s.slice(1);
-var c = 1;
+c = 1;
 var buffer = "";
 commands = {
 	"list":"listrooms", 
@@ -162,13 +157,35 @@ var view = needsroom( (id) => { // also players
 }, true)
 var bl = ([s, x, y]) => // build location maybe? it was a while ago
 	(s==0)?[x, y]:[bl(salles[s].c)[0]+x, bl(salles[s].c)[1]+y]
-var draw = (i, j, co, show=true) => fr(i*z+scroll[0], j*z+scroll[1], z, co, show); // draw a cell
+var draw = (i, j, co, show=true) => fr(i*z+scroll[0], j*z+scroll[1], z, z, co, show); // draw a cell
 var displayroom = (id) => {
 	let s = salles[id];
 	let coord = bl(s.c);
-	for (i=0;i<s.g.length;i++) {
-		for (j=0;j<s.g[i].length;j++) {
-			if (s.g[i][j]) {draw(i+coord[0], j+coord[1], cols(s.g[i][j]), s.v)}; // draw the cells of the room
+	let wallwidth = Math.round(z/10);
+	for (let i=0;i<s.g.length;i++) {
+		for (let j=0;j<s.g[i].length;j++) {
+			if (s.g[i][j]) { // don't draw black to allow some kerning
+				draw(i+coord[0], j+coord[1], cols(s.g[i][j]), s.v);
+				for (let [x, y, m] of [[0, 1, 3], [1, 0, 2], [0, -1, 1], [-1, 0, 0]]) {
+					let [i_, j_] = [i+x, j+y];
+					if ([i, j, m] in s.b) {
+						var co = cols(s.b[[i, j, m]]);
+					} else {
+						var co = "FFF";
+					}
+					if (0 > i_ || i_ >= s.g.length || 0 > j_ || j_ >= s.g[0].length || s.g[i_][j_] == 0) {
+						if (m == 0) {
+							fr((i+coord[0])*z+scroll[0], (j+coord[1])*z+scroll[1], wallwidth, z, co, s.v);
+						} else if (m == 1) {
+							fr((i+coord[0])*z+scroll[0], (j+coord[1])*z+scroll[1], z, wallwidth, co, s.v);
+						} else if (m == 2) {
+							fr((i+coord[0]+1)*z+scroll[0]-wallwidth, (j+coord[1])*z+scroll[1], wallwidth, z, co, s.v);
+						} else if (m == 3) {
+							fr((i+coord[0])*z+scroll[0], (j+coord[1]+1)*z+scroll[1]-wallwidth, z, wallwidth, co, s.v);
+						}
+					}
+				}
+			}
 		}
 	}
 	let args = [s.n, coord[0]*z+scroll[0], coord[1]*z+scroll[1]+12];
@@ -178,8 +195,8 @@ var displayroom = (id) => {
 	ctx.fillStyle = "white";
 	ctx.fillText(args[0], args[1]+2, args[2]+2);
 }
-var erase = () => fr(0, 0, 900, "000"); // the canvas
-var display = () => { // all rooms on this floor || what's being edited
+var erase = () => fr(0, 0, 900, 900, "000"); // the canvas
+var display = () => { // all rooms on this floor || what's being edited && grid
 	erase();
 	if (done) {
 		for (id of Object.keys(salles)) {
@@ -190,11 +207,19 @@ var display = () => { // all rooms on this floor || what's being edited
 			let [i, j] = p.split(" ").map(Number);
 			if (colors[p]) {draw(i, j, cols(colors[p]))}
 		}
+		let [imin, jmin] = scroll.map((x) => (x % z)-z);
+		for (let i=imin;i<imin+900+z;i+=z) {
+			for (let j=jmin;j<jmin+900+z;j+=z) {
+				fr(i, j, z, 1, "FFF");
+				fr(i, j, 1, z, "FFF");
+			}
+		}
 	}
 	flush();
 }
 var setz = (s) => { // set zoom
 	eval("z"+s);
+	z = Math.abs(z);
 	zoomspan.innerHTML = z.toString() + " px/sq";
 	display();
 }
@@ -330,7 +355,7 @@ var frg = (aa) => { // tableau de tableau -> chaine
 	let lt = -1; // pointedly not a color id
 	let ti = 0;
 	let customs_ = []; // custom colors. my underscores are a bad habit
-	aa.forEach((l) => l.forEach((c) => (typeof(c) == "string" && !(c in customs_))?customs_.push(c):undefined));
+	aa.forEach((l) => l.forEach((val) => (typeof(val) == "string" && !(customs_.includes(val)))?customs_.push(val):undefined));
 	let customs = {};
 	customs_.map((c, i) => customs[c] = i+6);
 	res += customs_.join("")+"|";
@@ -434,10 +459,10 @@ var save = () => { // save settings & salles & groups to file
 	let txt = Math.abs(z).toString()+"\n"+eta.toString()+"\n"+scroll[0].toString() + " " + scroll[1].toString() + "\n" + ((freeze)?"yes":"no") + "\n";
 	for (let id of Object.keys(salles).sort()) { // to put them in the right order because groups mention IDs
 		let s = salles[id];
-		txt += id + "\n" + s.n + "\n" + s.f.join(" ") + "\n" + frg(s.g) + "\n"+ s.d + "\n" + JSON.stringify(s.c) + "\n" + (s.v?"yes":"no") + "\n";
+		txt += id + "\n" + s.n + "\n" + s.f.join(" ") + "\n" + frg(s.g) + "\n"+ s.d + "\n" + JSON.stringify(s.c) + "\n" + (s.v?"yes":"no") + "\n" + JSON.stringify(s.b) + "\n";
 	}
 	txt += "\t\n";
-	for (let id of Object.keys(groups).sort((a, b) => b-a)) { // I ''think'' we don't care about those IDs?
+	for (let id of Object.keys(groups).sort((a, b) => b-a)) {
 		let g = groups[id];
 		txt += id + "\n" + g.n + "\n" + Array.from(g.l).join(" ") + "\n";
 	}
@@ -472,10 +497,10 @@ var load = () => { // load settings & salles from file
 			sets("1", "=Number("+l[2].split(" ")[1]+")");
 			(((freeze)?"yes":"no")==l[3])?undefined:freez();
 			l = l.slice(4);
-			while (l.length > 0 && l[0] != "\t") { // took \t because it can't be typed in input fields, so not a valid room/group name
-				salles[l[0]] = { n:l[1], f:l[2].split(" ").map(Number), g:tog(l[3]),  d:l[4], c:JSON.parse(l[5]), v:(l[6]=="yes") };
+			while (l.length > 0 && l[0] != "\t") { // took \t because it can't be typed in input fields, so not a valid room/group name/whatever
+				salles[l[0]] = { n:l[1], f:l[2].split(" ").map(Number), g:tog(l[3]),  d:l[4], c:JSON.parse(l[5]), v:(l[6]=="yes"), b:JSON.parse(l[7]) };
 				nextid = Number(l[0])+1;
-				l = l.slice(7);
+				l = l.slice(8);
 			};
 			l = l.slice(1);
 			while (l.length > 0) {
@@ -580,10 +605,10 @@ var place = () => {
 }
 var create = () => { // create the grid (coming from addroom's buttons)
 	rmlastline();
-	editgrid([]).then((grid) => {
+	editgrid([]).then(([grid, bo]) => {
 		place().then((co) => {
 		new Promise ((y, n) => {
-			salles[nextid] = {n:tmp[0], d:tmp[1], f:tmp[2], v:false, g:grid, c:co};
+			salles[nextid] = {n:tmp[0], d:tmp[1], f:tmp[2], v:false, g:grid, c:co, b:bo};
 			nextid++;
 			y();
 		}).then(() => {
@@ -606,20 +631,30 @@ var copyroom = needsroom( (id) => {
 		askmove(); // because also cloned the coordinates, so overlap.
 	};
 })
-var rotatearray = (g) => { // 90° clockwise, a bit brutish but eh
-	let res = [];
-	for (let j=0;j<g[0].length;j++) {
-		let line = [];
-		for (let i=g.length-1;i>-1;i--) {
-			line.push(g[i][j]);
+var rotatearray = (g) => { // 90° clockwise
+	let res = new Array(g[0].length);
+	for (let j=0;j<res.length;j++) {
+		res[j] = new Array(g.length);
+	}
+	for (let i=0;i<g.length;i++) {
+		for (let j=0;j<g[0].length;j++) {
+			console.log(j, g.length-i-1, g[i][j]);
+			res[j][g.length-1-i] = g[i][j];
 		}
-		res.push(line);
 	}
 	return res
 }
 var rotate = needsroom( (id) => { // rotate a room, with the form and all
 	quarterturn = () => {
 		salles[id].g = rotatearray(salles[id].g);
+		let newb = {};
+		for (t of Object.keys(salles[id].b)) {
+			var nt = t.split(",").map(Number);
+			nt[2] = (nt[2]+3)%4;
+			nt[0] = salles[id].g[0].length-1-nt[0];
+			newb[[nt[1], nt[0], nt[2]]] = salles[id].b[t];
+		}
+		salles[id].b = newb;
 		display();
 	}
 	ssl(`<button onclick="quarterturn()">Rotate 90° clockwise</button>
@@ -628,8 +663,13 @@ var rotate = needsroom( (id) => { // rotate a room, with the form and all
 var update = () => { // update grid/position (coming from editroom's buttons)
 	rmlastline();
 	let s = salles[ide];
-	editgrid(s.g).then((grid) => { 
+	editgrid(s.g).then(([grid, bo]) => { 
+		console.log(grid, bo);
+		for (t in bo) {
+			salles[ide].b[t] = bo[t];
+		}
 		salles[ide].g = grid;
+		display();
 		askmove();
 	})
 }
@@ -639,10 +679,47 @@ endedit = () => { // used by askmove's buttons
 	show("Saved.");
 	display();
 }
+var continuous = (m) => {
+	if (m.length == 0) {
+		return true
+	}
+	g = m.map((ar) => ar.map((e) => Number(!!e)));
+	for (var i=0;i<g.length;i++) {
+		for (var j=0;j<g[0].length;j++) {
+			if (g[i][j]) {
+				[x, y] = [i, j];
+				j = Infinity;
+				i = Infinity;
+			}
+		}
+	}
+	togo = [[x, y]];
+	while (togo.length > 0) {
+		let [i, j] = togo.pop();
+		g[i][j] = 0;
+		for (let [a, b] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+			i_ = i+a;
+			j_ = j+b;
+			if (0 <= i_ && i_ < g.length && 0 <= j_ && j_ < g[0].length && g[i_][j_]) {
+				togo.push([i_, j_])
+			}
+		}
+	}
+	for (let i=0;i<g.length;i++) {
+		for(let j=0;j<g[0].length;j++) {
+			if (g[i][j]) {
+				return false
+			}
+		}
+	}
+	return true
+}
 var editgrid = (grid) => {
+	oldmat = grid;
 	colors = {}; // keys coordinates, values colors. Allows for unlimited size, scroll, zoom, etc.
-	for (i=0;i<grid.length;i++) {
-		for (j=0;j<grid[i].length;j++) {
+	borders = {};
+	for (let i=0;i<grid.length;i++) {
+		for (let j=0;j<grid[i].length;j++) {
 			if (grid[i][j]) { 
 				colors[i+" "+j] = grid[i][j]; // get the colors already there
 			}
@@ -650,11 +727,47 @@ var editgrid = (grid) => {
 	}
 	oldfreeze = freeze;
 	if (!freeze) freez();
+	oldscroll = dcopy(scroll);
+	sets("0", "=0");
+	sets("1", "=0");
+	editrect = () => {
+		picking = true;
+		show("Waiting for first corner.");
+		new Promise((y, n) => picked = y).then(([aa, bb]) => {
+			rmlastline();
+			show("Waiting for second corner.");
+			new Promise((y, n) => picked = y).then(([cc, dd]) => {
+				rmlastline();
+				picking = false;
+				for (let i=aa;i<=cc;i++) {
+					for (let j=bb;j<=dd;j++) {
+						colors[i+" "+j] = c;
+						draw(i, j, cols(c));
+					}
+				}
+				editrect();
+			})
+		})
+	}
+	editborder = () => {
+		show("Waiting for tile");
+		picking = true;
+		new Promise((y, n) => {picked = y}).then(([x, y]) => {
+			rmlastline();
+			picking = false;
+			show(`Select a border:<button onclick="borderchosen(0)">←</button><button onclick="borderchosen(1)">↑</button><button onclick="borderchosen(3)">↓</button><button onclick="borderchosen(2)">→</button>`);
+			borderchosen = (d) => {
+				rmlastline();
+				borders[[x, y, d]] = c;
+			}
+		})
+	}
 	ssl(`Editing mode.
 The room is opened at the left.
-Press ` + [0, 1, 2, 3, 4, 5].map((n) => n.toString() + " for " + cs(n)).join(", ") + `, or pick a custom color:<input type="color" id="colinp" style="height:1em;width:2em;border:none"/>.
-Press s when you are satisfied.`); // ^ the default colors
-	colinp.onchange = () => c = colinp.value;
+Press ` + [0, 1, 2, 3, 4, 5].map((n) => n.toString() + " for " + cs(n)).join(", ") + `(transparent, floor below/no border), or pick a custom color:<input type="color" id="colinp" style="height:1em;width:2em;border:none" onchange="c = colinp.value"/>.
+Modes: <button onclick="picking=false">Single tiles</button><button onclick="editrect()">Rectangles</button><button onclick="editborder()">Edit a border</button>
+For rectangles, click on the top left corner and then the bottom right one.
+<button onclick="let mat = constructmat(); if (continuous(mat)) { done = true; rmlastline(); if (!oldfreeze) freez(); scroll = oldscroll; finished([mat, borders]) } else { alert('Room not connected.'); }">Save</button><button onclick="done = true; rmlastline(); finished([oldmat, {}])">Discard changes</button>`); // ^ the default colors
 	done = false;
 	display();
 	return new Promise ((yes, no) => {finished = yes})
@@ -736,8 +849,8 @@ let updateMessage = () => { // check if cookie's been received
 	if (text) {
 		console.log(text);
 		for (s of text.split("|").slice(0, -1)) {
-			let [x, y, w, co] = JSON.parse(s);
-			fr(x, y, w, co);
+			let [x, y, w, h, co] = JSON.parse(s);
+			fr(x, y, w, h, co);
 		}
 	}
 	setTimeout(updateMessage, 33); // and repeat ad infinitam, at ~30fps. not very clean, but only cookies worked.
