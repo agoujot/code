@@ -679,41 +679,6 @@ endedit = () => { // used by askmove's buttons
 	show("Saved.");
 	display();
 }
-var continuous = (m) => {
-	if (m.length == 0) {
-		return true
-	}
-	g = m.map((ar) => ar.map((e) => Number(!!e)));
-	for (var i=0;i<g.length;i++) {
-		for (var j=0;j<g[0].length;j++) {
-			if (g[i][j]) {
-				[x, y] = [i, j];
-				j = Infinity;
-				i = Infinity;
-			}
-		}
-	}
-	togo = [[x, y]];
-	while (togo.length > 0) {
-		let [i, j] = togo.pop();
-		g[i][j] = 0;
-		for (let [a, b] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
-			i_ = i+a;
-			j_ = j+b;
-			if (0 <= i_ && i_ < g.length && 0 <= j_ && j_ < g[0].length && g[i_][j_]) {
-				togo.push([i_, j_])
-			}
-		}
-	}
-	for (let i=0;i<g.length;i++) {
-		for(let j=0;j<g[0].length;j++) {
-			if (g[i][j]) {
-				return false
-			}
-		}
-	}
-	return true
-}
 var editgrid = (grid) => {
 	oldmat = grid;
 	colors = {}; // keys coordinates, values colors. Allows for unlimited size, scroll, zoom, etc.
@@ -767,7 +732,7 @@ The room is opened at the left.
 Press ` + [0, 1, 2, 3, 4, 5].map((n) => n.toString() + " for " + cs(n)).join(", ") + `(transparent), or pick a custom color:<input type="color" id="colinp" style="height:1em;width:2em;border:none" onchange="c = colinp.value"/>.
 Modes: <button onclick="picking=false">Single tiles</button><button onclick="editrect()">Rectangles</button><button onclick="editborder()">Edit a border</button>
 For rectangles, click on the top left corner and then the bottom right one.
-<button onclick="let mat = constructmat(); if (continuous(mat)) { done = true; rmlastline(); if (!oldfreeze) freez(); scroll = oldscroll; finished([mat, borders]) } else { alert('Room not connected.'); }">Save</button><button onclick="done = true; rmlastline(); finished([oldmat, {}])">Discard changes</button>`); // ^ the default colors
+<button onclick="let mat = constructmat(); done = true; rmlastline(); if (!oldfreeze) freez(); scroll = oldscroll; finished([mat, borders])">Save</button><button onclick="done = true; rmlastline(); finished([oldmat, {}])">Discard changes</button>`); // ^ the default colors
 	done = false;
 	display();
 	return new Promise ((yes, no) => {finished = yes})
