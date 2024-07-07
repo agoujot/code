@@ -1,17 +1,17 @@
-var cname = "cookie-dm-dp="; // cookie name
 var ctx = canv.getContext("2d"); // drawing context
 var scroll = [0, 0];
 var z, scroll, eta, freeze
 var fr = (x, y, w, h, co, vis = true) => { // fill rect
 	ctx.fillStyle = (co=="transparent")?co:("#"+co);
 	ctx.fillRect(x, y, w, h);
-	if (dm && !freeze && vis) {
+	if (dm && !freeze && vis && players) {
 		if (co == "F00") co = "7F7F7F"; // red appears as floor to the players, for traps
 		if (co == "FF0") co = "FFF"; // yellow appears as wall, for passages
 		buffer += JSON.stringify([x, y, w, h, co]) + "|"; // could have gone for better encoding, too lazy to
 	}
 };
 if (dm) {
+players = null;
 canv.addEventListener("click", (e) => {
 	let rect = canv.getBoundingClientRect(); // get the coordinates of the click relative to canvas
 	let x = e.clientX - rect.left;
@@ -80,14 +80,10 @@ commands = {
 	"set":"makegroup",
 };
 var openp = () => { 
-	window.open("http://htmlpreview.github.io/?https://github.com/agoujot/code/blob/main/dp.html", "Players", "popup"); setTimeout(display, 1000);
+	players = window.open("http://htmlpreview.github.io/?https://github.com/agoujot/code/blob/main/dp.html", "Players", "popup"); setTimeout(display, 1000);
 	show(`Window opened.
 If it didn't make sure you allowed pop-ups for this website (your browser probably gave you a notice).
 Click on the player window to make it go fullscreen.`)
-}; // open player window and make it display in a second if nothing has already (and if something has, but eh)
-var setCookie = (value) => { // send cookie
-	document.cookie = cname + value + "; path=/";
-	return true;
 }
 var needsroom = (callback, list=false) => (arg) => { // metafunction to make commands
 	if (arg) { // command-line argument
@@ -142,6 +138,7 @@ var needsroom = (callback, list=false) => (arg) => { // metafunction to make com
 };
 var gotoroom = needsroom((id) =>  { // more precisely, put it in top left
 	let co = bl(salles[id].c);
+	setl("="+salles[id].f[0].toString());
 	sets("0", "="+(-co[0]*z).toString());
 	sets("1", "="+(-co[1]*z).toString());
 })
@@ -165,11 +162,22 @@ var displayroom = (id) => {
 	for (let i=0;i<s.g.length;i++) {
 		for (let j=0;j<s.g[i].length;j++) {
 			if (s.g[i][j]) { // don't draw black to allow some kerning
-				draw(i+coord[0], j+coord[1], cols(s.g[i][j]), s.v);
+				let l = s.g[i][j];
+				if (typeof(l) != "object") {
+					l = [l];
+				}
+				draw(i+coord[0], j+coord[1], cols(l[0]), s.v);
 				for (let [x, y, m] of [[0, 1, 3], [1, 0, 2], [0, -1, 1], [-1, 0, 0]]) {
 					let [i_, j_] = [i+x, j+y];
-					if ([i, j, m] in s.b) {
-						var co = cols(s.b[[i, j, m]]);
+					let here = null;
+					for (let n=1;n<l.length;n+=2) {
+						if (l[n] == m) {
+							here = n;
+							break;
+						}
+					}
+					if (here != null) {
+						var co = cols(l[here+1]);
 					} else {
 						var co = "FFF";
 					}
@@ -233,7 +241,7 @@ var sets = (a, b) => { // set scroll
 	scrollspan.innerHTML = scroll.map((x) => x.toString()).join("px,") + "px";
 	display();
 }
-var flush = () => {setCookie(buffer); buffer = "" }; // if cookies are sent cell by cell there's not enough delay and some of them get cleacookie()'d, this makes frames arrive intact or not at all
+var flush = () => {if (buffer) { players.postMessage(buffer, "*") } buffer = "" };
 var freez = () => { // toggle freeze
 	if (freeze) {
 		freeze = false;
@@ -355,9 +363,18 @@ var frg = (aa) => { // tableau de tableau -> chaine
 	let lt = -1; // pointedly not a color id
 	let ti = 0;
 	let customs_ = []; // custom colors. my underscores are a bad habit
-	aa.forEach((l) => l.forEach((val) => (typeof(val) == "string" && !(customs_.includes(val)))?customs_.push(val):undefined));
+	aa.forEach((l) => l.forEach((val) => {
+		if (typeof(val) != "object") {
+			val = [val];
+		}
+		for (let i=0;i<val.length;i+=2) {
+			if (!(val[i] in customs_) && typeof(val[i]) == "string") {
+				customs_.push(val[i])
+			}
+		}
+	}));
 	let customs = {};
-	customs_.map((c, i) => customs[c] = i+6);
+	customs_.map((c, i) => customs[c] = i+10);
 	res += customs_.join("")+"|";
 	for (let i = 0; i < aa.length; i++) {
 		if (i > 0 && JSON.stringify(aa[i]) == JSON.stringify(aa[i-1])) {
@@ -375,12 +392,23 @@ var frg = (aa) => { // tableau de tableau -> chaine
 			ti = 0;
 			for (let j = 0; j < aa[0].length; j++) {
 				k = aa[i][j];
-				if (typeof(k) == "string") { // -> not a number -> custom color
-					k = customs[k];
+				if (typeof(k) != "object") {
+					k = [k]
+				}
+				for (let n=0;n<k.length;n++) {
+					if (typeof(k[n]) == "string") { // -> not a number -> custom color
+						k[n] = customs[k[n]];
+					}
+					k[n] = tob64(k[n]);
+				}
+				if (k.length == 1) {
+					k = k[0];
+				} else {
+					k = k[0] + "&" + k.slice(1).join("") + "&";
 				}
 				if (k != lt) {
 					if (lt != -1) {
-						res += tob64(lt) + tob64(ti); 
+						res += lt + tob64(ti); 
 					}
 					lt = k;
 					ti = 1;
@@ -390,7 +418,7 @@ var frg = (aa) => { // tableau de tableau -> chaine
 			}
 		}
 		if (lt != "$") {
-			res += tob64(lt) + tob64(ti);
+			res += lt + tob64(ti);
 		}
 	}
 	if (lt == "$") {
@@ -411,7 +439,7 @@ var tog = (s) => { // chaine -> tableau de tableaux
 	let customs_ = s[0];
 	let customs = [];
 	for (let i=0;i<customs_.length;i+=7) {
-		customs[Math.floor(i/7) + 6] = customs_.slice(i, i+7);
+		customs[Math.floor(i/7) + 10] = customs_.slice(i, i+7);
 	}
 	s = s[1];
 	let l = s.split("");
@@ -421,12 +449,24 @@ var tog = (s) => { // chaine -> tableau de tableaux
 		if (l[i] == "'") {
 			l1.push(fromb64(l[i+1])*64+fromb64(l[i+2]));
 			i += 3
-		} if (l[i] == "$") {
+		} else if (l[i] == "$") {
 			l1.push("$");
 			i += 1
+		} else if (l[i] == "&") {
+			let sides = [];
+			i ++;
+			while (l[i] != "&") {
+				if (typeof(l1[l1.length-1]) != "object") {
+					l1[l1.length-1] = [l1[l1.length-1], fromb64(l[i])];
+				} else {
+					l1[l1.length-1].push(fromb64(l[i]));
+				}
+				i ++;
+			}
+			i++;
 		} else {
 			l1.push(fromb64(l[i]));
-			i ++
+			i ++;
 		}
 	}
 	let l2 = [];
@@ -439,8 +479,16 @@ var tog = (s) => { // chaine -> tableau de tableaux
 			}
 		} else {
 			for (let j = 0; j < l1[i+1]; j++) {
-				if (l1[i] > 5) {
-					l1[i] = customs[l1[i]];
+				if (typeof(l1[i]) != "object") {
+					if (l1[i] >= 10) {
+						l1[i] = customs[l1[i]];
+					}
+				} else {
+					for (let m=0;m<l1[i].length;m++) {
+						if (l1[i][m] > 10) {
+							l1[i][m] = customs[l1[i][m]];
+						}
+					}
 				}
 				l2.push(l1[i]);
 				n += 1;
@@ -459,7 +507,7 @@ var save = () => { // save settings & salles & groups to file
 	let txt = Math.abs(z).toString()+"\n"+eta.toString()+"\n"+scroll[0].toString() + " " + scroll[1].toString() + "\n" + ((freeze)?"yes":"no") + "\n";
 	for (let id of Object.keys(salles).sort()) { // to put them in the right order because groups mention IDs
 		let s = salles[id];
-		txt += id + "\n" + s.n + "\n" + s.f.join(" ") + "\n" + frg(s.g) + "\n"+ s.d + "\n" + JSON.stringify(s.c) + "\n" + (s.v?"yes":"no") + "\n" + JSON.stringify(s.b) + "\n";
+		txt += id + "\n" + s.n + "\n" + s.f.join(" ") + "\n" + frg(s.g) + "\n"+ s.d + "\n" + JSON.stringify(s.c) + "\n" + (s.v?"yes":"no") + "\n";
 	}
 	txt += "\t\n";
 	for (let id of Object.keys(groups).sort((a, b) => b-a)) {
@@ -498,9 +546,9 @@ var load = () => { // load settings & salles from file
 			(((freeze)?"yes":"no")==l[3])?undefined:freez();
 			l = l.slice(4);
 			while (l.length > 0 && l[0] != "\t") { // took \t because it can't be typed in input fields, so not a valid room/group name/whatever
-				salles[l[0]] = { n:l[1], f:l[2].split(" ").map(Number), g:tog(l[3]),  d:l[4], c:JSON.parse(l[5]), v:(l[6]=="yes"), b:JSON.parse(l[7]) };
+				salles[l[0]] = { n:l[1], f:l[2].split(" ").map(Number), g:tog(l[3]),  d:l[4], c:JSON.parse(l[5]), v:(l[6]=="yes") };
 				nextid = Number(l[0])+1;
-				l = l.slice(8);
+				l = l.slice(7);
 			};
 			l = l.slice(1);
 			while (l.length > 0) {
@@ -605,10 +653,10 @@ var place = () => {
 }
 var create = () => { // create the grid (coming from addroom's buttons)
 	rmlastline();
-	editgrid([]).then(([grid, bo]) => {
+	editgrid([]).then((grid) => {
 		place().then((co) => {
 		new Promise ((y, n) => {
-			salles[nextid] = {n:tmp[0], d:tmp[1], f:tmp[2], v:false, g:grid, c:co, b:bo};
+			salles[nextid] = {n:tmp[0], d:tmp[1], f:tmp[2], v:false, g:grid, c:co};
 			nextid++;
 			y();
 		}).then(() => {
@@ -636,10 +684,10 @@ var rotatearray = (g) => { // 90° clockwise
 	for (let j=0;j<res.length;j++) {
 		res[j] = new Array(g.length);
 	}
-	for (let i=0;i<g.length;i++) {
-		for (let j=0;j<g[0].length;j++) {
-			console.log(j, g.length-i-1, g[i][j]);
-			res[j][g.length-1-i] = g[i][j];
+	for (let i=0;i<res.length;i++) {
+		for (let j=0;j<res[0].length;j++) {
+//			res[j][g.length-1-i] = g[i][j];
+			res[i][j] = g[j][res.length-1-i];
 		}
 	}
 	return res
@@ -647,14 +695,16 @@ var rotatearray = (g) => { // 90° clockwise
 var rotate = needsroom( (id) => { // rotate a room, with the form and all
 	quarterturn = () => {
 		salles[id].g = rotatearray(salles[id].g);
-		let newb = {};
-		for (t of Object.keys(salles[id].b)) {
-			var nt = t.split(",").map(Number);
-			nt[2] = (nt[2]+3)%4;
-			nt[0] = salles[id].g[0].length-1-nt[0];
-			newb[[nt[1], nt[0], nt[2]]] = salles[id].b[t];
+		for (let i=0;i<salles[id].g.length;i++) {
+			for (let j=0;j<salles[id].g[i].length;j++) {
+				if (typeof(salles[id].g[i][j]) == "object") {
+					for (let k=1;k<salles[id].g[i][j].length;k+=2) {
+						salles[id].g[i][j][k] ++;
+						salles[id].g[i][j][k] %= 4;
+					}
+				}
+			}
 		}
-		salles[id].b = newb;
 		display();
 	}
 	ssl(`<button onclick="quarterturn()">Rotate 90° clockwise</button>
@@ -663,11 +713,7 @@ var rotate = needsroom( (id) => { // rotate a room, with the form and all
 var update = () => { // update grid/position (coming from editroom's buttons)
 	rmlastline();
 	let s = salles[ide];
-	editgrid(s.g).then(([grid, bo]) => { 
-		console.log(grid, bo);
-		for (t in bo) {
-			salles[ide].b[t] = bo[t];
-		}
+	editgrid(s.g).then((grid) => { 
 		salles[ide].g = grid;
 		display();
 		askmove();
@@ -682,7 +728,6 @@ endedit = () => { // used by askmove's buttons
 var editgrid = (grid) => {
 	oldmat = grid;
 	colors = {}; // keys coordinates, values colors. Allows for unlimited size, scroll, zoom, etc.
-	borders = {};
 	for (let i=0;i<grid.length;i++) {
 		for (let j=0;j<grid[i].length;j++) {
 			if (grid[i][j]) { 
@@ -723,7 +768,16 @@ var editgrid = (grid) => {
 			show(`Select a border:<button onclick="borderchosen(0)">←</button><button onclick="borderchosen(1)">↑</button><button onclick="borderchosen(3)">↓</button><button onclick="borderchosen(2)">→</button>`);
 			borderchosen = (d) => {
 				rmlastline();
-				borders[[x, y, d]] = c;
+				if (colors[x+" "+y]) {
+					let co = colors[x+" "+y]
+					if (typeof(co) != "object") {
+						colors[x+" "+y] = [co].concat(d, c);
+					} else {
+						co.push(d, c);
+					}
+				} else {
+					alert("Cannot change border of empty tile.")
+				}
 			}
 		})
 	}
@@ -732,7 +786,7 @@ The room is opened at the left.
 Press ` + [0, 1, 2, 3, 4, 5].map((n) => n.toString() + " for " + cs(n)).join(", ") + `(transparent), or pick a custom color:<input type="color" id="colinp" style="height:1em;width:2em;border:none" onchange="c = colinp.value"/>.
 Modes: <button onclick="picking=false">Single tiles</button><button onclick="editrect()">Rectangles</button><button onclick="editborder()">Edit a border</button>
 For rectangles, click on the top left corner and then the bottom right one.
-<button onclick="let mat = constructmat(); done = true; rmlastline(); if (!oldfreeze) freez(); scroll = oldscroll; finished([mat, borders])">Save</button><button onclick="done = true; rmlastline(); finished([oldmat, {}])">Discard changes</button>`); // ^ the default colors
+<button onclick="let mat = constructmat(); done = true; rmlastline(); if (!oldfreeze) freez(); scroll = oldscroll; finished(mat)">Save</button><button onclick="done = true; rmlastline(); finished([oldmat, {}])">Discard changes</button>`); // ^ the default colors
 	done = false;
 	display();
 	return new Promise ((yes, no) => {finished = yes})
@@ -793,32 +847,12 @@ setl("=1"); // these are the default values, will be overriden by any load
 display();
 } else {
 window.addEventListener("click", () => parenthtml.requestFullscreen()); // can't make it automatic because of some security thing or other
-eval('clearcookie = () => {document.cookie.replace(/(?<=^|;).+?(?=\=|;|$)/g, name => location.hostname.split(".").reverse().reduce(domain => (domain=domain.replace(/^\.?[^.]+/, ""),document.cookie=`${name}=;max-age=0;path=/;domain=${domain}`,domain), location.hostname));}'); // trick because it messes with my syntax coloring
-clearcookie(); // to not show the last thing
-var getCookie = () => { // get the message sent by setcookie()
-	let res = "";
-	let ca = document.cookie.split(";");
-	for (c of ca) {
-		if (c.indexOf(cname) == 0) {
-			let val = c.slice(cname.length)
-			if (val.length > 0) { 
-				res += val
-			}
-		}
+window.addEventListener("message", (e) => parsemessage(e.data));
+let parsemessage = (text) => { // check if cookie's been received
+	console.log(text);
+	for (s of text.split("|").slice(0, -1)) {
+		let [x, y, w, h, co] = JSON.parse(s);
+		fr(x, y, w, h, co);
 	}
-	if (res) clearcookie(); // only clearing at the end in case setcookie was trigerred multiple times since last check
-	return res
 }
-let updateMessage = () => { // check if cookie's been received
-	let text = getCookie();
-	if (text) {
-		console.log(text);
-		for (s of text.split("|").slice(0, -1)) {
-			let [x, y, w, h, co] = JSON.parse(s);
-			fr(x, y, w, h, co);
-		}
-	}
-	setTimeout(updateMessage, 33); // and repeat ad infinitam, at ~30fps. not very clean, but only cookies worked.
-}
-updateMessage();
 }
