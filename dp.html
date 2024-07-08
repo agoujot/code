@@ -1,10 +1,10 @@
 <!doctype HTML>
-<html id="parenthtml">
+<html id="parenthtml" style="height:100%">
 	<head>
 	<title>Player</title>
 	</head>
-	<body style="background:black;text-align:center">
-		<canvas id="canv" height="900px" width="900px" style="background:black;height:99%;border:1px solid grey;aspect-ratio:1;margin:auto"></canvas></td><!-- that margin & width mess is because else if overlaps with the top for some reason-->
+	<body style="background:black;text-align:center;height:100%;margin:0;">
+		<canvas id="canv" height="900px" width="900px" style="background:black;height:calc(100% - 2px);border:1px solid grey;aspect-ratio:1"></canvas></td>
 		<script>dm = false;</script><!-- embedded scripts are bad but need to distinguish the two windows-->
 		<script src="dm.js"></script>
 	</body>
