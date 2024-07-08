@@ -1,0 +1,71 @@
+<!doctype HTML>
+<html style="background-color:#777;height:100%">
+	<head>
+		<title>Encounter tracker</title>
+		<style>
+			* {
+				font-size:20px;
+			}
+			input, body, #btns, .no {
+				padding:0;
+				margin:0;
+			}
+			ul {
+				margin:0;
+			}
+			td:not(.no) {
+				padding-right:1em;
+			}
+			#output, #input {
+				background-color:#002;
+				border:1px solid grey;
+				border-radius:4px;
+				width:calc(100% - 2px);
+			}
+			#infodiv > span {
+				font-family:monospace;
+				margin-right:4em;
+			}
+			#infodiv {
+				background:#111;
+				color:#0F0;
+				text-align:right;
+			}
+			.in, #input {
+				color:white;
+				font-family:monospace;
+			}
+			#input {
+				height:calc(10% - 2px);
+			}
+			#output {
+				overflow-y:scroll;
+				display:flex;
+				flex-direction:column-reverse;
+				height:calc(90% - 2px);
+			}
+			.out {
+				color:#0F0;
+			}
+			.error {
+				color:#F00;
+			}
+			.in::before {
+				display:inline-block;
+				width:1em;
+				content:">";
+			}
+			input, button, #btns {
+				background:black;
+				color:white;
+				border-radius:5px;
+			}
+		</style>
+	</head>
+	<body style="height:100%">
+		<div id="output"><table><tbody id="log"></tbody></table></div>
+		<input list="commandlist" type="text" id="input" placeholder="Commands (help for info)"></input>
+		<datalist id="commandlist"></datalist>
+		<script src="mobs.js"></script>
+	</body>
+</html>
