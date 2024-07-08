@@ -241,7 +241,7 @@ var togglegrid = () => {
 	} else {
 		show("Grid deactivated.")
 	}
-	display;
+	display();
 }
 var setz = (s) => { // set zoom
 	eval("z"+s);
