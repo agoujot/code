@@ -24,6 +24,7 @@ canv.addEventListener("click", (e) => {
 		} else if (!done) { // editing mode 0
 			colors[x+" "+y] = c;
 			draw(x, y, cols(c));
+			drawgrid();
 		}
 	}
 })
@@ -48,6 +49,7 @@ var groups = {};
 var fileurl = null;
 var done = true;
 var picking = false;
+var quad = false;
 var nextid = 1;
 var nextgroupid = -1;
 var cols = (s) => 
@@ -63,7 +65,7 @@ var buffer = "";
 commands = {
 	"list":"listrooms", 
 	"h":"help", "help":"help", 
-	"addroom":"addroom", "add":"addroom", 
+	"add":"addroom", 
 	"edit":"editroom", "e":"editroom",
 	"level":"gotolevel",
 	"zoom":"gotozoom",
@@ -78,6 +80,7 @@ commands = {
 	"rotate":"rotate",
 	"copy":"copyroom",
 	"set":"makegroup",
+	"grid":"togglegrid",
 };
 var openp = () => { 
 	players = window.open("http://htmlpreview.github.io/?https://github.com/agoujot/code/blob/main/dp.html", "Players", "popup"); setTimeout(display, 1000);
@@ -209,21 +212,36 @@ var display = () => { // all rooms on this floor || what's being edited && grid
 	if (done) {
 		for (id of Object.keys(salles)) {
 			if (salles[id].f.includes(eta)) {displayroom(id)};
-		};
+		}
+		if (quad) {
+			drawgrid();
+		}
 	} else {
 		for (p of Object.keys(colors)) {
 			let [i, j] = p.split(" ").map(Number);
 			if (colors[p]) {draw(i, j, cols(colors[p]))}
 		}
-		let [imin, jmin] = scroll.map((x) => (x % z)-z);
-		for (let i=imin;i<imin+900+z;i+=z) {
-			for (let j=jmin;j<jmin+900+z;j+=z) {
-				fr(i, j, z, 1, "FFF");
-				fr(i, j, 1, z, "FFF");
-			}
-		}
+		drawgrid();
 	}
 	flush();
+}
+var drawgrid = () => {
+	let [imin, jmin] = scroll.map((x) => (x % z) - z);
+	for (let i=imin;i<imin+900+z;i+=z) {
+		for (let j=jmin;j<jmin+900+z;j+=z) {
+			fr(i, j, z, 1, "FFF");
+			fr(i, j, 1, z, "FFF");
+		}
+	}
+}
+var togglegrid = () => {
+	quad = !quad;
+	if (quad) {
+		show("Grid activated.")
+	} else {
+		show("Grid deactivated.")
+	}
+	display;
 }
 var setz = (s) => { // set zoom
 	eval("z"+s);
@@ -582,7 +600,8 @@ hide : hide a room to the players
 remove : remove a room
 rotate : turn a room 90, 180, or 270°
 set : create a set of rooms that can be used in commands
-copy : create a new room that is a copy of another</li></ul>`.replaceAll("\n", "</li><li>") +
+copy : create a new room that is a copy of another
+grid : toggle whether the grid always displays</li></ul>`.replaceAll("\n", "</li><li>") +
 `Rooms can be chosen by entering their name, their ID (starting with a +), a set name, or the ID of a set (starting with a -).
 
 Also some shortcuts when not typing:
@@ -755,6 +774,7 @@ var editgrid = (grid) => {
 						draw(i, j, cols(c));
 					}
 				}
+				drawgrid();
 				editrect();
 			})
 		})
@@ -786,7 +806,7 @@ The room is opened at the left.
 Press ` + [0, 1, 2, 3, 4, 5].map((n) => n.toString() + " for " + cs(n)).join(", ") + `(transparent), or pick a custom color:<input type="color" id="colinp" style="height:1em;width:2em;border:none" onchange="c = colinp.value"/>.
 Modes: <button onclick="picking=false">Single tiles</button><button onclick="editrect()">Rectangles</button><button onclick="editborder()">Edit a border</button>
 For rectangles, click on the top left corner and then the bottom right one.
-<button onclick="let mat = constructmat(); done = true; rmlastline(); if (!oldfreeze) freez(); scroll = oldscroll; finished(mat)">Save</button><button onclick="done = true; rmlastline(); finished([oldmat, {}])">Discard changes</button>`); // ^ the default colors
+<button onclick="let mat = constructmat(); done = true; rmlastline(); if (!oldfreeze) freez(); scroll = oldscroll; finished(mat)">Save</button><button onclick="done = true; rmlastline(); finished(oldmat)">Discard changes</button>`); // ^ the default colors
 	done = false;
 	display();
 	return new Promise ((yes, no) => {finished = yes})
