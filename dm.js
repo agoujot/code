@@ -10,6 +10,16 @@ var fr = (x, y, w, h, co, vis = true) => { // fill rect
 		buffer += JSON.stringify([x, y, w, h, co]) + "|"; // could have gone for better encoding, too lazy to
 	}
 };
+var invert = () => {
+	if (canv.style.filter.includes("1")) {
+		canv.style.filter = "invert(0)";
+	} else {
+		canv.style.filter = "invert(1)";
+	}
+	if (dm) {
+		players.postMessage("invert", "*");
+	}
+};
 if (dm) {
 players = null;
 canv.addEventListener("click", (e) => {
@@ -81,6 +91,7 @@ commands = {
 	"copy":"copyroom",
 	"set":"makegroup",
 	"grid":"togglegrid",
+	"invert":"invert",
 };
 var openp = () => { 
 	players = window.open("http://htmlpreview.github.io/?https://github.com/agoujot/code/blob/main/dp.html", "Players", "popup"); setTimeout(display, 1000);
@@ -868,11 +879,14 @@ display();
 } else {
 window.addEventListener("click", () => parenthtml.requestFullscreen()); // can't make it automatic because of some security thing or other
 window.addEventListener("message", (e) => parsemessage(e.data));
-let parsemessage = (text) => { // check if cookie's been received
-	console.log(text);
-	for (s of text.split("|").slice(0, -1)) {
-		let [x, y, w, h, co] = JSON.parse(s);
-		fr(x, y, w, h, co);
+let parsemessage = (text) => {
+	if (text == "invert") {
+		invert();
+	} else {
+		for (s of text.split("|").slice(0, -1)) {
+			let [x, y, w, h, co] = JSON.parse(s);
+			fr(x, y, w, h, co);
+		}
 	}
 }
 }
