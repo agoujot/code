@@ -40,7 +40,7 @@ commandlist.innerHTML = Object.keys(commands).map((x) => '<option>' + x + '</opt
 var show = (s) => s.split("\n").map((l) => (l)?l:"&nbsp;").forEach((s) => write(s, "out")); // show text as "out"
 var dcopy = (aa) => JSON.parse(JSON.stringify(aa)); // deepcopy of array array. worst part is it's apparently the best way
 var save = () => { // save settings & salles & groups to file
-	txt = JSON.stringify(ent);
+	txt = nextid.toString() + "\n" + JSON.stringify(ent);
 	let file = new Blob([txt]);
 	if (fileurl) {
 		window.URL.revokeObjectURL(fileurl);
@@ -66,7 +66,8 @@ var load = () => { // load settings & salles from file
 		reader.readAsText(file);
 		new Promise((y, n) => filedone = y).then(() => {
 			let l = reader.result.trim().split("\n");
-			ent = JSON.parse(l);
+			nextid = Number(l[0]);
+			ent = JSON.parse(l[1]);
 			rmlastline();
 			show("Loaded successfully.");
 		})
@@ -93,6 +94,10 @@ var list = () => {
 	show("<table><tr><td>Id</td><td>Name</td><td>HP</td><td>Initiative</td><td>AC</td><td>Perception</td></tr>" +
 	Object.keys(ent).map((x) => "<tr><td>" + [x, ent[x].n, ent[x].h, ent[x].i, ent[x].a, ent[x].p].join("</td><td>") + "</tr>" ).join("") + 
 	"</table>");
+}
+var one = (i) => {
+	show("<table><tr><td>Id</td><td>Name</td><td>HP</td><td>Initiative</td><td>AC</td><td>Perception</td></tr><tr><td>" + 
+	[i, ent[i].n, ent[i].h, ent[i].i, ent[i].a, ent[i].p].join("</td><td>") + "</tr></table>");
 }
 var addent = () => {
 	ssl(`<input id="nameinp" type="text" /> Name
@@ -144,8 +149,7 @@ var next = () => {
 		}
 		next();
 	} else {
-		show("<table><tr><td>Id</td><td>Name</td><td>HP</td><td>Initiative</td><td>AC</td><td>Perception</td></tr><tr><td>" + 
-		[mini, ent[mini].n, ent[mini].h, ent[mini].i, ent[mini].a, ent[mini].p].join("</td><td>") + "</tr></table>");
+		one(mini);
 		ent[mini].f = true;
 	}
 
@@ -156,10 +160,12 @@ var edhp = (n) => {
 <button onclick="hpval()">Validate</button>`);
 	hpval = () => {
 		ent[n].h += Number(hpinp.value);
+		rmlastline();
 		if (ent[n].h <= 0) {
 			ent[n].d = true;
+			show("Entity "+n.toString()+" has died.");
 		}
-		rmlastline();
+		one(n);
 	}
 }
 var roll = () => {
