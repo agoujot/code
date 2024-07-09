@@ -612,6 +612,7 @@ remove : remove a room
 rotate : turn a room 90, 180, or 270°
 set : create a set of rooms that can be used in commands
 copy : create a new room that is a copy of another
+invert : inver the brightness of the canvas
 grid : toggle whether the grid always displays</li></ul>`.replaceAll("\n", "</li><li>") +
 `Rooms can be chosen by entering their name, their ID (starting with a +), a set name, or the ID of a set (starting with a -).
 
