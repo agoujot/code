@@ -78,7 +78,11 @@ var cols = (s) =>
 	(s==2)?"F00":
 	(s==3)?"FF0":
 	(s==4)?"8B4513":
-	s.slice(1);
+	test(s);
+function test(s) {
+	console.log(s);
+	return s.slice(1);
+}
 c = 1;
 var buffer = "";
 commands = {
@@ -240,11 +244,7 @@ var display = () => { // all rooms on this floor || what's being edited && grid
 		for (p of Object.keys(colors)) {
 			let [i, j] = p.split(" ").map(Number);
 			if (colors[p]) {
-				if (typeof(colors[p]) != "object") {
-					draw(i, j, cols(colors[p]));
-				} else {
-					draw(i, j, cols(colors[p][0]));
-				}
+				draw(i, j, cols(colors[p]));
 			}
 		}
 		drawgrid();
@@ -815,12 +815,15 @@ endedit = () => { // used by askmove's buttons
 	display();
 }
 var editgrid = (grid) => {
-	oldmat = grid;
+	oldmat = dcopy(grid);
 	colors = {}; // keys coordinates, values colors. Allows for unlimited size, scroll, zoom, etc.
 	for (let i=0;i<grid.length;i++) {
 		for (let j=0;j<grid[i].length;j++) {
-			if (grid[i][j]) { 
-				colors[i+" "+j] = grid[i][j]; // get the colors already there
+			if (grid[i][j]) {
+				if (typeof(grid[i][j]) != "object") {
+					grid[i][j] = [grid[i][j]];
+					colors[i+" "+j] = grid[i][j][0]; // get the colors already there
+				}
 			}
 		}
 	}
