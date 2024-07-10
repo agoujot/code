@@ -237,6 +237,7 @@ var display = () => { // all rooms on this floor || what's being edited && grid
 			drawgrid();
 		}
 	} else {
+		let wallwidth = Math.ceil(z/10);
 		for (p of Object.keys(colors)) {
 			let [i, j] = p.split(" ").map(Number);
 			if (colors[p]) {
@@ -263,18 +264,14 @@ var display = () => { // all rooms on this floor || what's being edited && grid
 				} else {
 					var co = "FFF";
 				}
-				if ((i_+" "+j_) in colors && colors[i_+" "+j_] == 0) {
+				if (!((i_+" "+j_) in colors) || colors[i_+" "+j_] == 0) {
 					if (m == 0) {
 						fr(i*z+scroll[0], j*z+scroll[1], wallwidth, z, co);
-						console.log(0);
 					} else if (m == 1) {
 						fr(i*z+scroll[0], j*z+scroll[1], z, wallwidth, co);
-						console.log(1);
 					} else if (m == 2) {
 						fr((i+1)*z+scroll[0]-wallwidth, j*z+scroll[1], wallwidth, z, co);
-						console.log(2);
 					} else if (m == 3) {
-						console.log(3)
 						fr(i*z+scroll[0], (j+1)*z+scroll[1]-wallwidth, z, wallwidth, co);
 					}
 				}
