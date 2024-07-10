@@ -518,12 +518,23 @@ var tog = (s) => { // chaine -> tableau de tableaux
 			let sides = [];
 			i ++;
 			while (l[i] != "&") {
+				let [d, c] = [fromb64(l[i]), fromb64(l[i+1])];
 				if (typeof(l1[l1.length-1]) != "object") {
-					l1[l1.length-1] = [l1[l1.length-1], fromb64(l[i])];
+					l1[l1.length-1] = [l1[l1.length-1], d, c];
 				} else {
-					l1[l1.length-1].push(fromb64(l[i]));
+					let co = l1[l1.length-1];
+					here = false;
+					for (let i=1;i<co.length;i+=2) {
+						if (co[i]==d) {
+							co[i+1] = c;
+							here = true
+						}
+					}
+					if (!here) {
+						co.push(d, c);
+					}
 				}
-				i ++;
+				i += 2;
 			}
 			i++;
 		} else {
