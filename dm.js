@@ -1,6 +1,5 @@
 /*TODO:
 	show borders on edit
-	add shortcuts for border dir
 */
 var ctx = canv.getContext("2d"); // drawing context
 var scroll = [0, 0];
@@ -877,7 +876,7 @@ Current color is:<span id="ccs" style="background-color:#`+cols(c)+`">&emsp;</sp
 Press ` + [0, 1, 2, 3, 4].map((n) => n.toString() + " for " + cs(n)).join(", ") + `, or pick a custom color:<input type="color" id="colinp" style="height:1em;width:2em;border:none" onchange="c = colinp.value; ccs.style.backgroundColor = '#' + cols(c);"/>.
 Modes: <button id="tbtn" onclick="picking=false">Single tiles</button><button id="rbtn" onclick="editrect()">Rectangles</button><button id="bbtn" onclick="editborder()">Edit a border</button>
 For rectangles, click on the top left corner and then the bottom right one.
-<button id="sbtn" onclick="console.log('avant constructmat'); let mat = constructmat(); console.log(colors, mat, 'après'); done = true; rmlastline(); if (!oldfreeze) freez(); scroll = oldscroll; finished(mat)">Save</button><button id="dbtn" onclick="done = true; rmlastline(); finished(oldmat)">Discard changes</button>`); // ^ the default colors
+<button id="wbtn" onclick="console.log('avant constructmat'); let mat = constructmat(); console.log(colors, mat, 'après'); done = true; rmlastline(); if (!oldfreeze) freez(); scroll = oldscroll; finished(mat)">Save</button><button id="xbtn" onclick="done = true; rmlastline(); finished(oldmat)">Discard changes</button>`); // ^ the default colors
 	done = false;
 	display();
 	return new Promise ((yes, no) => {finished = yes})
