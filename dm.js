@@ -239,7 +239,13 @@ var display = () => { // all rooms on this floor || what's being edited && grid
 	} else {
 		for (p of Object.keys(colors)) {
 			let [i, j] = p.split(" ").map(Number);
-			if (colors[p]) {draw(i, j, cols(colors[p]))}
+			if (colors[p]) {
+				if (typeof(colors[p]) != "object") {
+					draw(i, j, cols(colors[p]));
+				} else {
+					draw(i, j, cols(colors[p][0]));
+				}
+			}
 		}
 		drawgrid();
 	}
@@ -247,32 +253,38 @@ var display = () => { // all rooms on this floor || what's being edited && grid
 }
 var drawgrid = () => {
 	let [imin, jmin] = scroll.map((x) => (x % z) - z);
-/*	for (let [x, y, m] of [[0, 1, 3], [1, 0, 2], [0, -1, 1], [-1, 0, 0]]) {
-		let [i_, j_] = [i+x, j+y];
-		let here = null;
-		for (let n=1;n<l.length;n+=2) {
-			if (l[n] == m) {
-				here = n;
-				break;
+	for (let s of Object.keys(colors)) {
+		[i, j] = s.split(" ").map(Number)
+		let l = colors[s];
+		if (typeof(l) == "object") {
+			for (let [x, y, m] of [[0, 1, 3], [1, 0, 2], [0, -1, 1], [-1, 0, 0]]) {
+				let [i_, j_] = [i+x, j+y];
+				let here = null;
+				for (let n=1;n<l.length;n+=2) {
+					if (l[n] == m) {
+						here = n;
+						break;
+					}
+				}
+				if (here != null) {
+					var co = cols(l[here+1]);
+				} else {
+					var co = "FFF";
+				}
+				if (0 > i_ || i_ >= s.g.length || 0 > j_ || j_ >= s.g[0].length || s.g[i_][j_] == 0) {
+					if (m == 0) {
+						fr((i+coord[0])*z+scroll[0], (j+coord[1])*z+scroll[1], wallwidth, z, co, s.v);
+					} else if (m == 1) {
+						fr((i+coord[0])*z+scroll[0], (j+coord[1])*z+scroll[1], z, wallwidth, co, s.v);
+					} else if (m == 2) {
+						fr((i+coord[0]+1)*z+scroll[0]-wallwidth, (j+coord[1])*z+scroll[1], wallwidth, z, co, s.v);
+					} else if (m == 3) {
+						fr((i+coord[0])*z+scroll[0], (j+coord[1]+1)*z+scroll[1]-wallwidth, z, wallwidth, co, s.v);
+					}
+				}
 			}
 		}
-		if (here != null) {
-			var co = cols(l[here+1]);
-		} else {
-			var co = "FFF";
-		}
-		if (0 > i_ || i_ >= s.g.length || 0 > j_ || j_ >= s.g[0].length || s.g[i_][j_] == 0) {
-			if (m == 0) {
-				fr((i+coord[0])*z+scroll[0], (j+coord[1])*z+scroll[1], wallwidth, z, co, s.v);
-			} else if (m == 1) {
-				fr((i+coord[0])*z+scroll[0], (j+coord[1])*z+scroll[1], z, wallwidth, co, s.v);
-			} else if (m == 2) {
-				fr((i+coord[0]+1)*z+scroll[0]-wallwidth, (j+coord[1])*z+scroll[1], wallwidth, z, co, s.v);
-			} else if (m == 3) {
-				fr((i+coord[0])*z+scroll[0], (j+coord[1]+1)*z+scroll[1]-wallwidth, z, wallwidth, co, s.v);
-			}
-		}
-	}*/
+	}
 	for (let i=imin;i<imin+900+z;i+=z) {
 		for (let j=jmin;j<jmin+900+z;j+=z) {
 			fr(i, j, z, 1, "FFF");
