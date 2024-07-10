@@ -1,6 +1,5 @@
 /*TODO:
 	show borders on edit
-	fix doubleborder
 	add shortcuts for border dir
 */
 var ctx = canv.getContext("2d"); // drawing context
@@ -47,8 +46,10 @@ addEventListener("keydown", (e) => {
 	if (/^\d$/.test(e.key)) { // color
 		c = Number(e.key);
 		ccs.style.backgroundColor = "#" + cols(c);
-	} else if (!done && ["s", "d", "t", "r", "b"].includes(e.key)) {
+	} else if (!done && ["w", "x", "t", "r", "b"].includes(e.key)) {
 		eval(e.key+"btn.onclick()");
+	} else if (bordering && ["0", "1", "2", "3"].includes(e.key)) {
+		borderchosen(Number(e.key));
 	} else if (document.activeElement.nodeName != "INPUT") {
 		switch (e.key) {
 			case("ArrowUp"): sets(1, "-=20"); break
@@ -68,6 +69,7 @@ var fileurl = null;
 var done = true;
 var picking = false;
 var quad = false;
+var bordering = false;
 var nextid = 1;
 var nextgroupid = -1;
 var cols = (s) => 
@@ -841,8 +843,10 @@ var editgrid = (grid) => {
 		new Promise((y, n) => {picked = y}).then(([x, y]) => {
 			rmlastline();
 			picking = false;
+			bordering = true;
 			show(`Select a border:<button onclick="borderchosen(0)">←</button><button onclick="borderchosen(1)">↑</button><button onclick="borderchosen(3)">↓</button><button onclick="borderchosen(2)">→</button>`);
 			borderchosen = (d) => {
+				bordering = false;
 				rmlastline();
 				if (colors[x+" "+y]) {
 					let co = colors[x+" "+y]
@@ -868,14 +872,13 @@ var editgrid = (grid) => {
 	}
 	ssl(`Editing mode.
 The room is opened at the left.
-Current color is:<span id="ccs">&emsp;</span>
+Current color is:<span id="ccs" style="background-color:#`+cols(c)+`">&emsp;</span>
 Press ` + [0, 1, 2, 3, 4].map((n) => n.toString() + " for " + cs(n)).join(", ") + `, or pick a custom color:<input type="color" id="colinp" style="height:1em;width:2em;border:none" onchange="c = colinp.value; ccs.style.backgroundColor = '#' + cols(c);"/>.
 Modes: <button id="tbtn" onclick="picking=false">Single tiles</button><button id="rbtn" onclick="editrect()">Rectangles</button><button id="bbtn" onclick="editborder()">Edit a border</button>
 For rectangles, click on the top left corner and then the bottom right one.
 <button id="sbtn" onclick="let mat = constructmat(); done = true; rmlastline(); if (!oldfreeze) freez(); scroll = oldscroll; finished(mat)">Save</button><button id="dbtn" onclick="done = true; rmlastline(); finished(oldmat)">Discard changes</button>`); // ^ the default colors
 	done = false;
 	display();
-	ccs.style.backgroundColor = "#"+cols(c);
 	return new Promise ((yes, no) => {finished = yes})
 }
 var removeroom = needsroom( (id) => {
