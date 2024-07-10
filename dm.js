@@ -42,7 +42,7 @@ canv.addEventListener("click", (e) => {
 	}
 })
 addEventListener("keydown", (e) => {
-	if (/^\d$/.test(e.key)) { // color
+	if (["0", "1", "2", "3", "4"].includes(e.key)) { // color
 		c = Number(e.key);
 		ccs.style.backgroundColor = "#" + cols(c);
 	} else if (!done && ["w", "x", "t", "r", "b"].includes(e.key)) {
@@ -78,11 +78,7 @@ var cols = (s) =>
 	(s==2)?"F00":
 	(s==3)?"FF0":
 	(s==4)?"8B4513":
-	test(s);
-function test(s) {
-	console.log(s);
-	return s.slice(1);
-}
+	s.slice(1);
 c = 1;
 var buffer = "";
 commands = {
