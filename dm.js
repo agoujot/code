@@ -243,16 +243,12 @@ var display = () => { // all rooms on this floor || what's being edited && grid
 				draw(i, j, cols(colors[p]));
 			}
 		}
-		drawgrid();
-	}
-	flush();
-}
-var drawgrid = () => {
-	let [imin, jmin] = scroll.map((x) => (x % z) - z);
-	for (let s of Object.keys(colors)) {
-		[i, j] = s.split(" ").map(Number)
-		let l = colors[s];
-		if (typeof(l) == "object") {
+	/*	for (let s of Object.keys(colors)) {
+			[i, j] = s.split(" ").map(Number)
+			let l = colors[s];
+			if (typeof(l) != "object") {
+				l = [l];
+			}
 			for (let [x, y, m] of [[0, 1, 3], [1, 0, 2], [0, -1, 1], [-1, 0, 0]]) {
 				let [i_, j_] = [i+x, j+y];
 				let here = null;
@@ -267,20 +263,29 @@ var drawgrid = () => {
 				} else {
 					var co = "FFF";
 				}
-				if (0 > i_ || i_ >= s.g.length || 0 > j_ || j_ >= s.g[0].length || s.g[i_][j_] == 0) {
+				if ((i_+" "+j_) in colors && colors[i_+" "+j_] == 0) {
 					if (m == 0) {
-						fr((i+coord[0])*z+scroll[0], (j+coord[1])*z+scroll[1], wallwidth, z, co, s.v);
+						fr(i*z+scroll[0], j*z+scroll[1], wallwidth, z, co);
+						console.log(0);
 					} else if (m == 1) {
-						fr((i+coord[0])*z+scroll[0], (j+coord[1])*z+scroll[1], z, wallwidth, co, s.v);
+						fr(i*z+scroll[0], j*z+scroll[1], z, wallwidth, co);
+						console.log(1);
 					} else if (m == 2) {
-						fr((i+coord[0]+1)*z+scroll[0]-wallwidth, (j+coord[1])*z+scroll[1], wallwidth, z, co, s.v);
+						fr((i+1)*z+scroll[0]-wallwidth, j*z+scroll[1], wallwidth, z, co);
+						console.log(2);
 					} else if (m == 3) {
-						fr((i+coord[0])*z+scroll[0], (j+coord[1]+1)*z+scroll[1]-wallwidth, z, wallwidth, co, s.v);
+						console.log(3)
+						fr(i*z+scroll[0], (j+1)*z+scroll[1]-wallwidth, z, wallwidth, co);
 					}
 				}
 			}
-		}
+		}*/
+		drawgrid();
 	}
+	flush();
+}
+var drawgrid = () => {
+	let [imin, jmin] = scroll.map((x) => (x % z) - z);
 	for (let i=imin;i<imin+900+z;i+=z) {
 		for (let j=jmin;j<jmin+900+z;j+=z) {
 			fr(i, j, z, 1, "FFF");
@@ -811,15 +816,12 @@ endedit = () => { // used by askmove's buttons
 	display();
 }
 var editgrid = (grid) => {
-	oldmat = dcopy(grid);
+	oldmat = grid;
 	colors = {}; // keys coordinates, values colors. Allows for unlimited size, scroll, zoom, etc.
 	for (let i=0;i<grid.length;i++) {
 		for (let j=0;j<grid[i].length;j++) {
 			if (grid[i][j]) {
-				if (typeof(grid[i][j]) != "object") {
-					grid[i][j] = [grid[i][j]];
-					colors[i+" "+j] = grid[i][j][0]; // get the colors already there
-				}
+				colors[i+" "+j] = grid[i][j]; // get the colors already there
 			}
 		}
 	}
