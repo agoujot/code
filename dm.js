@@ -48,8 +48,8 @@ addEventListener("keydown", (e) => {
 		ccs.style.backgroundColor = "#" + cols(c);
 	} else if (!done && ["w", "x", "t", "r", "b"].includes(e.key)) {
 		eval(e.key+"btn.onclick()");
-	} else if (bordering && ["0", "1", "2", "3"].includes(e.key)) {
-		borderchosen(Number(e.key));
+	} else if (bordering && ["z", "q", "s", "d"].includes(e.key)) {
+		borderchosen(ktod[e.key]);
 	} else if (document.activeElement.nodeName != "INPUT") {
 		switch (e.key) {
 			case("ArrowUp"): sets(1, "-=20"); break
@@ -63,6 +63,7 @@ addEventListener("keydown", (e) => {
 		}
 	}
 }, true)
+var ktod = {z:1, q:0, s:3, d:2};
 var salles = {};
 var groups = {};
 var fileurl = null;
@@ -876,7 +877,7 @@ Current color is:<span id="ccs" style="background-color:#`+cols(c)+`">&emsp;</sp
 Press ` + [0, 1, 2, 3, 4].map((n) => n.toString() + " for " + cs(n)).join(", ") + `, or pick a custom color:<input type="color" id="colinp" style="height:1em;width:2em;border:none" onchange="c = colinp.value; ccs.style.backgroundColor = '#' + cols(c);"/>.
 Modes: <button id="tbtn" onclick="picking=false">Single tiles</button><button id="rbtn" onclick="editrect()">Rectangles</button><button id="bbtn" onclick="editborder()">Edit a border</button>
 For rectangles, click on the top left corner and then the bottom right one.
-<button id="sbtn" onclick="let mat = constructmat(); done = true; rmlastline(); if (!oldfreeze) freez(); scroll = oldscroll; finished(mat)">Save</button><button id="dbtn" onclick="done = true; rmlastline(); finished(oldmat)">Discard changes</button>`); // ^ the default colors
+<button id="sbtn" onclick="console.log('avant constructmat'); let mat = constructmat(); console.log(colors, mat, 'après'); done = true; rmlastline(); if (!oldfreeze) freez(); scroll = oldscroll; finished(mat)">Save</button><button id="dbtn" onclick="done = true; rmlastline(); finished(oldmat)">Discard changes</button>`); // ^ the default colors
 	done = false;
 	display();
 	return new Promise ((yes, no) => {finished = yes})
