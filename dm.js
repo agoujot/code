@@ -1,3 +1,8 @@
+/*TODO:
+	raccourcis
+	couleur sélectionnée
+	fixer editrect
+*/
 var ctx = canv.getContext("2d"); // drawing context
 var scroll = [0, 0];
 var z, scroll, eta, freeze
@@ -238,6 +243,32 @@ var display = () => { // all rooms on this floor || what's being edited && grid
 }
 var drawgrid = () => {
 	let [imin, jmin] = scroll.map((x) => (x % z) - z);
+/*	for (let [x, y, m] of [[0, 1, 3], [1, 0, 2], [0, -1, 1], [-1, 0, 0]]) {
+		let [i_, j_] = [i+x, j+y];
+		let here = null;
+		for (let n=1;n<l.length;n+=2) {
+			if (l[n] == m) {
+				here = n;
+				break;
+			}
+		}
+		if (here != null) {
+			var co = cols(l[here+1]);
+		} else {
+			var co = "FFF";
+		}
+		if (0 > i_ || i_ >= s.g.length || 0 > j_ || j_ >= s.g[0].length || s.g[i_][j_] == 0) {
+			if (m == 0) {
+				fr((i+coord[0])*z+scroll[0], (j+coord[1])*z+scroll[1], wallwidth, z, co, s.v);
+			} else if (m == 1) {
+				fr((i+coord[0])*z+scroll[0], (j+coord[1])*z+scroll[1], z, wallwidth, co, s.v);
+			} else if (m == 2) {
+				fr((i+coord[0]+1)*z+scroll[0]-wallwidth, (j+coord[1])*z+scroll[1], wallwidth, z, co, s.v);
+			} else if (m == 3) {
+				fr((i+coord[0])*z+scroll[0], (j+coord[1]+1)*z+scroll[1]-wallwidth, z, wallwidth, co, s.v);
+			}
+		}
+	}*/
 	for (let i=imin;i<imin+900+z;i+=z) {
 		for (let j=jmin;j<jmin+900+z;j+=z) {
 			fr(i, j, z, 1, "FFF");
@@ -295,7 +326,7 @@ var ssl = (s) => { // show single line (multiple lines in one tr)
 rmlastline = () => { // technically last tr, which is where ssl comes in
 	log.lastChild.remove();
 }
-var cs = (co) => '<span style="background-color:#' + cols(co) + '">&emsp;</span>' // colored span
+var cs = (co) => '<button onclick="c='+co.toString()+'" style="background-color:#' + cols(co) + '">&emsp;</button>' // colored span
 var inp = () => { // input
 	log.innerHTML = log.innerHTML.replaceAll(/<\/?(butto|inpu).*?[^=]>/g, ""); // remove interface from last commands
 	[picking, done] = [false, true];
