@@ -84,7 +84,7 @@ var buffer = "";
 commands = {
 	"list":"listrooms", 
 	"h":"help", "help":"help", 
-	"add":"addroom", 
+	"add":"addroom", "a":"addroom",
 	"edit":"editroom", "e":"editroom",
 	"level":"gotolevel",
 	"zoom":"gotozoom",
@@ -243,8 +243,8 @@ var display = () => { // all rooms on this floor || what's being edited && grid
 				draw(i, j, cols(colors[p]));
 			}
 		}
-	/*	for (let s of Object.keys(colors)) {
-			[i, j] = s.split(" ").map(Number)
+		for (var s of Object.keys(colors)) {
+			let [i, j] = s.split(" ").map(Number)
 			let l = colors[s];
 			if (typeof(l) != "object") {
 				l = [l];
@@ -279,7 +279,7 @@ var display = () => { // all rooms on this floor || what's being edited && grid
 					}
 				}
 			}
-		}*/
+		}
 		drawgrid();
 	}
 	flush();
