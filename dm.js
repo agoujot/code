@@ -1,7 +1,7 @@
 /*TODO:
-	raccourcis
-	couleur sélectionnée
-	fixer editrect
+	show borders on edit
+	fix doubleborder
+	add shortcuts for border dir
 */
 var ctx = canv.getContext("2d"); // drawing context
 var scroll = [0, 0];
@@ -46,6 +46,9 @@ canv.addEventListener("click", (e) => {
 addEventListener("keydown", (e) => {
 	if (/^\d$/.test(e.key)) { // color
 		c = Number(e.key);
+		ccs.style.backgroundColor = "#" + cols(c);
+	} else if (!done && ["s", "d", "t", "r", "b"].includes(e.key)) {
+		eval(e.key+"btn.onclick()");
 	} else if (document.activeElement.nodeName != "INPUT") {
 		switch (e.key) {
 			case("ArrowUp"): sets(1, "-=20"); break
@@ -73,7 +76,6 @@ var cols = (s) =>
 	(s==2)?"F00":
 	(s==3)?"FF0":
 	(s==4)?"8B4513":
-	(s==5)?"transparent":
 	s.slice(1);
 c = 1;
 var buffer = "";
@@ -326,7 +328,7 @@ var ssl = (s) => { // show single line (multiple lines in one tr)
 rmlastline = () => { // technically last tr, which is where ssl comes in
 	log.lastChild.remove();
 }
-var cs = (co) => '<button onclick="c='+co.toString()+'" style="background-color:#' + cols(co) + '">&emsp;</button>' // colored span
+var cs = (co) => '<button onclick="c='+co.toString()+`;ccs.style.backgroundColor = '#'+cols(c);" style="background-color:#` + cols(co) + '">&emsp;</button>' // colored span
 var inp = () => { // input
 	log.innerHTML = log.innerHTML.replaceAll(/<\/?(butto|inpu).*?[^=]>/g, ""); // remove interface from last commands
 	[picking, done] = [false, true];
@@ -836,7 +838,16 @@ var editgrid = (grid) => {
 					if (typeof(co) != "object") {
 						colors[x+" "+y] = [co].concat(d, c);
 					} else {
-						co.push(d, c);
+						here = false;
+						for (let i=1;i<co.length;i+=2) {
+							if (co[i]==d) {
+								co[i+1] = c;
+								here = true
+							}
+						}
+						if (!here) {
+							co.push(d, c);
+						}
 					}
 				} else {
 					alert("Cannot change border of empty tile.")
@@ -846,12 +857,14 @@ var editgrid = (grid) => {
 	}
 	ssl(`Editing mode.
 The room is opened at the left.
-Press ` + [0, 1, 2, 3, 4, 5].map((n) => n.toString() + " for " + cs(n)).join(", ") + `(transparent), or pick a custom color:<input type="color" id="colinp" style="height:1em;width:2em;border:none" onchange="c = colinp.value"/>.
-Modes: <button onclick="picking=false">Single tiles</button><button onclick="editrect()">Rectangles</button><button onclick="editborder()">Edit a border</button>
+Current color is:<span id="ccs">&emsp;</span>
+Press ` + [0, 1, 2, 3, 4].map((n) => n.toString() + " for " + cs(n)).join(", ") + `, or pick a custom color:<input type="color" id="colinp" style="height:1em;width:2em;border:none" onchange="c = colinp.value; ccs.style.backgroundColor = '#' + cols(c);"/>.
+Modes: <button id="tbtn" onclick="picking=false">Single tiles</button><button id="rbtn" onclick="editrect()">Rectangles</button><button id="bbtn" onclick="editborder()">Edit a border</button>
 For rectangles, click on the top left corner and then the bottom right one.
-<button onclick="let mat = constructmat(); done = true; rmlastline(); if (!oldfreeze) freez(); scroll = oldscroll; finished(mat)">Save</button><button onclick="done = true; rmlastline(); finished(oldmat)">Discard changes</button>`); // ^ the default colors
+<button id="sbtn" onclick="let mat = constructmat(); done = true; rmlastline(); if (!oldfreeze) freez(); scroll = oldscroll; finished(mat)">Save</button><button id="dbtn" onclick="done = true; rmlastline(); finished(oldmat)">Discard changes</button>`); // ^ the default colors
 	done = false;
 	display();
+	ccs.style.backgroundColor = "#"+cols(c);
 	return new Promise ((yes, no) => {finished = yes})
 }
 var removeroom = needsroom( (id) => {
