@@ -249,11 +249,11 @@ var display = () => { // all rooms on this floor || what's being edited && grid
 		for (p of Object.keys(colors)) {
 			let [i, j] = p.split(" ").map(Number);
 			if (colors[p]) {
-				draw(i, j, cols(colors[p]));
 				let l = colors[p];
 				if (typeof(l) != "object") {
 					l = [l];
 				}
+				draw(i, j, cols(l[0]));
 				for (let [x, y, m] of [[0, 1, 3], [1, 0, 2], [0, -1, 1], [-1, 0, 0]]) {
 					let [i_, j_] = [i+x, j+y];
 					let here = null;
