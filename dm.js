@@ -838,7 +838,6 @@ var editgrid = (grid) => {
 	oldscroll = dcopy(scroll);
 	sets("0", "=0");
 	sets("1", "=0");
-	console.log(scroll, dcopy(scroll));
 	editrect = () => {
 		picking = true;
 		show("Waiting for first corner.");
@@ -898,7 +897,7 @@ Current color is:<span id="ccs" style="background-color:#`+cols(c)+`">&emsp;</sp
 Press ` + [0, 1, 2, 3, 4, 5, 6].map((n) => n.toString() + " for " + cs(n)).join(", ") + `, or pick a custom color:<input type="color" id="colinp" style="height:1em;width:2em;border:none" onchange="c = colinp.value; ccs.style.backgroundColor = '#' + cols(c);"/>.
 Modes: <button id="tbtn" onclick="picking=false">Single tiles</button><button id="rbtn" onclick="editrect()">Rectangles</button><button id="bbtn" onclick="editborder()">Edit a border</button>
 For rectangles, click on the top left corner and then the bottom right one.
-<button id="wbtn" onclick="console.log(scroll, oldscroll); let mat = constructmat(); done = true; rmlastline(); if (!oldfreeze) freez(); scroll = dcopy(oldscroll); finished(mat)">Save</button><button id="xbtn" onclick="done = true; rmlastline(); finished(oldmat)">Discard changes</button>`); // ^ the default colors
+<button id="wbtn" onclick="let mat = constructmat(); done = true; rmlastline(); if (!oldfreeze) freez(); sets('0', '='+oldscroll[0].toString()); sets('1', '='+oldscroll[1].toString()); finished(mat)">Save</button><button id="xbtn" onclick="done = true; if (!oldfreeze) freez(); sets('0', '='+oldscroll[0].toString()); sets('1', '='+oldscroll[1].toString()); rmlastline(); finished(oldmat)">Discard changes</button>`);
 	done = false;
 	display();
 	return new Promise ((yes, no) => {finished = yes})
