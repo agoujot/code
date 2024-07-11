@@ -16,10 +16,16 @@ var invert = () => {
 	} else {
 		canv.style.filter = "invert(1)";
 	}
-	if (dm) {
-		players.postMessage("invert", "*");
+	if (dm && players) {
+		players.postMessage("!invert", "*");
 	}
 };
+var rotateall = () => {
+	canv.style.rotate = ((Number(canv.style.rotate.slice(0, -3)) + 90) % 360).toString() + "deg";
+	if (dm && players) {
+		players.postMessage("!rotateall", "*");
+	}
+}
 if (dm) {
 players = null;
 canv.addEventListener("click", (e) => {
@@ -99,12 +105,14 @@ commands = {
 	"set":"makegroup",
 	"grid":"togglegrid",
 	"invert":"invert",
+	"rotateall":"rotateall",
 };
 var openp = () => { 
-	players = window.open("http://htmlpreview.github.io/?https://github.com/agoujot/code/blob/main/dp.html", "Players", "popup"); setTimeout(display, 1000);
+	players = window.open("http://htmlpreview.github.io/?https://github.com/agoujot/code/blob/main/dp.html", "Players", "popup");
 	show(`Window opened.
 If it didn't make sure you allowed pop-ups for this website (your browser probably gave you a notice).
-Click on the player window to make it go fullscreen.`)
+Click on the player window to make it go fullscreen.`);
+	canv.style.rotate = "0deg";
 }
 var needsroom = (callback, list=false) => (arg) => { // metafunction to make commands
 	if (arg) { // command-line argument
@@ -673,7 +681,8 @@ remove : remove a room
 rotate : turn a room 90, 180, or 270°
 set : create a set of rooms that can be used in commands
 copy : create a new room that is a copy of another
-invert : inver the brightness of the canvas
+invert : invert the brightness of the canvas
+rotateall : rotate the canvas
 grid : toggle whether the grid always displays</li></ul>`.replaceAll("\n", "</li><li>") +
 `Rooms can be chosen by entering their name, their ID (starting with a +), a set name, or the ID of a set (starting with a -).
 
@@ -954,8 +963,8 @@ display();
 window.addEventListener("click", () => parenthtml.requestFullscreen()); // can't make it automatic because of some security thing or other
 window.addEventListener("message", (e) => parsemessage(e.data));
 let parsemessage = (text) => {
-	if (text == "invert") {
-		invert();
+	if (text[0] == "!") {
+		eval(text.slice(1)+"()");
 	} else {
 		for (s of text.split("|").slice(0, -1)) {
 			let [x, y, w, h, co] = JSON.parse(s);
