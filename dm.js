@@ -1,6 +1,3 @@
-/*TODO:
-	show borders on edit
-*/
 var ctx = canv.getContext("2d"); // drawing context
 var scroll = [0, 0];
 var z, scroll, eta, freeze
@@ -36,8 +33,7 @@ canv.addEventListener("click", (e) => {
 			picked([x, y]);
 		} else if (!done) { // editing mode 0
 			colors[x+" "+y] = c;
-			draw(x, y, cols(c));
-			drawgrid();
+			display();
 		}
 	}
 })
@@ -254,37 +250,34 @@ var display = () => { // all rooms on this floor || what's being edited && grid
 			let [i, j] = p.split(" ").map(Number);
 			if (colors[p]) {
 				draw(i, j, cols(colors[p]));
-			}
-		}
-		for (var s of Object.keys(colors)) {
-			let [i, j] = s.split(" ").map(Number)
-			let l = colors[s];
-			if (typeof(l) != "object") {
-				l = [l];
-			}
-			for (let [x, y, m] of [[0, 1, 3], [1, 0, 2], [0, -1, 1], [-1, 0, 0]]) {
-				let [i_, j_] = [i+x, j+y];
-				let here = null;
-				for (let n=1;n<l.length;n+=2) {
-					if (l[n] == m) {
-						here = n;
-						break;
+				let l = colors[p];
+				if (typeof(l) != "object") {
+					l = [l];
+				}
+				for (let [x, y, m] of [[0, 1, 3], [1, 0, 2], [0, -1, 1], [-1, 0, 0]]) {
+					let [i_, j_] = [i+x, j+y];
+					let here = null;
+					for (let n=1;n<l.length;n+=2) {
+						if (l[n] == m) {
+							here = n;
+							break;
+						}
 					}
-				}
-				if (here != null) {
-					var co = cols(l[here+1]);
-				} else {
-					var co = "FFF";
-				}
-				if (!((i_+" "+j_) in colors) || colors[i_+" "+j_] == 0) {
-					if (m == 0) {
-						fr(i*z+scroll[0], j*z+scroll[1], wallwidth, z, co);
-					} else if (m == 1) {
-						fr(i*z+scroll[0], j*z+scroll[1], z, wallwidth, co);
-					} else if (m == 2) {
-						fr((i+1)*z+scroll[0]-wallwidth, j*z+scroll[1], wallwidth, z, co);
-					} else if (m == 3) {
-						fr(i*z+scroll[0], (j+1)*z+scroll[1]-wallwidth, z, wallwidth, co);
+					if (here != null) {
+						var co = cols(l[here+1]);
+					} else {
+						var co = "FFF";
+					}
+					if (!((i_+" "+j_) in colors) || colors[i_+" "+j_] == 0) {
+						if (m == 0) {
+							fr(i*z+scroll[0], j*z+scroll[1], wallwidth, z, co);
+						} else if (m == 1) {
+							fr(i*z+scroll[0], j*z+scroll[1], z, wallwidth, co);
+						} else if (m == 2) {
+							fr((i+1)*z+scroll[0]-wallwidth, j*z+scroll[1], wallwidth, z, co);
+						} else if (m == 3) {
+							fr(i*z+scroll[0], (j+1)*z+scroll[1]-wallwidth, z, wallwidth, co);
+						}
 					}
 				}
 			}
@@ -853,7 +846,7 @@ var editgrid = (grid) => {
 						draw(i, j, cols(c));
 					}
 				}
-				drawgrid();
+				display();
 				editrect();
 			})
 		})
@@ -885,6 +878,7 @@ var editgrid = (grid) => {
 							co.push(d, c);
 						}
 					}
+					display();
 				} else {
 					alert("Cannot change border of empty tile.")
 				}
