@@ -42,7 +42,7 @@ canv.addEventListener("click", (e) => {
 	}
 })
 addEventListener("keydown", (e) => {
-	if (["0", "1", "2", "3", "4"].includes(e.key)) { // color
+	if (["0", "1", "2", "3", "4", "5", "6"].includes(e.key)) { // color
 		c = Number(e.key);
 		ccs.style.backgroundColor = "#" + cols(c);
 	} else if (!done && ["w", "x", "t", "r", "b"].includes(e.key)) {
@@ -78,6 +78,8 @@ var cols = (s) =>
 	(s==2)?"F00":
 	(s==3)?"FF0":
 	(s==4)?"8B4513":
+	(s==5)?"FF0000":
+	(s==6)?"FFFF00":
 	s.slice(1);
 c = 1;
 var buffer = "";
@@ -141,6 +143,16 @@ var needsroom = (callback, list=false) => (arg) => { // metafunction to make com
 				}
 				return
 			}
+		}
+		if (arg == "all") {
+			if (list) {
+				for (x of Object.keys(salles)) {
+					callback(x);
+				}
+			} else {
+				write("This command does not accept sets.", "error");
+			}
+			return;
 		}
 		return write("No room or set of that name exists.", "error")
 	} else { // go fetch from selectroom
@@ -773,7 +785,6 @@ var rotatearray = (g) => { // 90° clockwise
 	}
 	for (let i=0;i<res.length;i++) {
 		for (let j=0;j<res[0].length;j++) {
-//			res[j][g.length-1-i] = g[i][j];
 			res[i][j] = g[j][res.length-1-i];
 		}
 	}
@@ -827,6 +838,7 @@ var editgrid = (grid) => {
 	oldscroll = dcopy(scroll);
 	sets("0", "=0");
 	sets("1", "=0");
+	console.log(scroll, dcopy(scroll));
 	editrect = () => {
 		picking = true;
 		show("Waiting for first corner.");
@@ -883,10 +895,10 @@ var editgrid = (grid) => {
 	ssl(`Editing mode.
 The room is opened at the left.
 Current color is:<span id="ccs" style="background-color:#`+cols(c)+`">&emsp;</span>
-Press ` + [0, 1, 2, 3, 4].map((n) => n.toString() + " for " + cs(n)).join(", ") + `, or pick a custom color:<input type="color" id="colinp" style="height:1em;width:2em;border:none" onchange="c = colinp.value; ccs.style.backgroundColor = '#' + cols(c);"/>.
+Press ` + [0, 1, 2, 3, 4, 5, 6].map((n) => n.toString() + " for " + cs(n)).join(", ") + `, or pick a custom color:<input type="color" id="colinp" style="height:1em;width:2em;border:none" onchange="c = colinp.value; ccs.style.backgroundColor = '#' + cols(c);"/>.
 Modes: <button id="tbtn" onclick="picking=false">Single tiles</button><button id="rbtn" onclick="editrect()">Rectangles</button><button id="bbtn" onclick="editborder()">Edit a border</button>
 For rectangles, click on the top left corner and then the bottom right one.
-<button id="wbtn" onclick="console.log('avant constructmat'); let mat = constructmat(); console.log(colors, mat, 'après'); done = true; rmlastline(); if (!oldfreeze) freez(); scroll = oldscroll; finished(mat)">Save</button><button id="xbtn" onclick="done = true; rmlastline(); finished(oldmat)">Discard changes</button>`); // ^ the default colors
+<button id="wbtn" onclick="console.log(scroll, oldscroll); let mat = constructmat(); done = true; rmlastline(); if (!oldfreeze) freez(); scroll = dcopy(oldscroll); finished(mat)">Save</button><button id="xbtn" onclick="done = true; rmlastline(); finished(oldmat)">Discard changes</button>`); // ^ the default colors
 	done = false;
 	display();
 	return new Promise ((yes, no) => {finished = yes})
