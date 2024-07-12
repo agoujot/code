@@ -116,7 +116,7 @@ Click on the player window to make it go fullscreen.`);
 }
 var needsroom = (callback, list=false) => (arg) => { // metafunction to make commands
 	if (arg) { // command-line argument
-		if (arg[0] == "+" && Oject.keys(salles).includes(arg.slice(1))) {
+		if (arg[0] == "+" && Object.keys(salles).includes(arg.slice(1))) {
 			callback(arg.slice(1));
 			return;
 		}
