@@ -44,7 +44,7 @@ canv.addEventListener("click", (e) => {
 	}
 })
 addEventListener("keydown", (e) => {
-	if (["0", "1", "2", "3", "4", "5", "6"].includes(e.key)) { // color
+	if (["0", "1", "2", "3", "4", "5", "6"].includes(e.key) && !done) { // color
 		c = Number(e.key);
 		ccs.style.backgroundColor = "#" + cols(c);
 	} else if (!done && ["w", "x", "t", "r", "b"].includes(e.key)) {
@@ -116,11 +116,11 @@ Click on the player window to make it go fullscreen.`);
 }
 var needsroom = (callback, list=false) => (arg) => { // metafunction to make commands
 	if (arg) { // command-line argument
-		if (arg[0] == "+" && arg.slice(1) in salles) {
+		if (arg[0] == "+" && Oject.keys(salles).includes(arg.slice(1))) {
 			callback(arg.slice(1));
 			return;
 		}
-		if (arg[0] == "-" && arg in groups) {
+		if (arg[0] == "-" && Object.keys(groups).includes(arg)) {
 			if (list) {
 				for (x of groups[arg].l) {
 					callback(x);
@@ -163,6 +163,8 @@ var needsroom = (callback, list=false) => (arg) => { // metafunction to make com
 		selectroom().then( (arg) => {
 			if (Number(arg) > 0) {
 				callback(Number(arg).toString()); // eliminate unary +s
+			} else if (arg == 0) {
+				show("(No room selected.)");
 			} else {
 				if (list) {
 					for (x of groups[arg].l) {
@@ -353,7 +355,7 @@ var ssl = (s) => { // show single line (multiple lines in one tr)
 rmlastline = () => { // technically last tr, which is where ssl comes in
 	log.lastChild.remove();
 }
-var cs = (co) => '<button onclick="c='+co.toString()+`;ccs.style.backgroundColor = '#'+cols(c);" style="background-color:#` + cols(co) + '">&emsp;</button>' // colored span
+var cs = (co) => '<button onclick="c='+co.toString()+`; ccs.style.backgroundColor = '#'+cols(c);" style="background-color:#` + cols(co) + '">&emsp;</button>' // colored span
 var inp = () => { // input
 	log.innerHTML = log.innerHTML.replaceAll(/<\/?(butto|inpu).*?[^=]>/g, ""); // remove interface from last commands
 	[picking, done] = [false, true];
@@ -455,7 +457,7 @@ var frg = (aa) => { // tableau de tableau -> chaine
 			val = [val];
 		}
 		for (let i=0;i<val.length;i+=2) {
-			if (!(val[i] in customs_) && typeof(val[i]) == "string") {
+			if (!customs_.includes(val[i]) && typeof(val[i]) == "string") {
 				customs_.push(val[i])
 			}
 		}
@@ -583,7 +585,7 @@ var tog = (s) => { // chaine -> tableau de tableaux
 					}
 				} else {
 					for (let m=0;m<l1[i].length;m++) {
-						if (l1[i][m] > 10) {
+						if (l1[i][m] >= 10) {
 							l1[i][m] = customs[l1[i][m]];
 						}
 					}
@@ -721,7 +723,7 @@ var selectroom = () => { // pick a room/group by clicking on it/entering it in t
 	new Promise ((yes, no) => { picked = yes })
 	.then(([x, y]) => {
 		picking = false;
-		for (id in salles) {
+		for (id of Object.keys(salles)) {
 			let s = salles[id];
 			[i, j] = bl(s.c);
 			if (i <= x && x < i + s.g.length && j <= y && y < j + s.g[0].length && s.f.includes(eta)) {
@@ -960,6 +962,7 @@ sets("0", "=0");
 setl("=1"); // these are the default values, will be overriden by any load
 display();
 } else {
+canv.style.rotate = "0deg";
 window.addEventListener("click", () => parenthtml.requestFullscreen()); // can't make it automatic because of some security thing or other
 window.addEventListener("message", (e) => parsemessage(e.data));
 let parsemessage = (text) => {
