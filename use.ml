@@ -1,29 +1,26 @@
 open Graphics
 open Cat
 let () =
-let rec inp s = 
-	if key_pressed() then 
-		(let c = read_key() in 
-		if c = char_of_int 13 then s else
-		if c = char_of_int 8 then (let ns = if s = "" then s else (String.sub s 0 (String.length s - 1)) in Unix.sleepf 0.1; bl ns; inp ns) else
-		(Unix.sleepf 0.1; bl (s^(String.make 1 c)); inp (s^(String.make 1 c))))
-	else inp s in
 let rec choose() = 
 bl " - choosing CA - ";
 info ["";
 "Enter CA name.";
-"Possibilities are gol, bosco, arc, beam, ei, eii, eiii, eiv, (experiments).";
+"Possibilities are:";
+" - standard ones: gol, bosco, daynight, marine";
+" - good ones I made: beam, eiii, flower, evi";
+" - more gimmicky/historical ones: eiv, eii, ei, arc";
+"(e[roman number] stands for experiments)";
 "And test, that containes whatever I am building right now.";
 "It might not exist, it might be rubbish, it might keep you from moving your mouse.";
 "Ye be warned.";
-"Put exit to leave.";
+"Put X to close.";
 ""]; wait();
 let m = inp "" in 
-if m = "exit" then () else
+if m = "X" then () else
 begin
 if m = "bosco" then(
 go
-(fun l v -> let rec cou l = match l with | [] -> 0 | i::s -> if i = white then 1+cou s else cou s in let c = cou l in if v = white then (if c >= 33 && c <= 57 then white else black) else if c >= 34 && c <= 45 then white else black)
+(bs "34-45" "33-57")
 (moore 5)
 100
 [|black; white|]
@@ -32,12 +29,12 @@ equ
 "This is Bosco's rule, a higher-range outer-totalistic CA, invented by Kellie Evans";
 "Named after a reflectorless flipping oscillator named Bosco.";
 "Range 5 moore neighbourhood.";
-"One type of life, S33-57 & B34-45.";
+"One type of life, B34-45/S33-57.";
 ""]
 )
 else if m = "gol" then(
 go
-(fun l v -> let rec cou l = match l with | [] -> 0 | i::s -> if i = white then 1+cou s else cou s in let c = cou l in if c = 3 then white else if c = 2 then v else black)
+(bs "3" "2-3")
 (moore 1)
 100
 [|white; black|]
@@ -46,13 +43,13 @@ equ
 "This is the Game of Life, one of the first CAs, invented by John Conway.";
 "It is still one of the most complex.";
 "Range 1 moore neighbourhood.";
-"One type of life, S2-3 & B3.";
+"One type of life, B3/S2-3.";
 ""]
 )
 else if m = "arc" then(
 go
-(fun l v -> let rec c l co = match l with | [] -> 0 | i::s -> if i = co then 1+c s co else c s co in
-	let v3 = c l blue and v2 = c l green and v1 = c l red in
+(fun l v ->
+	let v3 = count l blue and v2 = count l green and v1 = count l red in
 	if (v1 > 0 && v2 > 0) || v3 > 0
 	then (if v1 > v2 then red else if v2 > v1 then green else blue)
 	else black)
@@ -61,7 +58,7 @@ go
 [|black; red; green; blue|]
 equ
 ["";
-"This is Arc, invented by a me.";
+"This is Arc, invented by me.";
 "Named so because of the similarity of the common pattern of a sort of twisted, rapidly changing line to electric arcs.";
 "Plus, red and green do the same just opposite (and reflect themselves and do things with the other) so it already made me think of electricity.";
 "It has a tendency to expand to a medium density.";
@@ -78,8 +75,8 @@ equ
 )
 else if m = "ei" then(
 go
-(fun l v -> let rec c l co = match l with | [] -> 0 | i::s -> if i = co then 1+c s co else c s co in
-	let v3 = c l blue and v2 = c l green and v1 = c l red in
+(fun l v ->
+	let v3 = count l blue and v2 = count l green and v1 = count l red in
 	if (v1 > 0 && v1 < 3)||(v2 > 0 && v3 > 0)
 	then (if v1 > v2 then red else if v2 > v1 then green else blue)
 	else black)
@@ -96,8 +93,8 @@ equ
 )
 else if m = "eii" then (
 go
-(fun l v -> let rec c l co = match l with | [] -> 0 | i::s -> if i = co then 1+c s co else c s co in
-	let v3 = c l blue and v2 = c l green and v1 = c l red in
+(fun l v ->
+	let v3 = count l blue and v2 = count l green and v1 = count l red in
 	if (v1 > 0 && v2 > 0) || (v3 > 1)
 	then (if v1 > v2 then red else if v2 > v1 then green else blue)
 	else black)
@@ -114,8 +111,8 @@ equ
 )
 else if m = "eiii" then (
 go
-(fun l v -> let rec c l co = match l with | [] -> 0 | i::s -> if i = co then 1+c s co else c s co in
-	let v1 = c l red and v2 = c l green and v3 = c l blue in
+(fun l v ->
+	let v1 = count l red and v2 = count l green and v3 = count l blue in
 		if (v1 > 0 && v2 > 0) || v3 > 1 then
 			(if v1 > v2 then red 
 			else if v2 > v1 then green 
@@ -135,6 +132,17 @@ equ
 "Should find a name for this, as it is remarkably not stable (compared to ei, eii, arc, or eiv)";
 ""]
 )
+else if m = "ev" then (
+go
+(bs "15-25" "14-24")
+(moore 3)
+100
+[|black; white|]
+equ
+["";
+"Something. I think this is the best one in moore 3+(0,0) not depending on current state.";
+""]
+)
 else if m = "beam" then(
 go
 (fun l v -> let o = List.nth l 0::List.nth l 1::List.nth l 2::List.nth l 3::[] and
@@ -143,11 +151,11 @@ let test l_ col = List.exists (fun x -> x=col) l_ in
 if v = black then (if test o green && (not (test d red) || (test d blue && test o blue)) then green else black) else
 if v = red then black else
 if v = green then red else
-if (not (test o blue) && not(test d green) && test o red) then green else blue)
+blue)
 (neumann 1@saltire 1)
 100
 [|black; blue; green; red|]
-(fun _ () -> let r = Random.int 100 in if r < 50 then black else if r < 70 then green else if r < 90 then red else blue)
+(fun _ () -> let r = Random.int 100 in if r < 45 then black else if r < 65 then green else if r < 85 then red else blue)
 ["";
 "This is Beams, invented by me.";
 "Made to easily allow recreating logic system.";
@@ -159,8 +167,7 @@ if (not (test o blue) && not(test d green) && test o red) then green else blue)
 "A red cell becomes black.";
 "A black cell becomes green if it is orthogonally next to a green cell and, either it is not next to a red diagonally,";
 "    or it is next to a blue cell orthogonally and next to another diagonally.";
-"A blue cell stays blue (except if it has no blue neighbours, no diagonal green neighbours and a orthogonal red neighbour, in which case it becomes green.";
-"That last condition is not really needed but it helps clear the random field from obstacles.)";
+"A blue cell stays blue.";
 ""])
 else if m = "eiv" then(
 go
@@ -179,7 +186,7 @@ equ
 "Now does something else.";
 "B/W, moore 1 except it is split into two halves.";
 "A cell becomes white if it is already and both halves contain a white cell.";
-"Does nice patterns, though the spltting in two of a moore 1 is assymetrical, because it is like this:";
+"Does nice patterns, though the splitting in two of a moore 1 is assymetrical, because it is like this:";
 "A A A";
 "A X B";
 "B B B";
@@ -191,10 +198,52 @@ equ
 "A B A      B A A";
 "It is too stable.";
 ""])
+else if m = "evi" then (
+go
+(bs "7-10" "6-9")
+(moore 2)
+100
+[|black; white|]
+equ
+["";"More or less optimized for 2*2.";""]
+)
+else if m = "daynight" then (
+go
+(bs "3,6-8" "3-4,6-8")
+(moore 1)
+100
+[|black; white|]
+equ
+[""; "Day & Night, moore 1, B3,6-8/S3-4,6-8, has the notable property that black is the exact opposite of white."; ""]
+)
+else if m = "marine" then (
+go
+(bs "6-8" "4,6-9")
+((moore 1) @ [(2,-1);(2,0);(2,1);(2,2);(1,2);(0,2);(-1,2)])
+100
+[|black; white|]
+equ
+[""; "Marine, B6-8/S4,6-9, uses an assymetrical neighbourhood that causes life to flow down a certain direction (hence the name)."; ""]
+)
+else if m = "flower" then(
+go
+(bs "6-8" "5-8")
+[(-1,-1);(-1,-2);(-2,-1);(-2,0);(-2,1);(-1,1);(-1,2);(0,2);(1,2);(1,1);(2,1);(2,0);(2,-1);(1,-2);(0,-2);(1,-1)]
+100
+[|black; white|]
+equ
+[""; "Flower, called so because of its highly atypical neighbourhood:";
+" XXX ";
+"XX XX";
+"X O X";
+"XX XX";
+" XXX ";
+"Aside from that, B6-8/S5-8."; ""]
+)
 else if m = "test" then(
 go
-(fun l v -> if v = white then black else if List.nth l 0 = white then List.nth l 1 else List.nth l 2)
-[(0, -1);(1, 0);(-1, 0)]
+(fun l v -> let x = count l white in if x >= 4 && x <= 6 then white else black) (* 12 18, 15 25, 16 29, 17 34, 20 41 *)
+((0, 0)::moore 1)
 100
 [|black; white|]
 equ

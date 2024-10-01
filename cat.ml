@@ -3,7 +3,7 @@ exception Incoherent_colors
 (** Library for useful functions to run 2D cellular automata, including interface and commands. requires Graphics module. *)
 let () = Random.self_init(); open_graph ""; resize_window 1000 1020; set_color black; fill_rect 0 0 1000 1020; set_window_title "Cellular Automata Terminal" (* initializes the graphics screen & the RNG *)
 (** write l x y writes a list of strings one line each with the top one starting at x y *)
-let rec write l x y =	
+let rec write l x y =
 	match l with
 	| [] -> ()
 	| h::t -> set_color black; fill_rect x y (6*String.length h) 19 (* to overlay the text on top of the CA, more pretty *); moveto x y; set_color white; draw_string h; write t x (y-20)
@@ -20,11 +20,12 @@ let info rs = write ([
 	" - an array of colors listing all colours existing in your system.";
 	" - a function for (re)initialization giving a color from an array of colors and unit. just put equ if you are fine with equal probabilities.";
 	" - a list containing lines of text you might want to display, will appear at the end.";
+	"(note: exit stops the CA but does not close the window; this is to give you the opportunity to close it or do something else)";
 	"";
 	"You will have the status in the top left.";
 	"When CAT is running and you click, it will stop and go to pause.";
 	"When in pause, you can press keys to do things:";
-	" - p (Play)   : does exactly what it says on the tin.";
+	" - spacebar (play/pause)   : Does Exactly What It Says On The Tin.";
 	" - o (One)    : goes one frame further and then back to pause.";
 	" - b (Backwards) : play but in reverse, shows you the state of before. going backwards to a frame that has been edited will show you it with the edits";
 	" - l (Last)   : goes one frame backwards and back to pause.";
@@ -33,7 +34,7 @@ let info rs = write ([
 	" - n (New)    : generates a new random grid using the element function above.";
 	" - d (Delete) : sets all the grid to black (it is therefore recommended that you have the state 'no life' and that it be black).";
 	" - i (Info)   : shows this. exit by pressing any key";
-	" - x (EXit)   : Does Exactly What It Says On The Tin."]@rs) 10 980
+	" - x (EXit)   : Does Exactly What It Says On The Tin. (Kills the CA, but does not in itself close the window. Can be used to restart another.)"]@rs) 10 980
 (** Moore neighbourhood of range given *)
 let moore r = 
 	let rec it i j = 
@@ -67,6 +68,27 @@ let cross r =
 let saltire r = (let rec it k = if k = 0 then [] else (-k, -k)::(-k, k)::(k, -k)::(k, k)::it (k-1) in it r)
 (** equ a returns a function that chooses a random element from a *)
 let equ a = (fun () -> let r = Random.int (Array.length a) in a.(r))
+(** count l c counts the number of occurrences of c in l *)
+let rec count l c = match l with 
+	| [] -> 0
+	| i::s -> if i = c then 1 + count s c else count s c
+(** bs bi su returns a function corresponding to the Bbi/Ssu notation see {{:https://conwaylife.com/wiki/Life-like_cellular_automaton#Notation}on lifewiki} *)
+let bs bi su = 
+	let test s = (* returns function that tests whether a count matches s *)
+		let parts = String.split_on_char ',' s in
+		(fun c -> List.exists 
+		(fun ss -> if String.contains ss '-' (* set *)
+			then (let bo = Array.of_list @@ List.map int_of_string @@ String.split_on_char '-' ss in bo.(0) <= c && c <= bo.(1))
+			else int_of_string ss = c) (* single value *)
+		parts) in
+	let bi_ = test bi and su_ = test su in
+	(fun l v ->
+		let c = count l white in
+		if v = black then
+			if bi_ c then white else black
+		else
+			if su_ c then white else black
+	)
 (** b e si builds an array array of size si filled with results of e() (to allow for different random results) *)
 let rec b e si = 
 	let rec itx x = 
@@ -81,7 +103,15 @@ let rec b e si =
 (** Deepcopy of an array array *)
 let rec dcopy a = let rec it i = if i = Array.length a then [||] else Array.append [|Array.copy a.(i)|] (it (i+1)) in it 0
 (** For bottom left (even though now it is in the top left), erases the top and displays the text given. for status *)
-let bl s = set_color black; fill_rect 0 1000 1000 20; write [s] 10 1005
+let bl s = set_color black; fill_rect 0 1000 1000 20; write [s] 10 1000
+(** inp s reads text from the homemade input field, waiting for a line return (call with "") *)
+let rec inp s = 
+	if key_pressed() then 
+		(let c = read_key() in 
+		if c = char_of_int 13 then s else
+		if c = char_of_int 8 then (let ns = if s = "" then s else (String.sub s 0 (String.length s - 1)) in Unix.sleepf 0.1; bl ns; inp ns) else
+		(Unix.sleepf 0.1; bl (s^(String.make 1 c)); inp (s^(String.make 1 c))))
+	else inp s 
 (** di for do it, as it does most things. Arguments are : an array array of cells (Graphics.color's), a character for parameters (p to play, o to do one frame, b to go backwards, l to go to the last frame, and s to stop ), a function that returns a new color from a list of colors and the old color, a list of the relative coordinates of neighbours, an array of the colors of the CA, a function returning a color from unit, a list of strings to display for information, a list of compressed changes, and the grid of before. you are not supposed to touch this, call go. *)
 let rec di g p f n col e rs h _g =
 	let g_ = dcopy g in (* new array in which modifications will be made *)
@@ -105,7 +135,7 @@ let rec di g p f n col e rs h _g =
 				| v1::v2::v3::t -> 
 					(if v1 = "" then -1 else int_of_string v1)::
 					(if v2 = "" then 0 else int_of_string v2)::
-					(if v3 = "" then 0 else int_of_string v3)::
+					(if v3 = "" then 1 else int_of_string v3)::
 					def t
 				| _ -> []
 			in
@@ -126,7 +156,7 @@ let rec di g p f n col e rs h _g =
 			if j = si
 			then it (i+1) 0 c x y cc
 			else 
-				let rec ch l = (* ch for check, no ideas, applies the relatives coordinates in n to the coordinates of the current cell to get the coordinates of the cells to check.*)
+				let rec ch l = (* ch for check, no ideas, applies the relatives coordinates in n to the coordinates of the current cell to get the colors of the cells to check.*)
 					match l with
 					| [] -> []
 					| hd::tl -> g.(w (i+fst(hd))).(w (j+snd(hd))):: ch tl in	
@@ -142,7 +172,7 @@ let rec di g p f n col e rs h _g =
 					(if changed then c^","
 						^(if g.(i).(j) <> cc then string_of_int (fi g.(i).(j)) else "")^","
 						^(if j <> y then string_of_int (j-y) else "")^","
-						^(if i <> x then string_of_int (i-x) else "")
+						^(if i <> x+1 then string_of_int (i-x) else "")
 					else c)
 					(if changed then i else x)
 					(if changed then j else y)
@@ -151,6 +181,10 @@ let rec di g p f n col e rs h _g =
 	let change = it 0 0 "" 0 0 col.(0) in 
 	let rec wa() = (* for wait *)
 		match read_key() with
+		| ' ' -> (match p with 
+			| 'p' -> bl " - running - ";di g_ 'p' f n col e rs (change::h) g
+			| 'b' -> if h <> [] then (bl " - running - "; di (reverse g_ (if change = "" then List.hd h else change)) 'b' f n col e rs (if change = "" then List.tl h else h) (if change = "" then g else dcopy g_)) else (bl "ERROR: NO VISIBLE HISTORY"; wa())
+			| _ -> () )
 		| 'p' -> bl " - running - "; di g_ 'p' f n col e rs (change::h) g
 		| 'o' -> bl " - pause - "; di g_ 'o' f n col e rs (change::h) g
 		| 'e' -> bl " - editing - ";
@@ -173,8 +207,8 @@ let rec di g p f n col e rs h _g =
 		| 'b' -> if h <> [] then (bl " - running - "; di (reverse g_ (if change = "" then List.hd h else change)) 'b' (* use h to read the old ones *) f n col e rs (if change = "" then List.tl h else h) (if change = "" then g else dcopy g_)) else (bl "ERROR: NO VISIBLE HISTORY"; wa())
 		| 'l' -> if h <> [] then (bl " - pause - "; di (reverse g_ (if change = "" then List.hd h else change)) 'l' f n col e rs (if change = "" then List.tl h else h) (if change = "" then g else dcopy g_)) else (bl "ERROR: NO VISIBLE HISTORY"; wa())
 		| _ -> bl "ERROR: UNKNOWN COMMAND (PRESS i FOR INFO)"; wa() in
-	if button_down() || p = 's' then (bl " - pause - " ; wa()) else
+	if (key_pressed() && read_key() == ' ') || p = 's' then (bl " - pause - " ; wa()) else
 	if p = 'p' then di g_ p f n col e rs (change::h) g (* standard path of continuing *) else
 	if p = 'b' then (if h = [] then (bl "ERROR: NO VISIBLE HISTORY"; wa()) else di (reverse g (List.hd h)) 'b' f n col e rs (List.tl h) g_) else wa()
-(** go f n si col e rs starts the CA using colors col, the neighbourhood n and the function f giving from the old state and the neighbours the new state in a square grid of size si that is initialized with results of d(), also showing rs in info. *)
+(** go f n si col e rs starts the CA using colors col, the neighbourhood n and the function f giving from the old state and the neighbours the new state in a square grid of size si that is initialized with results of (e col)(), also showing rs in info. *)
 let go f n si col e rs = bl " - pause - "; di (b (e col) si) 's' f n col (e col) rs [] [||]
