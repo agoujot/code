@@ -1,11 +1,8 @@
 (** Utility to compile files without having to bother about manually checking dependencies or making documentation *)
-(** DEWISOTT *)
 exception Cyclical_dependence of string list
-(** DEWISOTT *)
 exception Missing_package of string
 (** Raised when there is an unfinished something at the end. *)
 exception Unfinished of string
-(** DEWISOTT *)
 exception Missing_file of string
 (** Help message *)
 let info = 
@@ -21,7 +18,7 @@ It will also produce html documentation and clean up.
 
 Options :
  -o [name] : change the name of the executable.
- -d : disable documentation.
+ -d : ensable documentation.
  -c : disable cleaning up.
  -h : shows this.
  -i [directory list] : add those directories (and children) to the search path.
@@ -80,21 +77,21 @@ let regs = let open Str in
 	  regexp ("stdlib__"^mo^{|\..*|})								(* 10 a stdlib package file *)
 	  |] in
 	(fun i s -> string_match a.(i) s 0)
-(** List of stdlib packages (should adapt to your installation) *)
+(** List of stdlib packages (should adapt to installation, though expect NixOS) *)
 let stdlib = 
 	List.map String.lowercase_ascii @@
 	List.map (fun s -> String.sub s 8 (String.length s - 8)) @@
 	uni @@
 	List.map Filename.remove_extension @@
 	List.filter (regs 10) @@ 
-	dir "/usr/lib/ocaml"
+	dir "/run/current-system/sw/lib/ocaml"
 (** Removes leftovers from compilation from the working directory (takes a list of names, to be called with {!scan}()) *)
 let rec clean =
 	function
 	| [] -> if Sys.file_exists "__build_errors__.txt" then cmd "rm __build_errors__.txt" (** because sometimes clean can itself close badly, which will destroy some of them but not all, which might cause even more errors if not taken care of *)
 	| h::t -> 
 		if not (List.mem "-c" arg) then 
-		(if List.mem (Filename.extension h) [".cmi"; ".cmo"; ".cmx"; ".mli"; ".o"; ".html"] 
+		(if List.mem (Filename.extension h) [".cmi"; ".cmo"; ".cmx"; ".mli"; ".o"] 
 			&& Sys.file_exists h 
 			&& not @@ regs 0 @@ Filename.remove_extension @@ remove_path h 
 		then cmd ("rm '"^h^"'"); 
@@ -174,9 +171,9 @@ let rec comp l s i =
 				| x::s -> let p = extract_path x in if p = "" then getdir s else p::getdir s in
 			String.concat "," @@ uni @@ getdir @@ String.split_on_char ' ' @@ files in
 		let out = if s = "" then String.capitalize_ascii hd else s in
-		cmd ((if pkg = "" then "" else "ocamlfind ")^"ocamlopt -o "^out^(if dirs = "" then "" else " -I "^dirs)^(if pkg = "" then "" else " -package "^pkg^" -linkpkg")^" "^files^" 2> __build_errors__.txt"); 
-		if not (List.mem "-d" arg) then 
-		cmd ((if pkg = "" then "" else "ocamlfind ")^"ocamldoc -html "^(if dirs = "" then "" else " -I "^dirs)^(if pkg = "" then "" else " -package "^pkg)^" "^files^" 2> __build_errors__.txt");
+		cmd ((if pkg = "" then "" else "ocamlfind ")^"ocamlopt -o "^out^" -I +unix,+str "^(if dirs = "" then "" else " -I "^dirs)^(if pkg = "" then "" else " -package "^pkg^" -linkpkg")^" "^files^" 2> __build_errors__.txt");
+		if List.mem "-d" arg then 
+		cmd ((if pkg = "" then "" else "ocamlfind ")^"ocamldoc -html "^(if dirs = "" then "" else " -I /run/current-system/sw/lib/ocaml/5.1.1/site-lib/graphics/,+unix,+str"^dirs)^(if pkg = "" then "" else " -package unix,str,"^pkg)^" "^files^" 2> __build_errors__.txt");
 		let ic = open_in "__build_errors__.txt" in 
 		let result = In_channel.input_lines ic in 
 		close_in ic; 
@@ -227,7 +224,7 @@ let rec comp l s i =
 				String.make (c * (tablength - 1)) ' ') else (
 			print_endline l; "")))))
 		"" result);
-		if result <> [] then print_endline "\x1b[34;1m.\x1b[22;49m";
+		if result <> [] then print_endline "\x1b[34;1m.\x1b[22;49m"; (* to distinguish outputs from this from outputs from compiler. *)
 		comp tl "" i)
 	end with x -> (clean(scan i);
 	match x with 
