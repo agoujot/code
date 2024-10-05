@@ -37,7 +37,7 @@ go
 (bs "3" "2-3")
 (moore 1)
 100
-[|white; black|]
+[|black; white|]
 equ
 ["";
 "This is the Game of Life, one of the first CAs, invented by John Conway.";

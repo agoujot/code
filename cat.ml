@@ -2,6 +2,7 @@ open Graphics
 exception Incoherent_colors
 (** Library for useful functions to run 2D cellular automata, including interface and commands. requires Graphics module. *)
 let () = Random.self_init(); open_graph ""; resize_window 1000 1020; set_color black; fill_rect 0 0 1000 1020; set_window_title "Cellular Automata Terminal" (* initializes the graphics screen & the RNG *)
+let () = set_font "fixed"
 (** write l x y writes a list of strings one line each with the top one starting at x y *)
 let rec write l x y =
 	match l with
@@ -35,6 +36,22 @@ let info rs = write ([
 	" - d (Delete) : sets all the grid to black (it is therefore recommended that you have the state 'no life' and that it be black).";
 	" - i (Info)   : shows this. exit by pressing any key";
 	" - x (EXit)   : Does Exactly What It Says On The Tin. (Kills the CA, but does not in itself close the window. Can be used to restart another.)"]@rs) 10 980
+(** tob64 n compresses n in base 64, assuming it's smaller than 64**2 *)
+let rec tob64 n =
+	if n < 10 then string_of_int n else
+	if n < 36 then String.make 1 @@ char_of_int @@ n-10+65 else
+	if n < 62 then String.make 1 @@ char_of_int @@ n-36+97 else
+	if n = 62 then "-" else
+	if n = 63 then "." else
+	"'"^tob64 (n/64)^tob64 (n mod 64)
+(** frb64 s gets a number out of a base 64 string *)
+let rec frb64 s =
+	if s.[0] = '\'' then let n, _ = frb64 @@ String.sub s 1 1 and m, _ = frb64 @@ String.sub s 2 1 in (n*64+m, 3) else
+	((if '0' <= s.[0] && s.[0] <= '9' then int_of_char s.[0]-48 else
+	if 'A' <= s.[0] && s.[0] <= 'Z' then int_of_char s.[0]-65+10 else
+	if 'a' <= s.[0] && s.[0] <= 'z' then int_of_char s.[0]-97+36 else
+	if '-' = s.[0] then 62 else
+	63), 1)
 (** Moore neighbourhood of range given *)
 let moore r = 
 	let rec it i j = 
@@ -112,7 +129,7 @@ let rec inp s =
 		if c = char_of_int 8 then (let ns = if s = "" then s else (String.sub s 0 (String.length s - 1)) in Unix.sleepf 0.1; bl ns; inp ns) else
 		(Unix.sleepf 0.1; bl (s^(String.make 1 c)); inp (s^(String.make 1 c))))
 	else inp s 
-(** di for do it, as it does most things. Arguments are : an array array of cells (Graphics.color's), a character for parameters (p to play, o to do one frame, b to go backwards, l to go to the last frame, and s to stop ), a function that returns a new color from a list of colors and the old color, a list of the relative coordinates of neighbours, an array of the colors of the CA, a function returning a color from unit, a list of strings to display for information, a list of compressed changes, and the grid of before. you are not supposed to touch this, call go. *)
+(** di for do it, as it does most things. Arguments are : an array array of cells (Graphics.color's), a character for parameters (p to play, o to do one frame, b to go backwards, l to go to the last frame, and s to stop), a function that returns a new color from a list of colors and the old color, a list of the relative coordinates of neighbours, an array of the colors of the CA, a function returning a color from unit, a list of strings to display for information, a list of compressed changes, and the grid of before. you are not supposed to touch this, call go. *)
 let rec di g p f n col e rs h _g =
 	let g_ = dcopy g in (* new array in which modifications will be made *)
 	let si = Array.length g in
@@ -206,6 +223,52 @@ let rec di g p f n col e rs h _g =
 		| 'i' -> info (rs); wait(); let rec show i j = if i = si then wa() else if j = si then show (i+1) 0 else (draw i j (g_.(i).(j)); show i (j+1)) (*need to redisplay after showing text*) in show 0 0
 		| 'b' -> if h <> [] then (bl " - running - "; di (reverse g_ (if change = "" then List.hd h else change)) 'b' (* use h to read the old ones *) f n col e rs (if change = "" then List.tl h else h) (if change = "" then g else dcopy g_)) else (bl "ERROR: NO VISIBLE HISTORY"; wa())
 		| 'l' -> if h <> [] then (bl " - pause - "; di (reverse g_ (if change = "" then List.hd h else change)) 'l' f n col e rs (if change = "" then List.tl h else h) (if change = "" then g else dcopy g_)) else (bl "ERROR: NO VISIBLE HISTORY"; wa())
+		| 's' ->
+			let compress a =
+				Array.map (Array.map fi) a |>
+				Array.map
+				(fun aa -> let rec it l la ti =
+						match l with
+						| [] -> if la > -1 then tob64 la^tob64 ti else ""
+						| x::s -> if x = la then it s la (ti+1) else (if la > -1 then tob64 la^tob64 ti else "")^it s x 1 in
+				it (Array.to_list aa) (-1) (-1)) |>
+				Array.to_list |>
+				(fun l -> let rec it l la ti =
+					match l with
+					| [] -> if la = "" then "" else la^(if ti > 1 then "$"^tob64 (ti-1) else "")
+					| x::s -> if x = la then it s la (ti+1) else (if la = "" then "" else la^(if ti > 1 then "$"^tob64 (ti-1) else ""))^it s x 1 in
+				it l "" (-1)) |>
+				(fun x -> print_endline x; x)
+			in
+			let oc = open_out @@ "AC-"^(string_of_int @@ int_of_float @@ Unix.time())^".txt" in
+			output_string oc @@ compress g;
+			close_out oc;
+			wa();
+		| 'r' ->
+			bl "Enter the file name without the .txt, or - to get the latest file created by CAT.";
+			let fn = let fn_ = inp "" in 
+				if fn_ = "-" then 
+				(Sys.readdir "." |> Array.to_list |> List.filter (fun s -> Str.string_match (Str.regexp {|^AC-[0-9]+\.txt|}) s 0) |> List.sort (fun a b -> if a < b then 1 else if a > b then -1 else 0) |> List.hd)
+				else fn_^".txt" in
+			let decompress s =
+				let rec it i li a =
+					if Array.length li = si then (it i [||] (Array.append a [|li|])) else
+					if i >= String.length s then a else
+					if s.[i] = '$' then
+						let n, j = frb64 (String.sub s (i+1) (String.length s-i-1)) in 
+						it (i+1+j) [||] (Array.append a (Array.make n a.(Array.length a - 1)))
+					else
+					let n, j = frb64 (String.sub s i (String.length s-i)) in
+					let m, k = frb64 (String.sub s (i+j) (String.length s -i-j)) in
+					it (i+j+k) (Array.append li (Array.make m n)) a
+					in
+				it 0 [||] [||] |>
+				Array.map (fun l -> Array.map (fun i -> col.(i)) l)
+			in
+			let ic = open_in fn in
+			let s = input_line ic in
+			close_in ic;
+			di (decompress s) 's' f n col e rs [] g_
 		| _ -> bl "ERROR: UNKNOWN COMMAND (PRESS i FOR INFO)"; wa() in
 	if (key_pressed() && read_key() == ' ') || p = 's' then (bl " - pause - " ; wa()) else
 	if p = 'p' then di g_ p f n col e rs (change::h) g (* standard path of continuing *) else

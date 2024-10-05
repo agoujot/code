@@ -13,8 +13,8 @@ Give it the name of the file, without the extension, and it will compile it.
 The executable will have the module name corresponding to the file name (capitalized).
 (This requires ocamlfind.)
 Modules not from stdlib will be scanned for in current directory and its children.
-It will also produce html documentation and clean up.
-(What I mean by 'clean up' is 'destroy every file from compilation except the html and executable'.)
+It will also clean up (and optionally make html doc).
+(What I mean by 'clean up' is 'destroy every file from compilation except the executable'.)
 
 Options :
  -o [name] : change the name of the executable.
@@ -22,7 +22,8 @@ Options :
  -c : disable cleaning up.
  -h : shows this.
  -i [directory list] : add those directories (and children) to the search path.
- -r : do not search in any sub directories."
+ -r : do not search in any sub directories.
+ -g : get the stack trace."
 (** The list of the arguments given on the command line *)
 let arg = Array.to_list (Array.sub Sys.argv 1 (Array.length Sys.argv - 1))
 (** Executes the unix command given *)
@@ -70,7 +71,7 @@ let regs = let open Str in
    	  regexp {|^{\([a-z_]*\)|.*|\1}$|}; 							(* 3 quoted strings *)
 	  regexp {|^File .*$|}; 										(* 4 indicator at the beginning of some error messages *)
 	  regexp {|^Error:.*$|}; 										(* 5 line starting with Error *)
-	  regexp {| *\^ *|};											(* 6 pointer line *)
+	  regexp {|[ 	]*\^[ 	]*|};											(* 6 pointer line *)
 	  regexp {|^[0-9]+ error(s) encountered$|}; 					(* 7 thank you, i can count *)
 	  regexp {|^[0-9]+ | .*$|};										(* 8 code snippet *)
 	  regexp ({|^{\(|}^id^" with "^{|\)?|}^fd^{|\(;|}^fd^{|\)*}$|});(* 9 a record *)
@@ -156,7 +157,7 @@ let rec comp l s i =
 		(match tl with
 		| [] -> clean(scan i)
 		| na::rest -> comp rest na i)
-	| "-d" | "-c" | "-r" -> comp tl "" i
+	| "-d" | "-c" | "-r" | "-g" -> comp tl "" i
 	| "-h" -> print_endline info
 	| "-i" -> 
 		(match tl with
@@ -171,7 +172,7 @@ let rec comp l s i =
 				| x::s -> let p = extract_path x in if p = "" then getdir s else p::getdir s in
 			String.concat "," @@ uni @@ getdir @@ String.split_on_char ' ' @@ files in
 		let out = if s = "" then String.capitalize_ascii hd else s in
-		cmd ((if pkg = "" then "" else "ocamlfind ")^"ocamlopt -o "^out^" -I +unix,+str "^(if dirs = "" then "" else " -I "^dirs)^(if pkg = "" then "" else " -package "^pkg^" -linkpkg")^" "^files^" 2> __build_errors__.txt");
+		cmd ((if pkg = "" then "" else "ocamlfind ")^"ocamlopt "^(if List.mem "-g" arg then "-g " else "")^"-o "^out^" -I +unix,+str "^(if dirs = "" then "" else " -I "^dirs)^(if pkg = "" then "" else " -package "^pkg^" -linkpkg")^" "^files^" 2> __build_errors__.txt");
 		if List.mem "-d" arg then 
 		cmd ((if pkg = "" then "" else "ocamlfind ")^"ocamldoc -html "^(if dirs = "" then "" else " -I /run/current-system/sw/lib/ocaml/5.1.1/site-lib/graphics/,+unix,+str"^dirs)^(if pkg = "" then "" else " -package unix,str,"^pkg)^" "^files^" 2> __build_errors__.txt");
 		let ic = open_in "__build_errors__.txt" in 
@@ -197,7 +198,7 @@ let rec comp l s i =
 			if regs 6 l then 
 				(print_endline 
 					("\x1b[1;31m"
-					^flag^l^
+					^flag^(Str.global_replace (Str.regexp {|	|}) " " l)^
 					"\x1b[22;0m"); 
 				"") else (
 			if regs 5 l then 
@@ -224,7 +225,7 @@ let rec comp l s i =
 				String.make (c * (tablength - 1)) ' ') else (
 			print_endline l; "")))))
 		"" result);
-		if result <> [] then print_endline "\x1b[34;1m.\x1b[22;49m"; (* to distinguish outputs from this from outputs from compiler. *)
+		if result <> [] then print_endline "\x1b[34;1m.\x1b[0m"; (* to distinguish outputs from this from outputs from compiler. *)
 		comp tl "" i)
 	end with x -> (clean(scan i);
 	match x with 
