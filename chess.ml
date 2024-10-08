@@ -38,7 +38,7 @@ let g = Array.map explode @@ [|
 	"pppppppp";
 	"rnbqkbnr";
 |]
-(** 0 for pieces that haven't moved, 1 for pawns that did a double jump last turn, and 2 for everyone else *)
+(** 0 for pieces that haven't moved, 1 for pawns that did a double jump this turn, 2 for those that did so the turn before and can be enpassant'd, 3 for everyone else *)
 let moved = Array.make_matrix 8 8 0
 (** coordinates of the kings *)
 let k = [|(7, 4); (0, 4)|]
@@ -65,7 +65,7 @@ let piecechar = function | 'p' -> 1 | 'P' -> 2 | 'r' -> 3 | 'R' -> 4 | 'b' -> 5 
 (** compress a grid into a number *)
 let compress a =
 	let rec it = function
-		| x::s -> x+11*(it s)
+		| x::s -> x+13*(it s)
 		| [] -> 0 in
 	Array.to_list a |>
 	Array.concat |>
@@ -82,22 +82,12 @@ let (|||) a b = if a = ft then b else a
 (** check t i j ex gives a square controlled by player t that is threatening square i j and is not in list ex, or ft if there are none *)
 let check t i j ex =
 	let ne x y = not (List.mem (x, y) ex) in
-	let cross p =
-		let rec it x f = 
-			if x < 0 || x > 7 then ft else
-			if g.(x).(j) = p && ne x j then (x, j) else
-			if g.(x).(j) = ' ' then it (x+f) f else ft in
-		let rec jt y f = 
-			if y < 0 || y > 7 then ft else
-			if g.(i).(y) = p && ne i j then (i, y) else
-			if g.(i).(y) = ' ' then jt (y+f) f else ft in
-		it (i+1) 1 ||| it (i-1) ~-1 ||| jt (j+1) 1 ||| jt (j-1) ~-1
-	and diag p =
-		let rec kt x y fx fy =
+	let line p fl =
+		let rec it x y fx fy =
 			if x < 0 || y < 0 || x > 7 || y > 7 then ft else
 			if g.(x).(y) = p && ne x y then (x, y) else
-			if g.(x).(y) = ' ' then kt (x+fx) (y+fy) fx fy else ft in
-		kt (i+1) (j+1) 1 1 ||| kt (i+1) (j-1) 1 ~-1 ||| kt (i-1) (j+1) ~-1 1 ||| kt (i-1) (j-1) ~-1 ~-1 in
+			if g.(x).(y) = ' ' then it (x+fx) (y+fy) fx fy else ft in
+		List.fold_right (|||) (List.map (fun (fx, fy) -> it (i+fx) (j+fy) fx fy) fl) ft in
 	if cc g.(i).(j) t then ft else
 	(* pawns *) (
 		let p = if t = 1 then 'P' else 'p' in
@@ -126,9 +116,9 @@ let check t i j ex =
 		| [] -> ft in
 		it nv
 	) |||
-	(* rooks *) ( cross (if t = 1 then 'R' else 'r') ) |||
-	(* bishops *) ( diag (if t = 1 then 'B' else 'b') ) |||
-	(* queens *) ( let p = if t = 1 then 'Q' else 'q' in cross p ||| diag p ) |||
+	(* rooks *) ( line (if t = 1 then 'R' else 'r') [(-1,0);(1,0);(0,-1);(0,1)] ) |||
+	(* bishops *) ( line (if t = 1 then 'B' else 'b') [(-1,-1);(-1,1);(1,-1);(1,1)] ) |||
+	(* queens *) ( line (if t = 1 then 'Q' else 'q') [(-1,-1);(-1,0);(-1,1);(0,-1);(0,1);(1,-1);(1,0);(1,1)] ) |||
 	(* kings *) (
 		let p = if t = 1 then 'K' else 'k' in
 		let rec it x y =
@@ -138,6 +128,7 @@ let check t i j ex =
 			if g.(i+x).(j+y) = p && ne (i+x) (j+y) then (i+x, j+y) else it x (y+1) in
 		it ~-1 ~-1
 	)
+(** safe t i j says if square i j is safe from player t *)
 let safe t i j = ft = check t i j []
 (** wait .2 secs *)
 let p() = Unix.sleepf 0.2
@@ -156,15 +147,15 @@ let effect t a b c d s e =
 	let ca = kin && abs (b-d) = 2 in (* castling *)
 	let f = if b < d then (d-1, 7) else (d+1, 0) in
 	if ca then (g.(a).(fst f) <- g.(a).(snd f); g.(a).(snd f) <- ' ');
-	((fun () -> (
-	g.(a).(b) <- g.(c).(d); g.(c).(d) <- crushd;
-	if ep then (g.(a).(d) <- passd; moved.(a).(d) <- 2);
-	if df then moved.(a).(b) <- 0;
-	if kin then k.(t) <- (a, b);
-	if ca then (g.(a).(snd f) <- g.(a).(fst f); g.(a).(fst f) <- ' '))),
-	(fun () -> (
-	if ep then draw a d; (* erase what was enpassant'd *)
-	if ca then draw a (fst f); draw a (snd f); (* the tower's move in castling *)
+	((fun () -> ( (* undo the above *)
+		g.(a).(b) <- g.(c).(d); g.(c).(d) <- crushd;
+		if ep then (g.(a).(d) <- passd; moved.(a).(d) <- 2);
+		if df then moved.(a).(b) <- 0;
+		if kin then k.(t) <- (a, b);
+		if ca then (g.(a).(snd f) <- g.(a).(fst f); g.(a).(fst f) <- ' ')
+	)), (fun () -> ( (* display the above *)
+		if ep then draw a d; (* erase what was enpassant'd *)
+		if ca then draw a (fst f); draw a (snd f); (* the tower's move in castling *)
 	)))
 (** movelist t gets the moves that t could do *)
 let movelist t =
@@ -215,6 +206,7 @@ let movelist t =
 		bad();
 		ok
 	)
+(* promotes the pawn in c d, that belongs to t *)
 let promote t c d =
 	let co = if t = 1 then white else black in
 	resize_window (si+2*z) si; (* add two columns *)
@@ -236,6 +228,7 @@ let promote t c d =
 			| _ -> ' ')
 		) in
 	wai()
+(* does the impure effects of endgame. argument is the player that won, or 2 for a draw *)
 let endgame n =
 	set_window_title "Chess (Game over. Press any key to exit)";
 	set_line_width 10;
