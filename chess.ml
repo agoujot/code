@@ -30,7 +30,7 @@ let rec explode s = if s = "" then [||] else Array.append [|s.[0]|] (explode(Str
 let shuffle (l : ((int * int * int * int) * int * (int * int)) list)= List.fast_sort (fun a b -> if Random.bool() then 1 else -1)
 (* dobot t decides whether a bot should play player t *)
 let dobot =
-	open_graph ""; resize_window si si; set_window_title "Chess";
+	open_graph (" "^string_of_int si^"x"^string_of_int si); resize_window si si; set_window_title "Chess";
 	set_color black; fill_rect 0 0 1000 1000; set_color white; set_line_width 4;
 	moveto (3*z/2) (15*z/2); rlineto ~-z 0; rlineto 0 ~-z; rlineto z 0; (* C *)
 	rmoveto (z/2) z; rlineto 0 ~-z ; rmoveto z z; rlineto 0 ~-z; rmoveto 0 (z/2); rlineto ~-z 0; (* H *)
@@ -268,7 +268,7 @@ let promote t c d =
 	let rec wai() = 
 		let ev = wait_next_event [ Button_down ] in let i_, j_ = ev.mouse_x, ev.mouse_y in
 		let i, j = i_/z/2, j_/z/2 in
-		if i < 4 then wai() else (
+		if i <> 4 || j < 0 || j >= 4 then wai() else (
 			resize_window si si;
 			drawall();
 			g.(c).(d) <- (match (j, t) with
@@ -328,6 +328,7 @@ let auto t =
 (*		)) ot
 	)) t*) |>
 	(fun x -> match x with | None -> assert false | Some (y, _, _) -> y)
+let rec wai evc = let ev = wait_next_event [ evc ] in let x, y = (ev.mouse_y/z, ev.mouse_x/z) in if x < 0 || x >= 8 || y < 0 || y >= 8 then wai evc else (x, y)
 (** di for Do It, does main loop *)
 let rec di t h l xy1 td =
 	set_window_title @@ "Chess ("^(if t = 0 then "Black" else "White")^"'s turn)";
@@ -348,10 +349,9 @@ let rec di t h l xy1 td =
 		let mx2, my2 = if dobot t then (
 			let _, _, c, d = botmove in (c, d)
 		) else (
-			let x2, y2 = let ev = wait_next_event [ Button_up ] in (ev.mouse_y/z, ev.mouse_x/z) in
+			let x2, y2 = wai Button_up in
 			if x2 = mx1 && y2 = my1 then
-			let ev = wait_next_event [ Button_down ] in
-			ev.mouse_y/z, ev.mouse_x/z
+			wai Button_down
 			else x2, y2
 		) in
 		if cc g.(mx2).(my2) t then (draw mx1 my1;di t h l (mx2, my2) td) else
