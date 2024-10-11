@@ -26,6 +26,8 @@ m 24 72; l 24 64; l 66 64; l 66 72; l 24 72; m 22 28; l 22 18; l 30 18; l 30 22;
 	| 'P' | 'p' -> m 44 18; c 39 18 36 21 36 26; c 36 27 36 29 37 30; c 33 33 31 37 31 42; c 31 46 32 49 35 52; c 29 54 21 63 21 79; l 67 79; c 67 63 58 54 52 52; c 55 49 57 46 57 42; c 57 37 54 33 50 30; c 51 29 52 27 52 26; c 52 21 48 18 44 18
 	| _ -> ()
 let rec explode s = if s = "" then [||] else Array.append [|s.[0]|] (explode(String.sub s 1 (String.length s-1)))
+(** to shuffle movelists, and make the bot less repetitive *)
+let shuffle (l : ((int * int * int * int) * int * (int * int)) list)= List.fast_sort (fun a b -> if Random.bool() then 1 else -1)
 (* dobot t decides whether a bot should play player t *)
 let dobot =
 	open_graph ""; resize_window si si; set_window_title "Chess";
@@ -69,14 +71,14 @@ let kingco t =
 		if g.(i).(j) = p then (i, j) else
 		it i (j+1) in
 	it 0 0
-(** values of pieces, as given by hans berliner *)
+(** values of pieces, as given by hans berliner. The king's value reflects that of a check, not of a checkmate (that case is treated separately) *)
 let v = function
 	| 'p' | 'P' -> 10
 	| 'n' | 'N' -> 32
 	| 'b' | 'B' -> 33
 	| 'r' | 'R' -> 51
 	| 'q' | 'A' -> 88
-	| 'k' | 'K' -> 200
+	| 'k' | 'K' -> 5
 	| ' ' | _ -> 0
 (** deltas of allowed knight moves *)
 let nv = [(-2,-1);(-2,1);(-1,-2);(-1,2);(1,-2);(1,2);(2,-1);(2,1)]
@@ -168,6 +170,13 @@ let check t i j ex =
 	)
 (** safe t i j says if square i j is safe from player t *)
 let safe t i j = if i < 0 then false else ft = check t i j []
+(** nthreats t i j counts by how many ways t could take square i j *)
+let nthreats t i j =
+	let rec it ex =
+		let c = check t i j ex in
+		if c = ft then 0 else
+		1+it (c::ex) in
+	it []
 (** wait .2 secs *)
 let p() = Unix.sleepf 0.2
 (** do the impure effects of a move, and return (canceling function, displaying function) *)
@@ -193,6 +202,11 @@ let effect t a b c d =
 		if ep then draw a d; (* erase what was enpassant'd *)
 		if ca then draw a (fst f); draw a (snd f); (* the tower's move in castling *)
 	)))
+let te t a b c d f =
+	let bad, good = effect t a b c d in
+	let va = f() in
+	bad();
+	va
 (** movelist t gets the moves that t could do *)
 let movelist t =
 	let ot = (t+1) mod 2 in 
@@ -235,13 +249,12 @@ let movelist t =
 			it ~-1 ~-1
 		| _ -> []
 		) else []) @ it i (j+1) in
-	it 0 0 |>
+	it 0 0 |> 
 	List.filter (fun (a, b, c, d) ->
-		let bad, good = effect t a b c d in
-		let k = kingco t in
-		let ok = safe ot (fst k) (snd k) in
-		bad();
-		ok
+		te t a b c d (fun () ->
+			let k = kingco t in
+			safe ot (fst k) (snd k)
+		)
 	)
 (** promote t c d promotes the pawn in c d, that belongs to t *)
 let promote t c d =
@@ -281,37 +294,55 @@ let endgame n =
 	score 0;
 	ignore(read_key());
 	close_graph()
-(** assess a t gives a number for a board position, roughly between 400 to -400. greater numbers mean the position is better for t *)
-let assess a t =
-	let rec it i j =
-		if i = 8 then 0 else if j = 8 then it (i+1) 0 else
-		let c = a.(i).(j) in
-		(v c)*(
-			if cc c t then (
-				if safe ((t+1) mod 2) i j then 1 else -1) else
-			if cc c ((t+1) mod 2) then 
-				(if safe t i j then -1 else 1)
-			else 0)
-		+ it i (j+1) in
-	it 0 0
-(** auto bt decides which move the bot should do *)
-let auto bt =
-	List.map (fun (a, b, c, d) -> let bad, good = effect bt a b c d in let va = assess g bt in bad(); ((a, b, c, d),va)) (movelist bt) |>
-	List.fold_left (fun x y -> if snd x > snd y then x else y) ((-1, -1, -1, -1), ~-10000) |> (* pretty hacky, but the best piece advantage you can have is below 200, adding another 200 for check and another 600 cuz you never know *)
-	fst
+(** auto t decides which move the bot should do *)
+let auto t =
+	let ot = (t+1) mod 2 in
+	let vthreat () = (* total value of t's threatened pieces *)
+		let rec it i j = if i = 8 then (0, 0) else if j = 8 then it (i+1) 0 else (
+			let c = g.(i).(j) in
+			let k, l = it i (j+1) in
+			(if c = ' ' then (k, l) else
+			if cc c t then (k+(v c)*(if not (safe ot i j) then 0 else 1), l) else
+			(k, l+(v c)*(if not (safe t i j) then 0 else 1))
+			)
+		) in
+		(it 0 0, let ki, kj = kingco ot in if safe t ki kj then 0 else if movelist ot = [] then 10000 else 0) in
+	let ((art, arto), _) = vthreat () in
+	let best at l = List.filter ( (<>) None ) l |>
+		List.map (fun x -> match x with | None -> assert false | Some y -> y) |>
+		List.fast_sort (
+			(fun (_, v, ((vt, vto), ch)) (_, v_, ((vt_, vto_), ch_)) ->
+			let rt, rto, rt_, rto_ = vt-art,vto-arto,vt_-art,vto_-arto in
+			let ct, ct_ = v-rt+(rto/5)+ch, v_-rt_+(rto_/5)+ch_ in
+			(ct-ct_)*(if at = t then 1 else -1))
+		) |> List.hd in
+	let mapmove f at =
+		let ml = movelist at in
+		if ml = [] then None else
+		Some (List.map f ml |> best at) in
+	(*mapmove (fun (a1, b1, c1, d1) -> te t a1 b1 c1 d1 (fun () -> (*all this commented stuff is the other two moves, didn't work out*)
+		mapmove (fun (a2, b2, c2, d2) -> te ot a2 b2 c2 d2 (fun () ->*)
+			mapmove (fun (a3, b3, c3, d3) -> (
+				Some ((a3, b3, c3, d3), v g.(c3).(d3), te t a3 b3 c3 d3 vthreat)
+			)) t
+(*		)) ot
+	)) t*) |>
+	(fun x -> match x with | None -> assert false | Some (y, _, _) -> y)
 (** di for Do It, does main loop *)
-let rec di t h l =
-	try (set_window_title @@ "Chess ("^(if t = 0 then "Black" else "White")^"'s turn)";
+let rec di t h l xy1 td =
+	set_window_title @@ "Chess ("^(if t = 0 then "Black" else "White")^"'s turn)";
+	List.iter (fun tup -> square blue (snd tup) (fst tup)) td;
 	let botmove = if dobot t then auto t else (-1, -1, -1, -1) in
 	let mx1, my1 = if dobot t then (
 		let a, b, _, _ = botmove in (a, b)
 	) else (
+		if xy1 <> ft then xy1 else
 		let ev = wait_next_event [ Button_down ] in (ev.mouse_y/z, ev.mouse_x/z)
 	) in
 	if not (cc g.(mx1).(my1) t) then (
 		square red my1 mx1; p(); 
 		draw mx1 my1; 
-		di t h l
+		di t h l ft td
 	) else (
 		square green my1 mx1; p();
 		let mx2, my2 = if dobot t then (
@@ -323,6 +354,7 @@ let rec di t h l =
 			ev.mouse_y/z, ev.mouse_x/z
 			else x2, y2
 		) in
+		if cc g.(mx2).(my2) t then (draw mx1 my1;di t h l (mx2, my2) td) else
 		let a, b, c, d = mx1, my1, mx2, my2 in
 		let s = g.(a).(b) and e = g.(c).(d) (* start and end squares *)
 		and ma, mb, mc, md = b, a, d, c
@@ -399,52 +431,23 @@ let rec di t h l =
 			draw a b; draw c d;
 			moved.(c).(d) <- if moved.(a).(b) = 0 then 3 else moved.(a).(b); (* log who moved & how *)
 			moved.(a).(b) <- 3;
-		if ((* checkmate *)
-				let ki, kj = kingco ot in
-				let ci, cj = check t ki kj [] in
-				ci <> -1 && (* king threatened *)
-				let rec it i j =
-					if i = 2 then true else
-					if j = 2 then it (i+1) ~-1 else
-					if ki+i < 0 || kj+j < 0 || 8 <= ki+i || 8 <= kj+j then it i (j+1) else
-					not ( g.(ki+i).(kj+j) = ' ' && safe t (ki+i) (kj+j) )  && it i (j+1)
-				in it ~-1 ~-1 && (* no free, safe squares around the king *)
-				let golist =
-					(ci, cj)::(match g.(ci).(cj) with
-					| 'p' | 'P' | 'n' | 'N' -> []
-					| 'r' | 'R' | 'b' | 'B' | 'q' | 'Q' ->
-						let fx = if ci < ki then 1 else if ci > ki then -1 else 0
-						and fy = if cj < kj then 1 else if cj > kj then -1 else 0 in
-						let rec it x y =
-							if x < 0 || x >= 8 || y < 0 || y >= 8 || (x = ki && y = kj) then [] else
-							(x, y)::it (x+fx) (y+fy) in
-						it (ci+fx) (cj+fy)
-					| _ -> [])
-				in
-				let rec it = function
-					| (gi, gj)::s -> 
-						let rec test ex = 
-							let pi, pj = check ot gi gj ex in 
-							if pi = -1 then it s else
-							let bad, good = effect ot pi pj gi gj in
-							let k = kingco ot in
-							let ok = safe t (fst k) (snd k) in
-							bad ();
-							not ok && test ((pi, pj)::ex) in
-						test []
-					| [] -> true
-				in it golist (* ot can't capture checking piece or block path *)
-			) then endgame t else if Array.for_all (Array.for_all (fun e -> e = 'K' || e = 'k' || e = ' ')) g (* only kings left *)
-			then endgame 2 else
-			if movelist ot = [] then endgame 2 else (* stalemate *)
-			if l = 50 then endgame 2 else (* fifty move *)
-			if List.mem (compress g, t, true) h then endgame 2; (* triple repetition *)
+		if movelist ot = [] then endgame (let ki, kj = kingco ot in if safe t ki kj then 2 else t) (* checkmate/stalemate *) else
+		if Array.for_all (Array.for_all (fun e -> e = 'K' || e = 'k' || e = ' ')) g (* only kings left *)
+		then endgame 2 else
+		if movelist ot = [] then endgame 2 else (* stalemate *)
+		if l = 50 then endgame 2 else (* fifty move *)
+		if List.mem (compress g, t, true) h then endgame 2; (* triple repetition *)
 		true
 		)
 	)
 	) then ot else t in
+	List.iter (fun tup -> draw (fst tup) (snd tup)) td;
 	if nt <> t then (
-		let rec it i j = if i = 8 then () else if j = 8 then it (i+1) 0 else (moved.(i).(j) <- (match moved.(i).(j) with | 1 -> 2 | 2 -> 3 | x -> x); it i (j+1)) in it 0 0);
-	di nt (if nt <> t then (let comp = compress g in if List.mem (comp, t, false) h then (comp, t, true)::h else (comp, t, false)::h) else h) (if s <> 'P' && s <> 'p' && e = ' ' then l+1 else 0))
-	) with x -> raise x
-let () = drawall(); Unix.sleep 1; di 1 [] 0
+		let rec it i j = if i = 8 then () else if j = 8 then it (i+1) 0 else (moved.(i).(j) <- (match moved.(i).(j) with | 1 -> 2 | 2 -> 3 | x -> x); it i (j+1)) in it 0 0); (* update moved *)
+	di nt
+		(if nt <> t then (let comp = compress g in if List.mem (comp, t, false) h then (comp, t, true)::h else (comp, t, false)::h) else h)
+		(if s <> 'P' && s <> 'p' && e = ' ' then l+1 else 0)
+		ft
+		(if nt <> t then [(a, b);(c, d)] else td)
+	)
+let () = drawall(); Unix.sleep 1; di 1 [] 0 ft []
