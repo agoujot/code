@@ -3,8 +3,6 @@ open Graphics
 let z = 90
 (** size in pixels of the window *)
 let si = z * 8
-(** default height of title bar, which Windows takes on the window. grrr *)
-let tbh = if Sys.win32 then 17 else 0
 (** piece p i j c b shows the piece p of color c at indexes i, j, 2x as big if b *)
 let piece p i j c b = 
 	set_color c;
@@ -32,7 +30,7 @@ let rec explode s = if s = "" then [||] else Array.append [|s.[0]|] (explode(Str
 let shuffle (l : ((int * int * int * int) * int * (int * int)) list)= List.fast_sort (fun a b -> if Random.bool() then 1 else -1)
 (* dobot t decides whether a bot should play player t *)
 let dobot =
-	open_graph (" "^string_of_int si^"x"^string_of_int (si+tbh)); resize_window si (si+tbh); set_window_title "Chess";
+	open_graph (" "^string_of_int si^"x"^string_of_int (si+if Sys.win32 then 17 else 0)); resize_window si si; set_window_title "Chess";
 	set_color black; fill_rect 0 0 1000 1000; set_color white; set_line_width 4;
 	moveto (3*z/2) (15*z/2); rlineto ~-z 0; rlineto 0 ~-z; rlineto z 0; (* C *)
 	rmoveto (z/2) z; rlineto 0 ~-z ; rmoveto z z; rlineto 0 ~-z; rmoveto 0 (z/2); rlineto ~-z 0; (* H *)
@@ -262,16 +260,17 @@ let movelist t =
 let promote t c d =
 	if dobot t then g.(c).(d) <- (if t = 1 then 'Q' else 'q') else (
 	let co = if t = 1 then white else black in
-	resize_window (si+2*z) (si+tbh); (* add two columns *)
+	let dc = if Sys.win32 then 3 else 4 in (* draw column *)
+	if Sys.unix then resize_window (si+2*z) si; (* add two columns *)
 	drawall();
 	set_color (if (c+d) mod 2 = 1 then rgb 227 193 111 else rgb 184 139 74); (* fill with promoting square's background *)
 	fill_rect (8*z) 0 (2*z) (8*z);
-	piece 'r' 4 0 co true; piece 'n' 4 1 co true; piece 'b' 4 2 co true; piece 'q' 4 3 co true; (* draw the options *)
+	piece 'r' dc 0 co true; piece 'n' dc 1 co true; piece 'b' dc 2 co true; piece 'q' dc 3 co true; (* draw the options *)
 	let rec wai() = 
 		let ev = wait_next_event [ Button_down ] in let i_, j_ = ev.mouse_x, ev.mouse_y in
 		let i, j = i_/z/2, j_/z/2 in
-		if i <> 4 || j < 0 || j >= 4 then wai() else (
-			resize_window si (si+tbh);
+		if i <> dc || j < 0 || j >= 4 then wai() else (
+			resize_window si si;
 			drawall();
 			g.(c).(d) <- (match (j, t) with
 			| (0, 1) -> 'R' | (0, 0) -> 'r'
@@ -280,7 +279,8 @@ let promote t c d =
 			| (3, 1) -> 'Q' | (3, 0) -> 'q'
 			| _ -> ' ')
 		) in
-	wai())
+	wai()
+	) 
 (** does the impure effects of endgame. argument is the player that won, or 2 for a draw *)
 let endgame n =
 	set_window_title "Chess (Game over. Press any key to exit)";
