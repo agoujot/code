@@ -29,8 +29,6 @@ m 24 72; l 24 64; l 66 64; l 66 72; l 24 72; m 22 28; l 22 18; l 30 18; l 30 22;
 	| 'P' | 'p' -> m 44 18; c 39 18 36 21 36 26; c 36 27 36 29 37 30; c 33 33 31 37 31 42; c 31 46 32 49 35 52; c 29 54 21 63 21 79; l 67 79; c 67 63 58 54 52 52; c 55 49 57 46 57 42; c 57 37 54 33 50 30; c 51 29 52 27 52 26; c 52 21 48 18 44 18
 	| _ -> ()
 let rec explode s = if s = "" then [||] else Array.append [|s.[0]|] (explode(String.sub s 1 (String.length s-1)))
-(** to shuffle movelists, and make the bot less repetitive *)
-let shuffle (l : ((int * int * int * int) * int * (int * int)) list)= List.fast_sort (fun a b -> if Random.bool() then 1 else -1)
 (* dobot t decides whether a bot should play player t *)
 let dobot =
 	open_graph (" "^string_of_int si^"x"^string_of_int (si+if Sys.win32 then 17 else 0)); resize_window si si; set_window_title "Chess";
@@ -118,8 +116,6 @@ let cc c t = (if t = 1 then 'A' else 'a') <= c && c <= (if t = 1 then 'Z' else '
 let mbpp b x s = if b then x::s else s
 (** false tuplet, (-1, -1) *)
 let ft = (-1,-1)
-(** a &&& b gives b if a is not ft *)
-let (&&&) a b = if a <> ft then b else a
 (* a ||| b gives b if a is ft *)
 let (|||) a b = if a = ft then b else a
 (** check t i j ex gives a square controlled by player t that is threatening square i j and is not in list ex, or ft if there are none *)
@@ -173,13 +169,6 @@ let check t i j ex =
 	)
 (** safe t i j says if square i j is safe from player t *)
 let safe t i j = if i < 0 then false else ft = check t i j []
-(** nthreats t i j counts by how many ways t could take square i j *)
-let nthreats t i j =
-	let rec it ex =
-		let c = check t i j ex in
-		if c = ft then 0 else
-		1+it (c::ex) in
-	it []
 (** wait .2 secs *)
 let p() = Unix.sleepf 0.2
 (** do the impure effects of a move, and return (canceling function, displaying function) *)
@@ -205,6 +194,7 @@ let effect t a b c d =
 		if ep then draw a d; (* erase what was enpassant'd *)
 		if ca then draw a (fst f); draw a (snd f); (* the tower's move in castling *)
 	)))
+(** te t a b c d f tests the effect of move a, b -> c, d (by player t), returning f() *)
 let te t a b c d f =
 	let bad, good = effect t a b c d in
 	let va = f() in
@@ -334,7 +324,7 @@ let auto t =
 	)) t*) |>
 	(fun x -> match x with | None -> assert false | Some (y, _, _) -> y)
 let rec wai evc = let ev = wait_next_event [ evc ] in let x, y = (ev.mouse_y/z, ev.mouse_x/z) in if x < 0 || x >= 8 || y < 0 || y >= 8 then wai evc else (x, y)
-(** di for Do It, does main loop *)
+(** di for Do It, does main loop. Arguments: the turn, the (compressed) history of the game, the number of moves since a pawn was moved or a piece was taken, possibly preloaded coordinates of the start of the move (or ft), and the last move, which should be squared in blue *)
 let rec di t h l xy1 td =
 	set_window_title @@ "Chess ("^(if t = 0 then "Black" else "White")^"'s turn)";
 	List.iter (fun tup -> square blue (snd tup) (fst tup)) td;
