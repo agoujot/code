@@ -171,7 +171,7 @@ let check t i j ex =
 let safe t i j = if i < 0 then false else ft = check t i j []
 (** wait .2 secs *)
 let p() = Unix.sleepf 0.2
-(** do the impure effects of a move, and return canceling function *)
+(** do the impure effects of a move, and return (canceling function, displaying function) *)
 let effect t a b c d =
 	let s = g.(a).(b) and e = g.(c).(d) in
 	g.(c).(d) <- s; g.(a).(b) <- ' '; (* move it *)
