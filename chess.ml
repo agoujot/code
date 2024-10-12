@@ -314,7 +314,7 @@ let auto t =
 	List.map (fun (a, b, c, d) -> ((a, b, c, d), v g.(c).(d), te t a b c d vthreat)) |>
 	List.fast_sort (
 		fun (_, v, ((vt, vto), ch)) (_, v_, ((vt_, vto_), ch_)) ->
-		v-vt+vto/5+ch-(v_-vt_+vto_/5+ch_)
+		v-vt+vto/20+ch-(v_-vt_+vto_/20+ch_)
 	) |>
 	List.hd (* if ml = [] then already endgame so doesn't raise *) |>
 	fun (x,_,_) -> x
