@@ -171,7 +171,7 @@ let check t i j ex =
 let safe t i j = if i < 0 then false else ft = check t i j []
 (** wait .2 secs *)
 let p() = Unix.sleepf 0.2
-(** do the impure effects of a move, and return (canceling function, displaying function) *)
+(** do the impure effects of a move, and return canceling function *)
 let effect t a b c d =
 	let s = g.(a).(b) and e = g.(c).(d) in
 	g.(c).(d) <- s; g.(a).(b) <- ' '; (* move it *)
@@ -200,55 +200,58 @@ let te t a b c d f =
 	let va = f() in
 	bad();
 	va
-(** movelist t gets the moves that t could do *)
-let movelist t =
-	let ot = (t+1) mod 2 in 
+(** cango t i j gives where the piece in square i j could go (t's turn) *)
+let cango t i j =
+	let ot = (t+1) mod 2 in
 	let line a b fx fy =
 		let rec it c d =
 			if c < 0 || d < 0 || c >= 8 || d >= 8 || cc g.(c).(d) t then [] else
 			(a, b, c, d)::(if g.(c).(d) <> ' ' then [] else it (c+fx) (d+fy)) in
 		it (a+fx) (b+fy) in
-	let rec it i j =
-		if i = 8 then [] else
-		if j = 8 then it (i+1) 0 else
-		let c = g.(i).(j) in
-		(if cc c t then (
-		match c with
-		| 'p' | 'P' ->
-			let f = if t = 1 then 1 else -1 in
-			mbpp (0 <= i+f && i+f < 8 && g.(i+f).(j) = ' ') (i, j, i+f, j) @@ (* forward *)
-			mbpp (0 <= i+2*f && i+2*f < 8 && g.(i+f).(j) = ' ' && g.(i+2*f).(j) = ' ' && moved.(i).(j) = 0) (i, j, i+2*f, j) @@ (* double forward *)
-			mbpp (0 <= i+f && i+f < 8 && j-1 >= 0 && cc g.(i+f).(j-1) ot) (i, j, i+f, j-1) @@ (* standard diagonal eating *)
-			mbpp (0 <= i+f && i+f < 8 && j+1 < 8 && cc g.(i+f).(j+1) ot) (i, j, i+f, j+1) @@ (* on the other side *)
-			mbpp (0 <= i+f && i+f < 8 && j-1 >= 0 && cc g.(i).(j-1) ot && g.(i+f).(j-1) = ' ' && moved.(i).(j-1) = 2) (i, j, i+f, j-1) @@ (* en passant *)
-			mbpp (0 <= i+f && i+f < 8 && j+1 < 8 && cc g.(i).(j+1) ot && g.(i+f).(j+1) = ' ' && moved.(i).(j+1) = 2) (i, j, i+f, j+1) [] (* on the other side *)
-		| 'n' | 'N' ->
-			nv |>
-			List.map (fun (x, y) -> (i, j, i+x, j+y)) |>
-			List.filter (fun (i, j, x, y) -> 0 <= x && x < 8 && 0 <= y && y < 8 && not (cc g.(x).(y) t))
-		| 'r' | 'R' ->
-			line i j 0 1 @ line i j 0 ~-1 @ line i j 1 0 @ line i j ~-1 0
-		| 'b' | 'B' ->
-			line i j 1 1 @ line i j 1 ~-1 @ line i j ~-1 1 @ line i j ~-1 ~-1
-		| 'q' | 'Q' ->
-			line i j 0 1 @ line i j 0 ~-1 @ line i j 1 0 @ line i j ~-1 0 @
-			line i j 1 1 @ line i j 1 ~-1 @ line i j ~-1 1 @ line i j ~-1 ~-1
-		| 'k' | 'K' ->
-			let rec it x y =
-				if x = 2 then [] else
-				if y = 2 then it (x+1) ~-1 else
-				if (x = 0 && y = 0) || x+i < 0 || y+j < 0 || x+i >= 8 || y+j >= 8 || cc g.(x+i).(y+j) t then it x (y+1) else
-				(i, j, i+x, j+y)::it x (y+1) in
-			it ~-1 ~-1
-		| _ -> []
-		) else []) @ it i (j+1) in
-	it 0 0 |> 
+	let c = g.(i).(j) in
+	(if cc c t then (
+	match c with
+	| 'p' | 'P' ->
+		let f = if t = 1 then 1 else -1 in
+		mbpp (0 <= i+f && i+f < 8 && g.(i+f).(j) = ' ') (i, j, i+f, j) @@ (* forward *)
+		mbpp (0 <= i+2*f && i+2*f < 8 && g.(i+f).(j) = ' ' && g.(i+2*f).(j) = ' ' && moved.(i).(j) = 0) (i, j, i+2*f, j) @@ (* double forward *)
+		mbpp (0 <= i+f && i+f < 8 && j-1 >= 0 && cc g.(i+f).(j-1) ot) (i, j, i+f, j-1) @@ (* standard diagonal eating *)
+		mbpp (0 <= i+f && i+f < 8 && j+1 < 8 && cc g.(i+f).(j+1) ot) (i, j, i+f, j+1) @@ (* on the other side *)
+		mbpp (0 <= i+f && i+f < 8 && j-1 >= 0 && cc g.(i).(j-1) ot && g.(i+f).(j-1) = ' ' && moved.(i).(j-1) = 2) (i, j, i+f, j-1) @@ (* en passant *)
+		mbpp (0 <= i+f && i+f < 8 && j+1 < 8 && cc g.(i).(j+1) ot && g.(i+f).(j+1) = ' ' && moved.(i).(j+1) = 2) (i, j, i+f, j+1) [] (* on the other side *)
+	| 'n' | 'N' ->
+		nv |>
+		List.map (fun (x, y) -> (i, j, i+x, j+y)) |>
+		List.filter (fun (i, j, x, y) -> 0 <= x && x < 8 && 0 <= y && y < 8 && not (cc g.(x).(y) t))
+	| 'r' | 'R' ->
+		line i j 0 1 @ line i j 0 ~-1 @ line i j 1 0 @ line i j ~-1 0
+	| 'b' | 'B' ->
+		line i j 1 1 @ line i j 1 ~-1 @ line i j ~-1 1 @ line i j ~-1 ~-1
+	| 'q' | 'Q' ->
+		line i j 0 1 @ line i j 0 ~-1 @ line i j 1 0 @ line i j ~-1 0 @
+		line i j 1 1 @ line i j 1 ~-1 @ line i j ~-1 1 @ line i j ~-1 ~-1
+	| 'k' | 'K' ->
+		let rec it x y =
+			if x = 2 then [] else
+			if y = 2 then it (x+1) ~-1 else
+			if (x = 0 && y = 0) || x+i < 0 || y+j < 0 || x+i >= 8 || y+j >= 8 || cc g.(x+i).(y+j) t then it x (y+1) else
+			(i, j, i+x, j+y)::it x (y+1) in
+		it ~-1 ~-1
+	| _ -> []
+	) else []) |>
 	List.filter (fun (a, b, c, d) ->
 		te t a b c d (fun () ->
 			let k = kingco t in
 			safe ot (fst k) (snd k)
 		)
 	)
+(** movelist t gets the moves that t could do *)
+let movelist t =
+	let rec it i j =
+		if i = 8 then [] else
+		if j = 8 then it (i+1) 0 else
+		cango t i j @ it i (j+1) in
+	it 0 0 
 (** promote t c d promotes the pawn in c d, that belongs to t *)
 let promote t c d =
 	if dobot t then g.(c).(d) <- (if t = 1 then 'Q' else 'q') else (
@@ -340,7 +343,11 @@ let rec di t h l xy1 td =
 		draw mx1 my1; 
 		di t h l ft td
 	) else (
-		square green my1 mx1; p();
+		square green my1 mx1;
+		let xy2s = cango t mx1 my1 |> List.map (fun (a, b, c, d) -> (c, d)) in
+		List.iter (fun (c, d) -> square (rgb 128 128 128) d c) xy2s;
+		let hcg () = List.iter (fun (c, d) -> draw c d) xy2s in
+		p();
 		let mx2, my2 = if dobot t then (
 			let _, _, c, d = botmove in (c, d)
 		) else (
@@ -349,7 +356,7 @@ let rec di t h l xy1 td =
 			wai Button_down
 			else x2, y2
 		) in
-		if cc g.(mx2).(my2) t then (draw mx1 my1;di t h l (mx2, my2) td) else
+		if cc g.(mx2).(my2) t then (draw mx1 my1;hcg();di t h l (mx2, my2) td) else
 		let a, b, c, d = mx1, my1, mx2, my2 in
 		let s = g.(a).(b) and e = g.(c).(d) (* start and end squares *)
 		and ma, mb, mc, md = b, a, d, c
@@ -439,6 +446,7 @@ let rec di t h l xy1 td =
 	List.iter (fun tup -> draw (fst tup) (snd tup)) td;
 	if nt <> t then (
 		let rec it i j = if i = 8 then () else if j = 8 then it (i+1) 0 else (moved.(i).(j) <- (match moved.(i).(j) with | 1 -> 2 | 2 -> 3 | x -> x); it i (j+1)) in it 0 0); (* update moved *)
+	hcg();
 	di nt
 		(if nt <> t then (let comp = compress g in if List.mem (comp, t, false) h then (comp, t, true)::h else (comp, t, false)::h) else h)
 		(if s <> 'P' && s <> 'p' && e = ' ' then l+1 else 0)
