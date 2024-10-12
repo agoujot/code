@@ -235,8 +235,8 @@ let cango t i j =
 		line i j 1 1 @ line i j 1 ~-1 @ line i j ~-1 1 @ line i j ~-1 ~-1
 	| 'k' | 'K' ->
 		let b = safe ot i j && moved.(i).(j) = 0 in
-		mbpp (b && moved.(i).(0) = 0 && let rec it k = if k = 0 then true else (g.(i).(k) = ' ' && safe ot i k && it (k-1)) in it (j-1)) (i, j, i, j-2) @@
-		mbpp (b && moved.(i).(7) = 0 && let rec it k = if k = 7 then true else (g.(i).(k) = ' ' && safe ot i k && it (k+1)) in it (j+1)) (i, j, i, j+2) @@
+		mbpp (b && moved.(i).(0) = 0 && j-2 > 0 && let rec it k = if k <= 0 then true else (g.(i).(k) = ' ' && safe ot i k && it (k-1)) in it (j-1)) (i, j, i, j-2) @@
+		mbpp (b && moved.(i).(7) = 0 && j+2 < 7 && let rec it k = if k >= 7 then true else (g.(i).(k) = ' ' && safe ot i k && it (k+1)) in it (j+1)) (i, j, i, j+2) @@
 		let rec it x y =
 			if x = 2 then [] else
 			if y = 2 then it (x+1) ~-1 else
@@ -307,8 +307,8 @@ let auto t h =
 			let c = g.(i).(j) in
 			let k, l = it i (j+1) in
 			(if c = ' ' then (k, l) else
-			if cc c t then (k+(v c)*(if not (safe ot i j) then 0 else 1), l) else
-			(k, l+(v c)*(if not (safe t i j) then 0 else 1))
+			if cc c t then (k+(v c)*(if not (safe ot i j) then 1 else 0), l) else
+			(k, l+(v c)*(if not (safe t i j) then 1 else 0))
 			)
 		) in
 		let ml = movelist ot in
@@ -316,11 +316,11 @@ let auto t h =
 		let kx, ky = kingco t in
 		let tv, tvo = it 0 0 in
 		if ml = [] then (tv, tvo,
-			safe t ki kj (* pat *) || List.mem (compress g, ot, false) h, (* threefold repetition *)
+			safe t ki kj (* pat *) || List.mem (compress g, ot, true) h, (* threefold repetition *)
 			not (safe t ki kj), (* checkmate for us *)
 			false (* checkmate for him *)
 		) else (tv, tvo,
-			List.exists (fun (a, b, c, d) -> te ot a b c d (fun () -> movelist t = [] && safe ot kx ky)) ml || List.mem (compress g, ot, false) h,
+			List.exists (fun (a, b, c, d) -> te ot a b c d (fun () -> movelist t = [] && safe ot kx ky)) ml || List.mem (compress g, ot, true) h,
 			false,
 			List.exists (fun (a, b, c, d) -> te ot a b c d (fun () -> movelist t = [] && not (safe ot kx ky))) ml
 		) in
@@ -328,9 +328,9 @@ let auto t h =
 	List.map (fun (a, b, c, d) -> ((a, b, c, d), v g.(c).(d), te t a b c d vthreat)) |>
 	List.fast_sort (
 		fun (_, v, (vt, vto, dr, cm, cmo)) (_, v_, (vt_, vto_, dr_, cm_, cmo_)) -> 
-		let ct = v-vt+vto/20+(if cmo then 10000 else if cm then -10000 else if dr then 10000 else 0)
-		and ct_ = v_-vt_+vto_/20+(if cmo_ then 10000 else if cm_ then -10000 else if dr_ then 10000 else 0) in
-		ct-ct_
+		let ct = v-vt+vto/20-(if cmo then 10000 else if cm then -10000 else if dr then 10000 else 0)
+		and ct_ = v_-vt_+vto_/20-(if cmo_ then 10000 else if cm_ then -10000 else if dr_ then 10000 else 0) in
+		ct_-ct
 	) |>
 	List.hd (* if ml = [] then already endgame so doesn't raise *) |>
 	fun (x,_,_) -> x
