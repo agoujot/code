@@ -34,6 +34,7 @@ m 24 72; l 24 64; l 66 64; l 66 72; l 24 72; m 22 28; l 22 18; l 30 18; l 30 22;
 let rec explode s = if s = "" then [||] else Array.append [|s.[0]|] (explode(String.sub s 1 (String.length s-1)))
 (* dobot t decides whether a bot should play player t *)
 let dobot =
+	Unix.sleepf 0.5;
 	open_graph (" "^string_of_int (si+if Sys.win32 then 16 else 0)^"x"^string_of_int (si+if Sys.win32 then 41 else 0)); resize_window si si; set_window_title "Chess";
 	let rec it n =
 		if n = 4 then () else (
