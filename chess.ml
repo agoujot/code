@@ -99,6 +99,8 @@ let draw i_ j_ =
 let drawall () = let rec it i j = if i = 8 then () else if j = 8 then it (i+1) 0 else (draw i j; it i (j+1)) in it 0 0
 (** draws a colored square around a board square, to indicate it *)
 let square c i j = set_color c; draw_rect (z*j+3) (z*i+3) (z-7) (z-7)
+(** draws a darkening round on an empty square *)
+let point i j = set_color (if (i+j) mod 2 = 1 then rgb 207 173 91 else rgb 164 119 54); fill_circle (z*j+z/2) (z*i+z/2) 15
 (** get a number from a piece character *)
 let piecechar = function | 'p' -> 1 | 'P' -> 2 | 'r' -> 3 | 'R' -> 4 | 'b' -> 5 | 'B' -> 6 | 'q' -> 7 | 'Q' -> 8 | 'k' -> 9 | 'K' -> 10 | 'n' -> 11 | 'N' -> 12 | _ -> 0
 (** compress a grid into a number *)
@@ -297,10 +299,10 @@ let endgame s n =
 	score 0;
 	ignore(read_key());
 	close_graph()
-(** auto t decides which move the bot should do *)
-let auto t =
+(** auto t h decides which move the bot should do *)
+let auto t h =
 	let ot = (t+1) mod 2 in
-	let vthreat () = (* total value of t's threatened pieces *)
+	let vthreat () = (* total value of t's and ot's threatened pieces, plus some oddities for endgames *)
 		let rec it i j = if i = 8 then (0, 0) else if j = 8 then it (i+1) 0 else (
 			let c = g.(i).(j) in
 			let k, l = it i (j+1) in
@@ -309,12 +311,26 @@ let auto t =
 			(k, l+(v c)*(if not (safe t i j) then 0 else 1))
 			)
 		) in
-		(it 0 0, let ki, kj = kingco ot in if safe t ki kj then 0 else if movelist ot = [] then 10000 else 0) in
+		let ml = movelist ot in
+		let ki, kj = kingco ot in
+		let kx, ky = kingco t in
+		let tv, tvo = it 0 0 in
+		if ml = [] then (tv, tvo,
+			safe t ki kj (* pat *) || List.mem (compress g, ot, false) h, (* threefold repetition *)
+			not (safe t ki kj), (* checkmate for us *)
+			false (* checkmate for him *)
+		) else (tv, tvo,
+			List.exists (fun (a, b, c, d) -> te ot a b c d (fun () -> movelist t = [] && safe ot kx ky)) ml || List.mem (compress g, ot, false) h,
+			false,
+			List.exists (fun (a, b, c, d) -> te ot a b c d (fun () -> movelist t = [] && not (safe ot kx ky))) ml
+		) in
 	movelist t |>
 	List.map (fun (a, b, c, d) -> ((a, b, c, d), v g.(c).(d), te t a b c d vthreat)) |>
 	List.fast_sort (
-		fun (_, v, ((vt, vto), ch)) (_, v_, ((vt_, vto_), ch_)) ->
-		v-vt+vto/20+ch-(v_-vt_+vto_/20+ch_)
+		fun (_, v, (vt, vto, dr, cm, cmo)) (_, v_, (vt_, vto_, dr_, cm_, cmo_)) -> 
+		let ct = v-vt+vto/20+(if cmo then 10000 else if cm then -10000 else if dr then 10000 else 0)
+		and ct_ = v_-vt_+vto_/20+(if cmo_ then 10000 else if cm_ then -10000 else if dr_ then 10000 else 0) in
+		ct-ct_
 	) |>
 	List.hd (* if ml = [] then already endgame so doesn't raise *) |>
 	fun (x,_,_) -> x
@@ -399,15 +415,15 @@ let legal t a b c d l h =
 		if Array.for_all (Array.for_all (fun e -> e = 'K' || e = 'k' || e = ' ')) g (* only kings left *)
 		then endgame "lack of pieces" 2 else
 		if l = 50 then endgame "fifty move rule" 2 else (* fifty move *)
-		if List.mem (compress g, t, true) h then endgame "threefold repetition" 2; (* triple repetition *)
+		if List.mem (compress g, ot, true) h then endgame "threefold repetition" 2; (* triple repetition *)
 		true
 		)
 	)
-(** di for Do It, does main loop. Arguments: the turn, the (compressed) history of the game, the number of moves since a pawn was moved or a piece was taken, possibly preloaded coordinates of the start of the move (or ft), and the last move, which should be squared in blue *)
+(** di for Do It, does main loop. Arguments: the turn, the (compressed) history of the game, the number of moves since a pawn was moved or a piece was taken, possibly preloaded coordinates of the start of the move (or ft), and the last move, to be squared in blue *)
 let rec di t h l xy1 td =
 	set_window_title @@ "Chess ("^(if t = 0 then "Black" else "White")^"'s turn)";
 	List.iter (fun tup -> square blue (fst tup) (snd tup)) td;
-	let botmove = if dobot t then auto t else (-1, -1, -1, -1) in
+	let botmove = if dobot t then auto t h else (-1, -1, -1, -1) in
 	let mx1, my1 = if dobot t then (
 		let a, b, _, _ = botmove in (a, b)
 	) else (
@@ -421,12 +437,12 @@ let rec di t h l xy1 td =
 	) else (
 		square green mx1 my1;
 		let xy2s = cango t mx1 my1 |> List.map (fun (a, b, c, d) -> (c, d)) in
-		List.iter (fun (c, d) -> square (rgb 128 128 128) c d) xy2s;
+		List.iter (fun (c, d) -> if g.(c).(d) <> ' ' then square (rgb 128 128 128) c d else point c d) xy2s;
 		let hcg () = List.iter (fun (c, d) -> draw c d) xy2s in
-		p();
 		let mx2, my2 = if dobot t then (
 			let _, _, c, d = botmove in (c, d)
 		) else (
+			p();
 			let x2, y2 = wai Button_up in
 			if x2 = mx1 && y2 = my1 then
 			wai Button_down
@@ -442,7 +458,7 @@ let rec di t h l xy1 td =
 			let rec it i j = if i = 8 then () else if j = 8 then it (i+1) 0 else (moved.(i).(j) <- (match moved.(i).(j) with | 1 -> 2 | 2 -> 3 | x -> x); it i (j+1)) in it 0 0); (* update moved *)
 		hcg();
 		di nt
-			(if nt <> t then (let comp = compress g in if List.mem (comp, t, false) h then (comp, t, true)::h else (comp, t, false)::h) else h)
+			(if nt <> t then (let comp = compress g in if List.mem (comp, ot, false) h then (comp, ot, true)::h else (comp, ot, false)::h) else h)
 			(if nt <> t && s <> 'P' && s <> 'p' && e = ' ' then l+1 else 0)
 			ft
 			(if nt <> t then [(a, b);(c, d)] else td)
