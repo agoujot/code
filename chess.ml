@@ -31,7 +31,7 @@ m 24 72; l 24 64; l 66 64; l 66 72; l 24 72; m 22 28; l 22 18; l 30 18; l 30 22;
 let rec explode s = if s = "" then [||] else Array.append [|s.[0]|] (explode(String.sub s 1 (String.length s-1)))
 (* dobot t decides whether a bot should play player t *)
 let dobot =
-	open_graph (" "^string_of_int si^"x"^string_of_int (si+if Sys.win32 then 17 else 0)); resize_window si si; set_window_title "Chess";
+	open_graph (" "^string_of_int (si+if Sys.win32 then 16 else 0)^"x"^string_of_int (si+if Sys.win32 then 41 else 0)); resize_window si si; set_window_title "Chess";
 	set_color black; fill_rect 0 0 1000 1000; set_color white; set_line_width 4;
 	moveto (3*z/2) (15*z/2); rlineto ~-z 0; rlineto 0 ~-z; rlineto z 0; (* C *)
 	rmoveto (z/2) z; rlineto 0 ~-z ; rmoveto z z; rlineto 0 ~-z; rmoveto 0 (z/2); rlineto ~-z 0; (* H *)
@@ -311,7 +311,7 @@ let auto t =
 	List.map (fun (a, b, c, d) -> ((a, b, c, d), v g.(c).(d), te t a b c d vthreat)) |>
 	List.fast_sort (
 		fun (_, v, ((vt, vto), ch)) (_, v_, ((vt_, vto_), ch_)) ->
-		(v-vt+vto/5+ch-v_+vt_-vto_/5-ch_)
+		v-vt+vto/5+ch-(v_-vt_+vto_/5+ch_)
 	) |>
 	List.hd (* if ml = [] then already endgame so doesn't raise *) |>
 	fun (x,_,_) -> x
