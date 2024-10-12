@@ -8,7 +8,7 @@ Good & ready to use:
 - `sierpinski-code.py` and `sierpinski.ml` draw sierpinski triangles
 - `sorts.ml` is a demonstration of sorting algorithms
 
-Other stuff:
+Other stuff, often superseded, in /old:
 - `echecc.py` is a python, much less advanced, version of `chess.ml`, without bot or actual graphic display
 - `goc.py` is a python, much less advanced, version of `go.ml`
 - `go_old.ml` is an earlier version of `cat.ml`. it had automatic pattern coloring, but that made it very slow and required large sets of patterns, so I dropped it
