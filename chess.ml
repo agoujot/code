@@ -27,29 +27,29 @@ let piece p i j c b =
 	| 'R' | 'r' -> m 18 78; l 72 78; l 72 72; l 18 72; l 18 78;
 m 24 72; l 24 64; l 66 64; l 66 72; l 24 72; m 22 28; l 22 18; l 30 18; l 30 22; l 40 22; l 40 18; l 50 18; l 50 22; l 60 22; l 60 18; l 68 18; l 68 28; m 68 28; l 62 34; l 28 34; l 22 28; m 62 34; l 62 59; l 28 59; l 28 34; m 62 59; l 65 64; l 25 64; l 28 59; m 22 28; l 68 28
 	| 'P' | 'p' -> m 44 18; c 39 18 36 21 36 26; c 36 27 36 29 37 30; c 33 33 31 37 31 42; c 31 46 32 49 35 52; c 29 54 21 63 21 79; l 67 79; c 67 63 58 54 52 52; c 55 49 57 46 57 42; c 57 37 54 33 50 30; c 51 29 52 27 52 26; c 52 21 48 18 44 18
+	| 'a' -> m 10 10; l 10 80; c 100 80 100 45 10 45; c 100 45 100 10 10 10
+	| 'm' -> m 10 80; l 10 10; c 100 10 100 45 10 45
+	| '-' -> m 30 45; l 60 45
 	| _ -> ()
 let rec explode s = if s = "" then [||] else Array.append [|s.[0]|] (explode(String.sub s 1 (String.length s-1)))
 (* dobot t decides whether a bot should play player t *)
 let dobot =
 	open_graph (" "^string_of_int (si+if Sys.win32 then 16 else 0)^"x"^string_of_int (si+if Sys.win32 then 41 else 0)); resize_window si si; set_window_title "Chess";
-	set_color black; fill_rect 0 0 1000 1000; set_color white; set_line_width 4;
-	moveto (3*z/2) (15*z/2); lineto (z/2) (15*z/2); lineto (z/2) (13*z/2); lineto (3*z/2) (13*z/2); (* C *)
-	moveto (2*z) (15*z/2); lineto (2*z) (13*z/2) ; moveto (3*z) (15*z/2); lineto (3*z) (13*z/2); moveto (3*z) (7*z); lineto (2*z) (7*z); (* H *)
-	moveto (9*z/2) (15*z/2); lineto (7*z/2) (15*z/2); lineto (7*z/2) (7*z); lineto (9*z/2) (7*z); moveto (7*z/2) (7*z); lineto (7*z/2) (13*z/2); lineto (9*z/2) (13*z/2); (* E *)
-	moveto (5*z) (13*z/2); lineto (6*z) (13*z/2); lineto (6*z) (7*z); lineto (5*z) (7*z); lineto (5*z) (15*z/2); lineto (6*z) (15*z/2); (* S *)
-	moveto (13*z/2) (13*z/2); lineto (15*z/2) (13*z/2); lineto (15*z/2) (7*z); lineto (13*z/2) (7*z); lineto (13*z/2) (15*z/2); lineto (15*z/2) (15*z/2); (* S *)
-	moveto (3*z/4) (14*z/2); draw_string "(by AG)";
-	moveto (z/2) (5*z); draw_string "Choose which players are bots, by pressing n[one], b[lack], w[hite], a[ll].";
-	moveto (z/2) (19*z/4); draw_string "and b to make the bot play against itself.";
-	let rec wai () =
-		let e = wait_next_event [ Key_pressed ] in
-		if List.mem e.key ['b'; 'w'; 'a'; 'n'] then e.key else wai() in
-	let k = wai() in
-	match k with
-	| 'b' -> (fun t -> t = 0) (* black is bot *)
-	| 'w' -> (fun t -> t = 1) (* white is bot *)
-	| 'a' -> (fun _ -> true) (* all are bots *)
-	| 'n' | _ -> (fun _ -> false) (* none are bots *)
+	let rec it n =
+		if n = 4 then () else (
+		set_color (if n mod 2 = 1 then rgb 227 193 111 else rgb 184 139 74);
+		fill_rect 0 (n*z*2) si (2*z);
+		piece (if n mod 2 = 0 then 'a' else 'm') 0 n black true;
+		piece '-' 1 n (rgb 128 128 128) true;
+		piece (if n mod 3 = 0 then 'm' else 'a') 2 n white true;
+		it (n+1)) in
+	it 0;
+	let rec wai () = let ev = wait_next_event [ Button_down ] in let x, y = ev.mouse_x/z/2, ev.mouse_y/z/2 in if x >= 0 && x < 4 && y >= 0 && y < 4 then y else wai () in
+	match wai() with
+	| 0 -> fun t -> t = 0
+	| 1 -> fun t -> t = 1
+	| 2 -> fun t -> true
+	| _ -> fun t -> false
 (** the board *)
 let g = Array.map explode @@ [|
 	"RNBQKBNR";
