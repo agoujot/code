@@ -1,4 +1,5 @@
 Various stuff over here:
+
 Good & ready to use:
 - `build.ml` is what I use to compile my ocaml code, look for dependencies, etc
 - `cat.ml` is a module to run cellular automata (Cellular Automata Terminal), and `use.ml` is an example use of it, with CAs I like and/or made
@@ -7,7 +8,7 @@ Good & ready to use:
 - `sierpinski-code.py` and `sierpinski.ml` draw sierpinski triangles
 - `sorts.ml` is a demonstration of sorting algorithms
 
-Other stuff, in:
+Other stuff:
 - `echecc.py` is a python, much less advanced, version of `chess.ml`, without bot or actual graphic display
 - `goc.py` is a python, much less advanced, version of `go.ml`
 - `go_old.ml` is an earlier version of `cat.ml`. it had automatic pattern coloring, but that made it very slow and required large sets of patterns, so I dropped it
