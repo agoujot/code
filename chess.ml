@@ -91,7 +91,8 @@ let draw i_ j_ =
 	and j = i_ in
 	moveto (i*z) (j*z);
 	set_color (if (i+j) mod 2 = 1 then rgb 227 193 111 else rgb 184 139 74);
-	fill_rect (i*z) (j*z) (z-1) (z-1);
+	let z_ = if Sys.win32 then z else z-1 in
+	fill_rect (i*z) (j*z) z_ z_;
 	if c = ' ' then () else (
 	piece c i j (if 'A' <= c && c <= 'Z' then white else black) false)
 (** redraw the whole board *)
