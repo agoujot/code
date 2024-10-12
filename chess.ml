@@ -43,7 +43,7 @@ let dobot =
 	moveto (z/2) (19*z/4); draw_string "and b to make the bot play against itself.";
 	let rec wai () =
 		let e = wait_next_event [ Key_pressed ] in
-		if List.mem e.key ['b'; 'w'; 'b'; 'n'] then e.key else wai() in
+		if List.mem e.key ['b'; 'w'; 'a'; 'n'] then e.key else wai() in
 	let k = wai() in
 	match k with
 	| 'b' -> (fun t -> t = 0) (* black is bot *)
