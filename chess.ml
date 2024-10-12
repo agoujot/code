@@ -1,3 +1,6 @@
+(*#use "topfind";;
+#require "graphics";;
+#require "unix";;*)
 open Graphics
 (** size in pixels of a square *)
 let z = 90
@@ -77,7 +80,7 @@ let v = function
 	| 'n' | 'N' -> 32
 	| 'b' | 'B' -> 33
 	| 'r' | 'R' -> 51
-	| 'q' | 'A' -> 88
+	| 'q' | 'Q' -> 88
 	| 'k' | 'K' -> 5
 	| ' ' | _ -> 0
 (** deltas of allowed knight moves *)
