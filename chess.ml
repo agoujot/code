@@ -39,16 +39,16 @@ let dobot =
 	rmoveto (z/2) 0; rlineto z 0; rlineto 0 (z/2); rlineto ~-z 0; rlineto 0 (z/2); rlineto z 0; (* S *)
 	rmoveto (z/2) ~-z; rlineto z 0; rlineto 0 (z/2); rlineto ~-z 0; rlineto 0 (z/2); rlineto z 0; (* S *)
 	moveto (3*z/4) (14*z/2); draw_string "(by AG)";
-	moveto (z/2) (5*z); draw_string "Type n for a normal game, y to play white against the bot, Y to play black against the bot,";
+	moveto (z/2) (5*z); draw_string "Choose which players are bots, by pressing n[one], b[lack], w[hite], a[ll].";
 	moveto (z/2) (19*z/4); draw_string "and b to make the bot play against itself.";
 	let rec wai () =
 		let e = wait_next_event [ Key_pressed ] in
-		if List.mem e.key ['y'; 'Y'; 'b'; 'n'] then e.key else wai() in
+		if List.mem e.key ['b'; 'w'; 'b'; 'n'] then e.key else wai() in
 	let k = wai() in
 	match k with
-	| 'y' -> (fun t -> t = 0) (* black is bot *)
-	| 'Y' -> (fun t -> t = 1) (* white is bot *)
-	| 'b' -> (fun _ -> true) (* both are bots *)
+	| 'b' -> (fun t -> t = 0) (* black is bot *)
+	| 'w' -> (fun t -> t = 1) (* white is bot *)
+	| 'a' -> (fun _ -> true) (* both are bots *)
 	| 'n' | _ -> (fun _ -> false) (* none are bots *)
 (** the board *)
 let g = Array.map explode @@ [|
@@ -312,18 +312,14 @@ let auto t =
 		List.fast_sort (
 			(fun (_, v, ((vt, vto), ch)) (_, v_, ((vt_, vto_), ch_)) ->
 			(v-vt+vto/5+ch-v_+vt_-vto_/5-ch_)*(if at = t then 1 else -1))
-		) |> List.hd in
+		) |> List.hd (* this shouldn't raise, as if we have no moves available, then endgame should already have been declared. *) in
 	let mapmove f at =
 		let ml = movelist at in
 		if ml = [] then None else
 		Some (List.map f ml |> best at) in
-	(*mapmove (fun (a1, b1, c1, d1) -> te t a1 b1 c1 d1 (fun () -> (*all this commented stuff is the other two moves, didn't work out*)
-		mapmove (fun (a2, b2, c2, d2) -> te ot a2 b2 c2 d2 (fun () ->*)
-			mapmove (fun (a3, b3, c3, d3) -> (
-				Some ((a3, b3, c3, d3), v g.(c3).(d3), te t a3 b3 c3 d3 vthreat)
-			)) t
-(*		)) ot
-	)) t*) |>
+	mapmove (fun (a3, b3, c3, d3) -> (
+		Some ((a3, b3, c3, d3), v g.(c3).(d3), te t a3 b3 c3 d3 vthreat)
+	)) t |>
 	(fun x -> match x with | None -> assert false | Some (y, _, _) -> y)
 (** wai ev waits for mouse event ev and returns the coordinates if they're in the window *)
 let rec wai evc = let ev = wait_next_event [ evc ] in let x, y = (ev.mouse_y/z, ev.mouse_x/z) in if x < 0 || x >= 8 || y < 0 || y >= 8 then wai evc else (x, y)
