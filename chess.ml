@@ -279,8 +279,9 @@ let promote t c d =
 	wai()
 	) 
 (** does the impure effects of endgame. argument is the player that won, or 2 for a draw *)
-let endgame n =
-	set_window_title "Chess (Game over. Press any key to exit)";
+let endgame s n =
+	set_window_title @@ "Chess (Game over by "^s^". Press any key to exit)";
+	drawall();
 	set_line_width 10;
 	let score t =
 		set_color (if t = 1 then white else black);
@@ -306,14 +307,11 @@ let auto t =
 			)
 		) in
 		(it 0 0, let ki, kj = kingco ot in if safe t ki kj then 0 else if movelist ot = [] then 10000 else 0) in
-	let ((art, arto), _) = vthreat () in
 	let best at l = List.filter ( (<>) None ) l |>
 		List.map (fun x -> match x with | None -> assert false | Some y -> y) |>
 		List.fast_sort (
 			(fun (_, v, ((vt, vto), ch)) (_, v_, ((vt_, vto_), ch_)) ->
-			let rt, rto, rt_, rto_ = vt-art,vto-arto,vt_-art,vto_-arto in
-			let ct, ct_ = v-rt+(rto/5)+ch, v_-rt_+(rto_/5)+ch_ in
-			(ct-ct_)*(if at = t then 1 else -1))
+			(v-vt+vto/5+ch-v_+vt_-vto_/5-ch_)*(if at = t then 1 else -1))
 		) |> List.hd in
 	let mapmove f at =
 		let ml = movelist at in
@@ -329,7 +327,7 @@ let auto t =
 	(fun x -> match x with | None -> assert false | Some (y, _, _) -> y)
 (** wai ev waits for mouse event ev and returns the coordinates if they're in the window *)
 let rec wai evc = let ev = wait_next_event [ evc ] in let x, y = (ev.mouse_y/z, ev.mouse_x/z) in if x < 0 || x >= 8 || y < 0 || y >= 8 then wai evc else (x, y)
-(** legal t a b c d l h chekcs if t can do a,b -> c,d, and if so, does the move, also checks for endgame *)
+(** legal t a b c d l h checks if t can do a,b -> c,d, and if so, does the move, also checks for endgame *)
 let legal t a b c d l h =
 	let s = g.(a).(b) and e = g.(c).(d) (* start and end squares *)
 		and ot = (t+1) mod 2 in (* other turn *)
@@ -404,12 +402,11 @@ let legal t a b c d l h =
 			draw a b; draw c d;
 			moved.(c).(d) <- if moved.(a).(b) = 0 then 3 else moved.(a).(b); (* log who moved & how *)
 			moved.(a).(b) <- 3;
-		if movelist ot = [] then endgame (let ki, kj = kingco ot in if safe t ki kj then 2 else t) (* checkmate/stalemate *) else
+		if movelist ot = [] then let ki, kj = kingco ot in (if safe t ki kj then endgame "stalemate" 2 else endgame "checkmate" t) (* checkmate/stalemate *) else
 		if Array.for_all (Array.for_all (fun e -> e = 'K' || e = 'k' || e = ' ')) g (* only kings left *)
-		then endgame 2 else
-		if movelist ot = [] then endgame 2 else (* stalemate *)
-		if l = 50 then endgame 2 else (* fifty move *)
-		if List.mem (compress g, t, true) h then endgame 2; (* triple repetition *)
+		then endgame "lack of pieces" 2 else
+		if l = 50 then endgame "fifty move rule" 2 else (* fifty move *)
+		if List.mem (compress g, t, true) h then endgame "triple repetition" 2; (* triple repetition *)
 		true
 		)
 	)
