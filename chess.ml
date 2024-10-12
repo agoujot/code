@@ -48,7 +48,7 @@ let dobot =
 	match k with
 	| 'b' -> (fun t -> t = 0) (* black is bot *)
 	| 'w' -> (fun t -> t = 1) (* white is bot *)
-	| 'a' -> (fun _ -> true) (* both are bots *)
+	| 'a' -> (fun _ -> true) (* all are bots *)
 	| 'n' | _ -> (fun _ -> false) (* none are bots *)
 (** the board *)
 let g = Array.map explode @@ [|
@@ -307,20 +307,14 @@ let auto t =
 			)
 		) in
 		(it 0 0, let ki, kj = kingco ot in if safe t ki kj then 0 else if movelist ot = [] then 10000 else 0) in
-	let best at l = List.filter ( (<>) None ) l |>
-		List.map (fun x -> match x with | None -> assert false | Some y -> y) |>
-		List.fast_sort (
-			(fun (_, v, ((vt, vto), ch)) (_, v_, ((vt_, vto_), ch_)) ->
-			(v-vt+vto/5+ch-v_+vt_-vto_/5-ch_)*(if at = t then 1 else -1))
-		) |> List.hd (* this shouldn't raise, as if we have no moves available, then endgame should already have been declared. *) in
-	let mapmove f at =
-		let ml = movelist at in
-		if ml = [] then None else
-		Some (List.map f ml |> best at) in
-	mapmove (fun (a3, b3, c3, d3) -> (
-		Some ((a3, b3, c3, d3), v g.(c3).(d3), te t a3 b3 c3 d3 vthreat)
-	)) t |>
-	(fun x -> match x with | None -> assert false | Some (y, _, _) -> y)
+	movelist t |>
+	List.map (fun (a, b, c, d) -> ((a, b, c, d), v g.(c).(d), te t a b c d vthreat)) |>
+	List.fast_sort (
+		fun (_, v, ((vt, vto), ch)) (_, v_, ((vt_, vto_), ch_)) ->
+		(v-vt+vto/5+ch-v_+vt_-vto_/5-ch_)
+	) |>
+	List.hd (* if ml = [] then already endgame so doesn't raise *) |>
+	fun (x,_,_) -> x
 (** wai ev waits for mouse event ev and returns the coordinates if they're in the window *)
 let rec wai evc = let ev = wait_next_event [ evc ] in let x, y = (ev.mouse_y/z, ev.mouse_x/z) in if x < 0 || x >= 8 || y < 0 || y >= 8 then wai evc else (x, y)
 (** legal t a b c d l h checks if t can do a,b -> c,d, and if so, does the move, also checks for endgame *)
@@ -402,7 +396,7 @@ let legal t a b c d l h =
 		if Array.for_all (Array.for_all (fun e -> e = 'K' || e = 'k' || e = ' ')) g (* only kings left *)
 		then endgame "lack of pieces" 2 else
 		if l = 50 then endgame "fifty move rule" 2 else (* fifty move *)
-		if List.mem (compress g, t, true) h then endgame "triple repetition" 2; (* triple repetition *)
+		if List.mem (compress g, t, true) h then endgame "threefold repetition" 2; (* triple repetition *)
 		true
 		)
 	)
