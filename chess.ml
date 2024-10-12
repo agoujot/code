@@ -97,7 +97,7 @@ let draw i_ j_ =
 (** redraw the whole board *)
 let drawall () = let rec it i j = if i = 8 then () else if j = 8 then it (i+1) 0 else (draw i j; it i (j+1)) in it 0 0
 (** draws a colored square around a board square, to indicate it *)
-let square c i j = set_color c; draw_rect (z*i+2) (z*j+2) (z-4) (z-4)
+let square c i j = set_color c; draw_rect (z*j+3) (z*i+3) (z-7) (z-7)
 (** get a number from a piece character *)
 let piecechar = function | 'p' -> 1 | 'P' -> 2 | 'r' -> 3 | 'R' -> 4 | 'b' -> 5 | 'B' -> 6 | 'q' -> 7 | 'Q' -> 8 | 'k' -> 9 | 'K' -> 10 | 'n' -> 11 | 'N' -> 12 | _ -> 0
 (** compress a grid into a number *)
@@ -326,42 +326,12 @@ let auto t =
 (*		)) ot
 	)) t*) |>
 	(fun x -> match x with | None -> assert false | Some (y, _, _) -> y)
+(** wai ev waits for mouse event ev and returns the coordinates if they're in the window *)
 let rec wai evc = let ev = wait_next_event [ evc ] in let x, y = (ev.mouse_y/z, ev.mouse_x/z) in if x < 0 || x >= 8 || y < 0 || y >= 8 then wai evc else (x, y)
-(** di for Do It, does main loop. Arguments: the turn, the (compressed) history of the game, the number of moves since a pawn was moved or a piece was taken, possibly preloaded coordinates of the start of the move (or ft), and the last move, which should be squared in blue *)
-let rec di t h l xy1 td =
-	set_window_title @@ "Chess ("^(if t = 0 then "Black" else "White")^"'s turn)";
-	List.iter (fun tup -> square blue (snd tup) (fst tup)) td;
-	let botmove = if dobot t then auto t else (-1, -1, -1, -1) in
-	let mx1, my1 = if dobot t then (
-		let a, b, _, _ = botmove in (a, b)
-	) else (
-		if xy1 <> ft then xy1 else
-		let ev = wait_next_event [ Button_down ] in (ev.mouse_y/z, ev.mouse_x/z)
-	) in
-	if not (cc g.(mx1).(my1) t) then (
-		square red my1 mx1; p(); 
-		draw mx1 my1; 
-		di t h l ft td
-	) else (
-		square green my1 mx1;
-		let xy2s = cango t mx1 my1 |> List.map (fun (a, b, c, d) -> (c, d)) in
-		List.iter (fun (c, d) -> square (rgb 128 128 128) d c) xy2s;
-		let hcg () = List.iter (fun (c, d) -> draw c d) xy2s in
-		p();
-		let mx2, my2 = if dobot t then (
-			let _, _, c, d = botmove in (c, d)
-		) else (
-			let x2, y2 = wai Button_up in
-			if x2 = mx1 && y2 = my1 then
-			wai Button_down
-			else x2, y2
-		) in
-		if cc g.(mx2).(my2) t then (draw mx1 my1;hcg();di t h l (mx2, my2) td) else
-		let a, b, c, d = mx1, my1, mx2, my2 in
-		let s = g.(a).(b) and e = g.(c).(d) (* start and end squares *)
-		and ma, mb, mc, md = b, a, d, c
+(** legal t a b c d l h chekcs if t can do a,b -> c,d, and if so, does the move, also checks for endgame *)
+let legal t a b c d l h =
+	let s = g.(a).(b) and e = g.(c).(d) (* start and end squares *)
 		and ot = (t+1) mod 2 in (* other turn *)
-		let nt = if (
 	(
 		(a <> -1 && (* internal checks, for start *)
 		not (cc e t) && (* not eating oneself *)
@@ -413,21 +383,21 @@ let rec di t h l xy1 td =
 				&& moved.(a).(i) = 0))
 		| _ -> false) (* not going to happen - hopefully *)
 	) || (
-		square red ma mb; square red mc md; p();
+		square red a b; square red c d; p();
 		draw a b; draw c d;
 		false
-	) 
-	) && ( (* do all the impure effects of the move *)
-		let bad, good = effect t a b c d in
+	)
+	) && (
+		let bad, good = effect t a b c d in (* do all the impure effects of the move *)
 		let k = kingco t in
 		let ci, cj = check ot (fst k) (snd k) [] in
 		if ci <> -1 then ( (* undo all if in check *)
 			bad ();
-			square red ma mb; square red mc md; p();
+			square red a b; square red c d; p();
 			draw a b; draw c d;
 			false
 		) else ( (* else show our changes *)
-			square green ma mb; square green mc md; p();
+			square green a b; square green c d; p();
 			if (s = 'p' || s = 'P') && c = (if t = 1 then 7 else 0) then ( promote t c d );
 			good();
 			draw a b; draw c d;
@@ -442,15 +412,48 @@ let rec di t h l xy1 td =
 		true
 		)
 	)
-	) then ot else t in
-	List.iter (fun tup -> draw (fst tup) (snd tup)) td;
-	if nt <> t then (
-		let rec it i j = if i = 8 then () else if j = 8 then it (i+1) 0 else (moved.(i).(j) <- (match moved.(i).(j) with | 1 -> 2 | 2 -> 3 | x -> x); it i (j+1)) in it 0 0); (* update moved *)
-	hcg();
-	di nt
-		(if nt <> t then (let comp = compress g in if List.mem (comp, t, false) h then (comp, t, true)::h else (comp, t, false)::h) else h)
-		(if s <> 'P' && s <> 'p' && e = ' ' then l+1 else 0)
-		ft
-		(if nt <> t then [(a, b);(c, d)] else td)
-	)
+(** di for Do It, does main loop. Arguments: the turn, the (compressed) history of the game, the number of moves since a pawn was moved or a piece was taken, possibly preloaded coordinates of the start of the move (or ft), and the last move, which should be squared in blue *)
+let rec di t h l xy1 td =
+	set_window_title @@ "Chess ("^(if t = 0 then "Black" else "White")^"'s turn)";
+	List.iter (fun tup -> square blue (fst tup) (snd tup)) td;
+	let botmove = if dobot t then auto t else (-1, -1, -1, -1) in
+	let mx1, my1 = if dobot t then (
+		let a, b, _, _ = botmove in (a, b)
+	) else (
+		if xy1 <> ft then xy1 else
+		let ev = wait_next_event [ Button_down ] in (ev.mouse_y/z, ev.mouse_x/z)
+	) in
+	if not (cc g.(mx1).(my1) t) then (
+		square red mx1 my1; p(); 
+		draw mx1 my1; 
+		di t h l ft td
+	) else (
+		square green mx1 my1;
+		let xy2s = cango t mx1 my1 |> List.map (fun (a, b, c, d) -> (c, d)) in
+		List.iter (fun (c, d) -> square (rgb 128 128 128) c d) xy2s;
+		let hcg () = List.iter (fun (c, d) -> draw c d) xy2s in
+		p();
+		let mx2, my2 = if dobot t then (
+			let _, _, c, d = botmove in (c, d)
+		) else (
+			let x2, y2 = wai Button_up in
+			if x2 = mx1 && y2 = my1 then
+			wai Button_down
+			else x2, y2
+		) in
+		if cc g.(mx2).(my2) t then (draw mx1 my1;hcg();di t h l (mx2, my2) td) else
+		let ot = (t+1) mod 2 in
+		let a, b, c, d = mx1, my1, mx2, my2 in
+		let s = g.(a).(b) and e = g.(c).(d) in
+		let nt = if (legal t a b c d l h) then ot else t in
+		List.iter (fun tup -> draw (fst tup) (snd tup)) td;
+		if nt <> t then (
+			let rec it i j = if i = 8 then () else if j = 8 then it (i+1) 0 else (moved.(i).(j) <- (match moved.(i).(j) with | 1 -> 2 | 2 -> 3 | x -> x); it i (j+1)) in it 0 0); (* update moved *)
+		hcg();
+		di nt
+			(if nt <> t then (let comp = compress g in if List.mem (comp, t, false) h then (comp, t, true)::h else (comp, t, false)::h) else h)
+			(if nt <> t && s <> 'P' && s <> 'p' && e = ' ' then l+1 else 0)
+			ft
+			(if nt <> t then [(a, b);(c, d)] else td)
+		)
 let () = drawall(); Unix.sleep 1; di 1 [] 0 ft []
