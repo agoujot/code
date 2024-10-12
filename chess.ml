@@ -33,11 +33,11 @@ let rec explode s = if s = "" then [||] else Array.append [|s.[0]|] (explode(Str
 let dobot =
 	open_graph (" "^string_of_int (si+if Sys.win32 then 16 else 0)^"x"^string_of_int (si+if Sys.win32 then 41 else 0)); resize_window si si; set_window_title "Chess";
 	set_color black; fill_rect 0 0 1000 1000; set_color white; set_line_width 4;
-	moveto (3*z/2) (15*z/2); rlineto ~-z 0; rlineto 0 ~-z; rlineto z 0; (* C *)
-	rmoveto (z/2) z; rlineto 0 ~-z ; rmoveto z z; rlineto 0 ~-z; rmoveto 0 (z/2); rlineto ~-z 0; (* H *)
-	rmoveto (5*z/2) (z/2); rlineto ~-z 0; rlineto 0 (-z/2); rlineto z 0; rmoveto ~-z 0; rlineto 0 (-z/2); rlineto z 0; (* E *)
-	rmoveto (z/2) 0; rlineto z 0; rlineto 0 (z/2); rlineto ~-z 0; rlineto 0 (z/2); rlineto z 0; (* S *)
-	rmoveto (z/2) ~-z; rlineto z 0; rlineto 0 (z/2); rlineto ~-z 0; rlineto 0 (z/2); rlineto z 0; (* S *)
+	moveto (3*z/2) (15*z/2); lineto (z/2) (15*z/2); lineto (z/2) (13*z/2); lineto (3*z/2) (13*z/2); (* C *)
+	moveto (2*z) (15*z/2); lineto (2*z) (13*z/2) ; moveto (3*z) (15*z/2); lineto (3*z) (13*z/2); moveto (3*z) (7*z); lineto (2*z) (7*z); (* H *)
+	moveto (9*z/2) (15*z/2); lineto (7*z/2) (15*z/2); lineto (7*z/2) (7*z); lineto (9*z/2) (7*z); moveto (7*z/2) (7*z); lineto (7*z/2) (13*z/2); lineto (9*z/2) (13*z/2); (* E *)
+	moveto (5*z) (13*z/2); lineto (6*z) (13*z/2); lineto (6*z) (7*z); lineto (5*z) (7*z); lineto (5*z) (15*z/2); lineto (6*z) (15*z/2); (* S *)
+	moveto (13*z/2) (13*z/2); lineto (15*z/2) (13*z/2); lineto (15*z/2) (7*z); lineto (13*z/2) (7*z); lineto (13*z/2) (15*z/2); lineto (15*z/2) (15*z/2); (* S *)
 	moveto (3*z/4) (14*z/2); draw_string "(by AG)";
 	moveto (z/2) (5*z); draw_string "Choose which players are bots, by pressing n[one], b[lack], w[hite], a[ll].";
 	moveto (z/2) (19*z/4); draw_string "and b to make the bot play against itself.";
