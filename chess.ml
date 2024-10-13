@@ -330,7 +330,7 @@ let auto t h =
 		fun (_, v, (vt, vto, dr, cm, cmo)) (_, v_, (vt_, vto_, dr_, cm_, cmo_)) -> 
 		let ct = v-vt+vto/20-(if cmo then 10000 else if cm then -10000 else if dr then 10000 else 0)
 		and ct_ = v_-vt_+vto_/20-(if cmo_ then 10000 else if cm_ then -10000 else if dr_ then 10000 else 0) in
-		ct_-ct
+		if ct <> ct_ then ct_-ct else if Random.bool() then -1 else 1
 	) |>
 	List.hd (* if ml = [] then already endgame so doesn't raise *) |>
 	fun (x,_,_) -> x
