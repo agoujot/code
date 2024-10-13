@@ -184,6 +184,8 @@ let effect t a b c d =
 	if ep then (g.(a).(d) <- ' '; moved.(a).(d) <- 3);
 	let df = pa && abs (c-a) = 2 in (* double forward *)
 	if df then moved.(a).(b) <- 1;
+	let pr = pa && c = (if t = 1 then 7 else 0) in (* automated promotion for the bot *)
+	if pr then g.(c).(d) <- (if t = 1 then 'Q' else 'q');
 	let kin = s = 'k' || s = 'K' in (* moving a king *)
 	let ca = kin && abs (b-d) = 2 in (* castling *)
 	let f = if b < d then (d-1, 7) else (d+1, 0) in
@@ -192,7 +194,8 @@ let effect t a b c d =
 		g.(a).(b) <- g.(c).(d); g.(c).(d) <- e;
 		if ep then (g.(a).(d) <- passd; moved.(a).(d) <- 2);
 		if df then moved.(a).(b) <- 0;
-		if ca then (g.(a).(snd f) <- g.(a).(fst f); g.(a).(fst f) <- ' ')
+		if ca then (g.(a).(snd f) <- g.(a).(fst f); g.(a).(fst f) <- ' ');
+		if pr then g.(a).(b) <- (if t = 1 then 'P' else 'p')
 	)), (fun () -> ( (* display the above *)
 		if ep then draw a d; (* erase what was enpassant'd *)
 		if ca then draw a (fst f); draw a (snd f); (* the tower's move in castling *)
@@ -260,7 +263,6 @@ let movelist t =
 	it 0 0 
 (** promote t c d promotes the pawn in c d, that belongs to t *)
 let promote t c d =
-	if dobot t then g.(c).(d) <- (if t = 1 then 'Q' else 'q') else (
 	let co = if t = 1 then white else black in
 	let dc = if Sys.win32 then 3 else 4 in (* draw column *)
 	if Sys.unix then resize_window (si+2*z) si; (* add two columns *)
@@ -281,8 +283,7 @@ let promote t c d =
 			| (3, 1) -> 'Q' | (3, 0) -> 'q'
 			| _ -> ' ')
 		) in
-	wai()
-	) 
+	wai() 
 (** does the impure effects of endgame. argument is the player that won, or 2 for a draw *)
 let endgame s n =
 	set_window_title @@ "Chess (Game over by "^s^". Press any key to exit)";
