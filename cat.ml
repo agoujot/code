@@ -134,7 +134,7 @@ let rec di g p f n col e rs h _g =
 	let g_ = dcopy g in (* new array in which modifications will be made *)
 	let si = Array.length g in
 	let z = 1000/si in (* the widh of a cell in pixels *)
-	let rec w k = if k >= si then k - si else if k < 0 then si + k else k in (* w for wrap around *)
+	let w k = if k >= si then k - si else if k < 0 then si + k else k in (* w for wrap around *)
 	let draw x y c = set_color c; fill_rect (x*z) (y*z) (z-1) (z-1) in (* draws a cell, aka a rectangle. c is the color *)
 	let fi co = (* Find the Index for a color in col *)
 		let rec fi' i = 
@@ -176,7 +176,7 @@ let rec di g p f n col e rs h _g =
 				let rec ch l = (* ch for check, no ideas, applies the relatives coordinates in n to the coordinates of the current cell to get the colors of the cells to check.*)
 					match l with
 					| [] -> []
-					| hd::tl -> g.(w (i+fst(hd))).(w (j+snd(hd))):: ch tl in	
+					| hd::tl -> g.(w (i+fst(hd))).(w (j+snd(hd))):: ch tl in
 				(if p = 's' (* for stop *) 
 				then (draw i j (g_.(i).(j)); it i (j+1) c x y cc) 
 				else if p = 'b' || p = 'l' 
@@ -237,8 +237,7 @@ let rec di g p f n col e rs h _g =
 					match l with
 					| [] -> if la = "" then "" else la^(if ti > 1 then "$"^tob64 (ti-1) else "")
 					| x::s -> if x = la then it s la (ti+1) else (if la = "" then "" else la^(if ti > 1 then "$"^tob64 (ti-1) else ""))^it s x 1 in
-				it l "" (-1)) |>
-				(fun x -> print_endline x; x)
+				it l "" (-1))
 			in
 			let oc = open_out @@ "AC-"^(string_of_int @@ int_of_float @@ Unix.time())^".txt" in
 			output_string oc @@ compress g;
