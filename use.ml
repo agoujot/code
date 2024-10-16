@@ -8,7 +8,7 @@ info ["";
 "Possibilities are:";
 " - standard ones: gol, bosco, daynight, marine";
 " - good ones I made: beam, eiii, flower, evi";
-" - more gimmicky/historical ones: eiv, eii, ei, arc";
+" - more gimmicky/historical ones: evii, eiv, eii, ei, arc";
 "(e[roman number] stands for experiments)";
 "And test, that containes whatever I am building right now.";
 "It might not exist, it might be rubbish, it might keep you from moving your mouse.";
@@ -239,12 +239,41 @@ equ
 "XX XX";
 " XXX ";
 "Aside from that, B6-8/S5-8."; ""]
+) else if m = "evii" then (
+go
+(bs "1" "0-2") (* or 0-3 for square thingy *)
+(moore 1)
+100
+[|black; white|]
+equ
+["";
+"B1/S0-2. Draws sierpinski triangles very often.";
+"Originally to replicate a pattern I made long ago.";
+""]
+)
+else if m = "eviii" then (
+go
+(fun l v ->
+	if 
+		(List.nth l 0 = red    ) || 
+		(List.nth l 1 = green  ) ||
+		(List.nth l 2 = blue   ) ||
+		(List.nth l 3 = yellow )
+		then List.nth [red; green; blue; yellow] (Random.int 4) else
+	black
+)
+(neumann 1)
+100
+[|black; red; green; blue; yellow|]
+equ
+["";"Long story.";""]
 )
 else if m = "test" then(
 go
-(fun l v -> let x = count l white in if x >= 4 && x <= 6 then white else black) (* 12 18, 15 25, 16 29, 17 34, 20 41 *)
-((0, 0)::moore 1)
-100
+(fun l v -> let x = count l white in 
+	if x >= 4 && x <= 6 then white else black (*12 18, 15 25, 16 29, 17 34, 20 41 *))
+((0,0)::moore 1)
+250
 [|black; white|]
 equ
 ["";
