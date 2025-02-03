@@ -280,6 +280,17 @@ equ
 "Yes, I know, nothing bad happened this time.";
 "(That bit of freezing your mouse really happened to me once though)";
 ""])
+else if m = "aaa" then (
+go
+(fun l v -> 
+let rec split l i j b = match l with | [] -> [b] | h::t -> if i = j then b::split l 0 j [] else split t (i+1) j (h::b) in
+let l_ = split l 0 4 [] in
+if List.for_all (List.mem white) l_ && v = white then white else black)
+(moore 1)
+250
+[|black; white|]
+equ
+[""])
 else (bl "UNKOWN CA");
 choose() end
 in choose()
