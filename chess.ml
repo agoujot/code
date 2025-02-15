@@ -348,17 +348,22 @@ let auto t h =
 			false, (* not cm for us *)
 			List.exists (fun (a, b, c, d) -> te ot a b c d (fun () -> movelist t = [] && not (safe ot kx ky))) ml (* might be cm for him *)
 		) in
+	(* this below is where we build the actual heuristic, for both players:
+	value of what we're gaining - value of threatened stuff we have + value of stuff we threaten/20 (else it gets absurdly aggressive. might want to revisit, as bot gotten defensive), and absolutely like it if we're checkmating, absolutely hate it if we're checkmated *)
+	let eval (_, v, (vt, vto, dr, cm, cmo)) = v-vt+vto/20-(if cmo then 10000 else if cm then -10000 else if dr then 10000 else 0) in
+	let rec getbest = function (* get the best of the list according to eval *)
+		| x::[] -> x
+		| [] -> assert false
+		| x::s ->
+		let y = getbest s in
+		let ct = eval x
+		and ct_ = eval y in
+		if ct > ct_ then x else
+		if ct < ct_ then y else
+		if Random.bool() then x else y in
 	movelist t |> (* what is available? *)
 	List.map (fun (a, b, c, d) -> ((a, b, c, d), v g.(c).(d)+(if g.(a).(b) = 'p' || g.(a).(b) = 'P' then 1 else 0), te t a b c d vthreat)) |> (* get for each move also the value of what we're eating +1 if we're moving a pawn, and the valuation of the board after the move *)
-	List.fast_sort (
-		fun (_, v, (vt, vto, dr, cm, cmo)) (_, v_, (vt_, vto_, dr_, cm_, cmo_)) -> (* sorting function: takes two of the above-built sets, returns something negative if the first move is better *)
-		(* this below is where we build the actual heuristic, for both players:
-		value of what we're gaining - value of threatened stuff we have + value of stuff we threaten/20 (else it gets absurdly aggressive), and absolutely like it if we're checkmating, absolutely hate it if we're checkmated) *)
-		let ct = v-vt+vto/20-(if cmo then 10000 else if cm then -10000 else if dr then 10000 else 0)
-		and ct_ = v_-vt_+vto_/20-(if cmo_ then 10000 else if cm_ then -10000 else if dr_ then 10000 else 0) in
-		if ct <> ct_ then ct_-ct else if Random.bool() then -1 else 1 (* maybe add a teeny tiny bit more random? *)
-	) |>
-	List.hd |> (* and get the top move! simple as that. if ml = [] then already endgame so doesn't raise*)
+	getbest |>
 	fun (x,_,_) -> x (* and strip the data *)
 (** wai ev waits for mouse event ev in the window and returns the coordinates *)
 let rec wai evc = let ev = wait_next_event [ evc ] in let x, y = (ev.mouse_y/z, ev.mouse_x/z) in if x < 0 || x >= 8 || y < 0 || y >= 8 then wai evc else (x, y)
