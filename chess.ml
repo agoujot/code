@@ -302,16 +302,38 @@ let endgame s n =
 	score 0;
 	ignore(read_key());
 	close_graph()
+(** tradebalance i j t calculates, if everyone threw everything at (i, j) until there was one man standing, in value would it be a good trade (integer, positive if good, negative if bad) *)
+let tradebalance i j t =
+	let whonext t_ = (* get the lowest-value piece belonging to t_ that threatens i j *)
+		let rec get ex = (* to get the list *)
+			let c = check t_ i j ex in
+			if c = ft then ex else 
+			get (c::ex) in
+		get [] |>
+		List.fast_sort (fun a b -> v g.(fst b).(snd b) - v g.(fst a).(snd a) ) |> (* sort by increasing value *)
+		List.hd in (* pick lowest. we check there's one before calling *)
+	let rec it t_ =
+		let ot_ = (t_+1) mod 2 in
+		if safe ot_ i j then 0 else (* not even threatened, can drop stick *)
+		let a, b = whonext ot_ in
+		let va = (if t = t_ then -1 else 1)*v g.(i).(j) in (* neg because t_ loses here, if t = t_ then t loses it and it's a bad move for t *)
+		te ot_ a b i j (fun () -> va+it ot_) (* and rinse and repeat inside a test move *)
+		in
+	it t
 (** auto t h decides which move the bot should do, with h history for triple repetition *)
 let auto t h =
 	let ot = (t+1) mod 2 in
 	let vthreat () = (* total value of t's and ot's threatened pieces, plus some oddities for endgames *)
+		let danger i j t_ = (* decide for square i j whether it's in danger of being taken by ot, give its value if in danger else 0 *)
+			let ot_ = (t_+1) mod 2 in
+			if safe ot_ i j || (tradebalance i j t_ > 0) then 0 (* not threatened at all, or we got to gain from trading *)
+			else v g.(i).(j) in
 		let rec it i j = if i = 8 then (0, 0) else if j = 8 then it (i+1) 0 else (
 			let c = g.(i).(j) in (* current piece *)
 			let k, l = it i (j+1) in (* values of t and ot's pieces for the rest of the board *)
 			(if c = ' ' then (k, l) else (* same, this is empty *)
-			if cc c t then (k+(v c)*(if not (safe ot i j) then 1 else 0), l) else (* count only threatened pieces *)
-			(k, l+(v c)*(if not (safe t i j) then 1 else 0))
+			if cc c t then (k+danger i j t, l) else
+			(k, l+danger i j ot)
 			)
 		) in
 		let ml = movelist ot in
