@@ -50,6 +50,8 @@ let dobot =
 	| 'w' -> (fun t -> t = 1) (* white is bot *)
 	| 'a' -> (fun _ -> true) (* all are bots *)
 	| 'n' | _ -> (fun _ -> false) (* none are bots *)
+(** whether it's all bots, in which case we ought to wait for the user to trigger each move *)
+let slow = dobot 3
 (** the board *)
 let g = Array.map explode @@ [|
 	"RNBQKBNR";
@@ -424,8 +426,13 @@ let legal t a b c d l h =
 	)
 (** di for Do It, does main loop. Arguments: the turn, the (compressed) history of the game, the number of moves since a pawn was moved or a piece was taken, possibly preloaded coordinates of the start of the move (or ft), and the last move, to be squared in blue *)
 let rec di t h l xy1 td =
-	set_window_title @@ "Chess ("^(if t = 0 then "Black" else "White")^"'s turn)";
+	let titl = "Chess ("^(if t = 0 then "Black" else "White")^"'s turn)" in
+	set_window_title titl;
 	List.iter (fun tup -> square blue (fst tup) (snd tup)) td;
+	if slow then (
+		set_window_title @@ titl ^ " (press any key for next move)";
+		ignore(wait_next_event[Key_pressed; Button_down]);
+	);
 	let botmove = if dobot t then auto t h else (-1, -1, -1, -1) in
 	let mx1, my1 = if dobot t then (
 		let a, b, _, _ = botmove in (a, b)
