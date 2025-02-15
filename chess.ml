@@ -310,8 +310,7 @@ let tradebalance i j t =
 			if c = ft then ex else 
 			get (c::ex) in
 		get [] |>
-		List.fast_sort (fun a b -> v g.(fst b).(snd b) - v g.(fst a).(snd a) ) |> (* sort by increasing value *)
-		List.hd in (* pick lowest. we check there's one before calling *)
+		List.fold_left (fun a b -> if a <> ft && v g.(fst a).(snd a) < v g.(fst b).(snd b) then a else b) ft (* get coordinates of piece of get [] that is valued the lowest by v *) in
 	let rec it t_ =
 		let ot_ = (t_+1) mod 2 in
 		if safe ot_ i j then 0 else (* not even threatened, can drop stick *)
