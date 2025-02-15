@@ -28,8 +28,9 @@ let piece p i j c b =
 m 24 72; l 24 64; l 66 64; l 66 72; l 24 72; m 22 28; l 22 18; l 30 18; l 30 22; l 40 22; l 40 18; l 50 18; l 50 22; l 60 22; l 60 18; l 68 18; l 68 28; m 68 28; l 62 34; l 28 34; l 22 28; m 62 34; l 62 59; l 28 59; l 28 34; m 62 59; l 65 64; l 25 64; l 28 59; m 22 28; l 68 28
 	| 'P' | 'p' -> m 44 18; c 39 18 36 21 36 26; c 36 27 36 29 37 30; c 33 33 31 37 31 42; c 31 46 32 49 35 52; c 29 54 21 63 21 79; l 67 79; c 67 63 58 54 52 52; c 55 49 57 46 57 42; c 57 37 54 33 50 30; c 51 29 52 27 52 26; c 52 21 48 18 44 18
 	| _ -> ()
+(** exploding strings to array of their characters *)
 let rec explode s = if s = "" then [||] else Array.append [|s.[0]|] (explode(String.sub s 1 (String.length s-1)))
-(* dobot t decides whether a bot should play player t *)
+(** dobot t decides whether a bot should play player t *)
 let dobot =
 	open_graph (" "^string_of_int (si+if Sys.win32 then 16 else 0)^"x"^string_of_int (si+if Sys.win32 then 41 else 0)); resize_window si si; set_window_title "Chess";
 	set_color black; fill_rect 0 0 1000 1000; set_color white; set_line_width 4;
@@ -39,8 +40,7 @@ let dobot =
 	rmoveto (z/2) 0; rlineto z 0; rlineto 0 (z/2); rlineto ~-z 0; rlineto 0 (z/2); rlineto z 0; (* S *)
 	rmoveto (z/2) ~-z; rlineto z 0; rlineto 0 (z/2); rlineto ~-z 0; rlineto 0 (z/2); rlineto z 0; (* S *)
 	moveto (3*z/4) (14*z/2); draw_string "(by AG)";
-	moveto (z/2) (5*z); draw_string "Choose which players are bots, by pressing n[one], b[lack], w[hite], a[ll].";
-	moveto (z/2) (19*z/4); draw_string "and b to make the bot play against itself.";
+	moveto (z/2) (5*z); draw_string "Choose which players are bots, by pressing n[one], b[lack], w[hite], or a[ll].";
 	let rec wai () =
 		let e = wait_next_event [ Key_pressed ] in
 		if List.mem e.key ['b'; 'w'; 'a'; 'n'] then e.key else wai() in
@@ -83,6 +83,8 @@ let v = function
 	| ' ' | _ -> 0
 (** deltas of allowed knight moves *)
 let nv = [(-2,-1);(-2,1);(-1,-2);(-1,2);(1,-2);(1,2);(2,-1);(2,1)]
+(** cc c t checks if c belongs to player t *)
+let cc c t = (if t = 1 then 'A' else 'a') <= c && c <= (if t = 1 then 'Z' else 'z')
 (** draw i j draws the board square (i, j) (and any piece on it) *)
 let draw i_ j_ =
 	if i_ < 0 then () else
@@ -113,13 +115,11 @@ let compress a =
 	Array.to_list |>
 	List.map piecechar |>
 	it
-(** cc c t checks if c belongs to player t *)
-let cc c t = (if t = 1 then 'A' else 'a') <= c && c <= (if t = 1 then 'Z' else 'z')
 (** mbpp b x s gives s with x maybe prepended if b *)
 let mbpp b x s = if b then x::s else s
 (** false tuplet, (-1, -1) *)
 let ft = (-1,-1)
-(* a ||| b gives b if a is ft *)
+(** a ||| b gives b if a is ft *)
 let (|||) a b = if a = ft then b else a
 (** check t i j ex gives a square controlled by player t that is threatening square i j and is not in list ex, or ft if there are none *)
 let check t i j ex =
@@ -326,7 +326,7 @@ let auto t h =
 			List.exists (fun (a, b, c, d) -> te ot a b c d (fun () -> movelist t = [] && not (safe ot kx ky))) ml
 		) in
 	movelist t |>
-	List.map (fun (a, b, c, d) -> ((a, b, c, d), v g.(c).(d), te t a b c d vthreat)) |>
+	List.map (fun (a, b, c, d) -> ((a, b, c, d), v g.(c).(d)+(if g.(a).(b) = 'p' || g.(a).(b) = 'P' then 1 else 0), te t a b c d vthreat)) |>
 	List.fast_sort (
 		fun (_, v, (vt, vto, dr, cm, cmo)) (_, v_, (vt_, vto_, dr_, cm_, cmo_)) -> 
 		let ct = v-vt+vto/20-(if cmo then 10000 else if cm then -10000 else if dr then 10000 else 0)
@@ -407,7 +407,7 @@ let legal t a b c d l h =
 			false
 		) else ( (* else show our changes *)
 			square green a b; square green c d; p();
-			if (s = 'p' || s = 'P') && c = (if t = 1 then 7 else 0) then ( promote t c d );
+			if (s = 'p' || s = 'P') && c = (if t = 1 then 7 else 0) && not (dobot t) then ( promote t c d );
 			good();
 			draw a b; draw c d;
 			moved.(c).(d) <- if moved.(a).(b) = 0 then 3 else moved.(a).(b); (* log who moved & how *)
