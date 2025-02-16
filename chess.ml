@@ -6,7 +6,7 @@ open Graphics
 let z = 90
 (** size in pixels of the window *)
 let si = z * 8
-(** piece p i j c b shows the piece p of color c at indexes i, j, 2x as big if b *)
+(** [piece p i j c b] shows the piece [p] of color [c] at indexes [i], [j], 2x as big if [b] *)
 let piece p i j c b = 
 	set_color c;
 	let k = if b then 2 else 1 in
@@ -32,7 +32,7 @@ m 24 72; l 24 64; l 66 64; l 66 72; l 24 72; m 22 28; l 22 18; l 30 18; l 30 22;
 	| _ -> ()
 (** exploding strings to array of their characters *)
 let rec explode s = if s = "" then [||] else Array.append [|s.[0]|] (explode(String.sub s 1 (String.length s-1)))
-(** dobot t decides whether a bot should play player t (setup is done in the creation of this function) *)
+(** [dobot t] decides whether a bot should play player [t] (setup is done in the creation of this function) *)
 let dobot =
 	(* window setup *)
 	open_graph (" "^string_of_int (si+if Sys.win32 then 16 else 0)^"x"^string_of_int (si+if Sys.win32 then 41 else 0)); resize_window si si; set_window_title "Chess";
@@ -54,7 +54,7 @@ let dobot =
 	| 'w' -> (fun t -> t = 1) (* white is bot *)
 	| 'a' -> (fun _ -> true) (* all are bots *)
 	| 'n' | _ -> (fun _ -> false) (* none are bots *)
-(** if is false then we're testing bots by playing one another and we don't care much about the interface. only now accessible for debugging, mind you. might want to give it interface one of these days *)
+(** if this is false then want it to go fast and we don't care much about the interface. only now accessible for debugging, mind you. might want to give it interface one of these days *)
 let interf = true
 (** whether it's all bots, in which case we ought to wait for the user to trigger each move *)
 let slow = dobot 3 && interf
@@ -69,9 +69,9 @@ let g = Array.map explode @@ [|
 	"pppppppp";
 	"rnbqkbnr";
 |]
-(** 0 for pieces that haven't moved, 1 for pawns that did a double jump this turn, 2 for those that did so the turn before and can be enpassant'd, 3 for everyone else *)
+(** corresponds to the board so that it's 0 for pieces that haven't moved, 1 for pawns that did a double jump this turn, 2 for those that did so the turn before and can be enpassant'd, 3 for everyone else *)
 let moved = Array.make_matrix 8 8 0
-(** kingco t gets the coordinates of t's king. used to be an array, but it bugged, and I got tired of it *)
+(** [kingco t] gets the coordinates of [t]'s king. used to be an array, but it bugged, and I got tired of it *)
 let kingco t =
 	let p = if t = 1 then 'K' else 'k' in
 	let rec it i j =
@@ -91,9 +91,9 @@ let v = function
 	| ' ' | _ -> 0
 (** deltas of allowed knight moves *)
 let nv = [(-2,-1);(-2,1);(-1,-2);(-1,2);(1,-2);(1,2);(2,-1);(2,1)]
-(** cc c t checks if c belongs to player t *)
+(** [cc c t] checks if piece c belongs to player [t] *)
 let cc c t = (if t = 1 then 'A' else 'a') <= c && c <= (if t = 1 then 'Z' else 'z')
-(** draw i j draws the board square (i, j) (and any piece on it) *)
+(** [draw i j] draws the board square [(i, j)] (and any piece on it) *)
 let draw i_ j_ =
 	if i_ < 0 then () else (* somehow we're trying to draw ft *)
 	let c = g.(i_).(j_)
@@ -118,13 +118,13 @@ let draw i_ j_ =
 	)
 (** redraw the whole board *)
 let drawall () = let rec it i j = if i = 8 then () else if j = 8 then it (i+1) 0 else (draw i j; it i (j+1)) in it 0 0
-(** draws a colored square around a board square, to indicate it *)
+(** [square c i j] draws a colored square of color [c] around board square [(i, j)], to indicate it *)
 let square c i j = if interf then (set_color c; draw_rect (z*j+3) (z*i+3) (z-7) (z-7))
-(** draws a darkening round on an empty square *)
+(** draws a darkening round on a board square *)
 let point i j = set_color (if (i+j) mod 2 = 1 then rgb 207 173 91 else rgb 164 119 54); fill_circle (z*j+z/2) (z*i+z/2) 15
 (** get a number from a piece character *)
 let piecechar = function | 'p' -> 1 | 'P' -> 2 | 'r' -> 3 | 'R' -> 4 | 'b' -> 5 | 'B' -> 6 | 'q' -> 7 | 'Q' -> 8 | 'k' -> 9 | 'K' -> 10 | 'n' -> 11 | 'N' -> 12 | _ -> 0
-(** compress a grid into a number *)
+(** compress a board into a number *)
 let compress a =
 	let rec it = function
 		| x::s -> x+13*(it s)
@@ -134,13 +134,13 @@ let compress a =
 	Array.to_list |>
 	List.map piecechar |>
 	it
-(** mbpp b x s gives s with x maybe prepended if b *)
+(** [mbpp b x s] gives [s] with [x] maybe prepended if [b] *)
 let mbpp b x s = if b then x::s else s
-(** false tuplet, (-1, -1) *)
+(** false tuplet, [(-1, -1)] *)
 let ft = (-1,-1)
-(** a ||| b gives b if a is ft else a; is boolean or but for tuplets (maybe use options for this?) *)
+(** [a ||| b] gives [b] if [a] is [ft] else [a]; [||] but for tuplets (maybe use options for this?) *)
 let (|||) a b = if a = ft then b else a
-(** check t i j ex gives a square controlled by player t that is threatening square i j and is not in list ex, or ft if there are none *)
+(** [check t i j ex] gives a square controlled by player [t] that is threatening square [i j] and is not in list [ex], or [ft] if there are none *)
 let check t i j ex =
 	let ne x y = not (List.mem (x, y) ex) in (* Not Excluded? *)
 	let line p fl = (* get the first piece p's that could go to (i, j) by one of the semi-lines of directing vectors in fl *)
@@ -189,11 +189,11 @@ let check t i j ex =
 			if g.(i+x).(j+y) = p && ne (i+x) (j+y) then (i+x, j+y) else it x (y+1) in
 		it ~-1 ~-1
 	)
-(** safe t i j says if square i j is safe from player t *)
+(** [safe t i j] says if square [i j] is safe from player [t] *)
 let safe t i j = if i < 0 then false else ft = check t i j []
 (** wait .2 secs (for display purposes, else it can all be awfully quick) *)
 let p = (if interf then (fun () -> Unix.sleepf 0.2) else ignore)
-(** do the impure effects of a move, and return (canceling function, displaying function) *)
+(** [effect t a b c d] does the impure effects of the move [(a, b) -> (c, d)] by [t], and returns (canceling function, displaying function) *)
 let effect t a b c d =
 	let s = g.(a).(b) and e = g.(c).(d) in
 	g.(c).(d) <- s; g.(a).(b) <- ' '; (* move piece *)
@@ -219,13 +219,13 @@ let effect t a b c d =
 		if ep then draw a d; (* erase what was enpassant'd *)
 		if ca then draw a (fst f); draw a (snd f); (* the tower's move in castling *)
 	)))
-(** te t a b c d f tests the effect of move (a, b) -> (c, d) (by player t), returning the result of f() in these conditions *)
+(** [te t a b c d f] tests the effect of move [(a, b) -> (c, d)] (by player [t]), returning the result of [f()] in these conditions *)
 let te t a b c d f =
 	let bad, good = effect t a b c d in
 	let va = f() in
 	bad();
 	va
-(** cango t i j gives where the piece in square i j could go for player t, output of form (a, b, c, d) for move (a, b) -> (c, d) *)
+(** [cango t i j] gives where the piece in square [(i, j)] could go for player [t], output of form [(a, b, c, d)] for move [(a, b) -> (c, d)] *)
 let cango t i j =
 	let ot = (t+1) mod 2 in
 	let line a b fx fy = (* line of all squares of (a, b); (a+fx, b+fy); and so on *)
@@ -272,14 +272,14 @@ let cango t i j =
 			safe ot (fst k) (snd k)
 		)
 	)
-(** movelist t gets all the moves that t could do *)
+(** [movelist t] gets all the moves that [t] could do *)
 let movelist t =
 	let rec it i j =
 		if i = 8 then [] else
 		if j = 8 then it (i+1) 0 else
 		cango t i j @ it i (j+1) in
 	it 0 0 
-(** promote t c d promotes the pawn in c d, that belongs to t (not if the bot is playing, that's somewhere else) *)
+(** [promote t c d] promotes the pawn in [(c, d)], that belongs to [t] (not if the bot is playing, that's somewhere else) *)
 let promote t c d =
 	let co = if t = 1 then white else black in
 	let dc = if Sys.win32 then 3 else 4 in (* draw column *)
@@ -302,7 +302,7 @@ let promote t c d =
 			| _ -> ' ')
 		) in
 	wai() 
-(** does the impure effects of endgame. argument is the player that won, or 2 for a draw *)
+(** [endgame s n] does the impure effects of endgame for reason [s]. [n] is the player that won, or 2 for a draw *)
 let endgame s n =
 	set_window_title @@ "Chess (Game over by "^s^". Press any key to exit)";
 	drawall();
@@ -318,7 +318,7 @@ let endgame s n =
 	score 0;
 	ignore(read_key());
 	close_graph()
-(** goodtrade i j t calculates, whether trades that could happen at (i, j), are good *)
+(** [goodtrade i j t] calculates, whether trades that could happen at [(i, j)], are good for [t] *)
 let goodtrade i j t =
 	let whonext t_ = (* get the lowest-value piece belonging to t_ that threatens i j *)
 		let rec get ex = (* to get the list *)
@@ -336,7 +336,7 @@ let goodtrade i j t =
 		(te ot_ a b i j (fun () -> it ot_ (n+va))) (* and rinse and repeat inside a test move *)
 		in
 	it t 0
-(** auto t h decides which move the bot should do, with h history for triple repetition *)
+(** [auto t h] decides which move the bot should do as [t], with [h] history for triple repetition *)
 let auto t h =
 	let ot = (t+1) mod 2 in
 	let vthreat () = (* total value of t's and ot's threatened pieces, plus feching the endgames *)
@@ -384,7 +384,7 @@ let auto t h =
 	fun (x,_,_) -> x (* and strip *)
 (** wai ev waits for mouse event ev in the window and returns the coordinates *)
 let rec wai evc = let ev = wait_next_event [ evc ] in let x, y = (ev.mouse_y/z, ev.mouse_x/z) in if x < 0 || x >= 8 || y < 0 || y >= 8 then wai evc else (x, y)
-(** legal t a b c d l h checks if t can do a,b -> c,d, and if so, does the move, also checks for endgame (using l & h) *)
+(** [legal t a b c d l h] checks if [t] can do [(a, b) -> (c, d)], and if so, does the move, also checks for endgame (using [l] & [h]) *)
 let legal t a b c d l h =
 	let s = g.(a).(b) and e = g.(c).(d) (* start and end squares *)
 		and ot = (t+1) mod 2 in (* other turn *)
@@ -467,7 +467,7 @@ let legal t a b c d l h =
 		true
 		)
 	)
-(** di for Do It, does main loop. Arguments: the turn, the (compressed) history of the game, the number of moves since a pawn was moved or a piece was taken, possibly preloaded coordinates of the start of the move (or ft), and the last move, to be squared in blue *)
+(** [di] for Do It, does main loop. Arguments: the turn, the (compressed) history of the game, the number of moves since a pawn was moved or a piece was taken, possible preloaded coordinates of the start of the move (or ft), and the last move, to be squared in blue *)
 let rec di t h l xy1 td =
 	let titl = "Chess ("^(if t = 0 then "Black" else "White")^"'s turn)" in
 	set_window_title titl;
