@@ -50,8 +50,10 @@ let dobot =
 	| 'w' -> (fun t -> t = 1) (* white is bot *)
 	| 'a' -> (fun _ -> true) (* all are bots *)
 	| 'n' | _ -> (fun _ -> false) (* none are bots *)
+(** if is false then we're testing bots by playing one another and we don't care much about the interface *)
+let interf = true
 (** whether it's all bots, in which case we ought to wait for the user to trigger each move *)
-let slow = dobot 3
+let slow = dobot 3 && interf
 (** the board *)
 let g = Array.map explode @@ [|
 	"RNBQKBNR";
@@ -175,7 +177,7 @@ let check t i j ex =
 (** safe t i j says if square i j is safe from player t *)
 let safe t i j = if i < 0 then false else ft = check t i j []
 (** wait .2 secs (for display purposes, else it can all be awfully quick) *)
-let p() = Unix.sleepf 0.2
+let p () = Unix.sleepf (if interf then 0.2 else 0.0)
 (** do the impure effects of a move, and return (canceling function, displaying function) *)
 let effect t a b c d =
 	let s = g.(a).(b) and e = g.(c).(d) in
@@ -302,7 +304,7 @@ let endgame s n =
 	score 0;
 	ignore(read_key());
 	close_graph()
-(** tradebalance i j t calculates, if everyone threw everything at (i, j) until there was one man standing, in value would it be a good trade (integer, positive if good, negative if bad) *)
+(** tradebalance i j t calculates, whether trades that could happen at (i, j), rn are good (integer, positive if good, negative if bad) *)
 let tradebalance i j t =
 	let whonext t_ = (* get the lowest-value piece belonging to t_ that threatens i j *)
 		let rec get ex = (* to get the list *)
