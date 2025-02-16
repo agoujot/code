@@ -51,7 +51,7 @@ let dobot =
 	| 'a' -> (fun _ -> true) (* all are bots *)
 	| 'n' | _ -> (fun _ -> false) (* none are bots *)
 (** if is false then we're testing bots by playing one another and we don't care much about the interface *)
-let interf = true
+let interf = false
 (** whether it's all bots, in which case we ought to wait for the user to trigger each move *)
 let slow = dobot 3 && interf
 (** the board *)
