@@ -51,7 +51,7 @@ let dobot =
 	| 'a' -> (fun _ -> true) (* all are bots *)
 	| 'n' | _ -> (fun _ -> false) (* none are bots *)
 (** if is false then we're testing bots by playing one another and we don't care much about the interface *)
-let interf = true
+let interf = false
 (** whether it's all bots, in which case we ought to wait for the user to trigger each move *)
 let slow = dobot 3 && interf
 (** the board *)
@@ -104,7 +104,7 @@ let draw i_ j_ =
 (** redraw the whole board *)
 let drawall () = let rec it i j = if i = 8 then () else if j = 8 then it (i+1) 0 else (draw i j; it i (j+1)) in it 0 0
 (** draws a colored square around a board square, to indicate it *)
-let square c i j = set_color c; draw_rect (z*j+3) (z*i+3) (z-7) (z-7)
+let square c i j = if interf then (set_color c; draw_rect (z*j+3) (z*i+3) (z-7) (z-7))
 (** draws a darkening round on an empty square *)
 let point i j = set_color (if (i+j) mod 2 = 1 then rgb 207 173 91 else rgb 164 119 54); fill_circle (z*j+z/2) (z*i+z/2) 15
 (** get a number from a piece character *)
@@ -123,7 +123,7 @@ let compress a =
 let mbpp b x s = if b then x::s else s
 (** false tuplet, (-1, -1) *)
 let ft = (-1,-1)
-(** a ||| b gives b if a is ft else a; is boolean or but for tuplets (maybe use options for this? TODO) *)
+(** a ||| b gives b if a is ft else a; is boolean or but for tuplets (maybe use options for this?) *)
 let (|||) a b = if a = ft then b else a
 (** check t i j ex gives a square controlled by player t that is threatening square i j and is not in list ex, or ft if there are none *)
 let check t i j ex =
@@ -177,7 +177,7 @@ let check t i j ex =
 (** safe t i j says if square i j is safe from player t *)
 let safe t i j = if i < 0 then false else ft = check t i j []
 (** wait .2 secs (for display purposes, else it can all be awfully quick) *)
-let p () = Unix.sleepf (if interf then 0.2 else 0.0)
+let p = (if interf then (fun () -> Unix.sleepf 0.2) else ignore)
 (** do the impure effects of a move, and return (canceling function, displaying function) *)
 let effect t a b c d =
 	let s = g.(a).(b) and e = g.(c).(d) in
@@ -304,8 +304,8 @@ let endgame s n =
 	score 0;
 	ignore(read_key());
 	close_graph()
-(** tradebalance i j t calculates, whether trades that could happen at (i, j), rn are good (integer, positive if good, negative if bad) *)
-let tradebalance i j t =
+(** goodtrade i j t calculates, whether trades that could happen at (i, j), are good *)
+let goodtrade i j t =
 	let whonext t_ = (* get the lowest-value piece belonging to t_ that threatens i j *)
 		let rec get ex = (* to get the list *)
 			let c = check t_ i j ex in
@@ -313,21 +313,22 @@ let tradebalance i j t =
 			get (c::ex) in
 		get [] |>
 		List.fold_left (fun a b -> if a <> ft && v g.(fst a).(snd a) < v g.(fst b).(snd b) then a else b) ft (* get coordinates of piece of get [] that is valued the lowest by v *) in
-	let rec it t_ =
+	let rec it t_ n = (* inner loop. n is for tracking intermediate trades *)
 		let ot_ = (t_+1) mod 2 in
-		if safe ot_ i j then 0 else (* not even threatened, can drop stick *)
+		if safe ot_ i j then n > -5 else (* not even threatened, time to drop stick *)
 		let a, b = whonext ot_ in
 		let va = (if t = t_ then -1 else 1)*v g.(i).(j) in (* neg because t_ loses here, if t = t_ then t loses it and it's a bad move for t *)
-		te ot_ a b i j (fun () -> va+it ot_) (* and rinse and repeat inside a test move *)
+		(t_ = t || n > -5) && (* we only want to check intermediate trades if t_ = ot, so n is after one of our moves *)
+		(te ot_ a b i j (fun () -> it ot_ (n+va))) (* and rinse and repeat inside a test move *)
 		in
-	it t
+	it t 0
 (** auto t h decides which move the bot should do, with h history for triple repetition *)
 let auto t h =
 	let ot = (t+1) mod 2 in
 	let vthreat () = (* total value of t's and ot's threatened pieces, plus some oddities for endgames *)
 		let danger i j t_ = (* decide for square i j whether it's in danger of being taken by ot, give its value if in danger else 0 *)
 			let ot_ = (t_+1) mod 2 in
-			if safe ot_ i j || (tradebalance i j t_ > 0) then 0 (* not threatened at all, or we got to gain from trading *)
+			if safe ot_ i j || (goodtrade i j t_) then 0 (* not threatened at all, or we got to gain from trading *)
 			else v g.(i).(j) in
 		let rec it i j = if i = 8 then (0, 0) else if j = 8 then it (i+1) 0 else (
 			let c = g.(i).(j) in (* current piece *)
