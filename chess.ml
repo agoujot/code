@@ -51,7 +51,7 @@ let dobot =
 	| 'a' -> (fun _ -> true) (* all are bots *)
 	| 'n' | _ -> (fun _ -> false) (* none are bots *)
 (** if is false then we're testing bots by playing one another and we don't care much about the interface *)
-let interf = false
+let interf = true
 (** whether it's all bots, in which case we ought to wait for the user to trigger each move *)
 let slow = dobot 3 && interf
 (** the board *)
@@ -99,8 +99,19 @@ let draw i_ j_ =
 	set_color (if (i+j) mod 2 = 1 then rgb 227 193 111 else rgb 184 139 74);
 	let z_ = if Sys.win32 then z else z-1 in
 	fill_rect (i*z) (j*z) z_ z_;
-	if c = ' ' then () else (
-	piece c i j (if 'A' <= c && c <= 'Z' then white else black) false)
+	if c <> ' ' then (piece c i j (if 'A' <= c && c <= 'Z' then white else black) false);
+	(* drawing the column indicators: *)
+	set_color (if (i+j) mod 2 = 0 then rgb 247 213 131 else rgb 164 119 54);
+	if i = 0 || i = 7 then ( (* left line *)
+	let c = char_of_int (49+j) in (* number *)
+	moveto (if i = 0 then 3 else si-10) ((j+1)*z-15);
+	draw_char c
+	);
+	if j = 0 || j = 7 then ( (* bottom line *)
+	let c = char_of_int (65+i) in (* letter *)
+	moveto ((i+1)*z-(if (i, j) = (7, 7) then 20 else 10)) (if j = 0 then 1 else si-15);
+	draw_char c
+	)
 (** redraw the whole board *)
 let drawall () = let rec it i j = if i = 8 then () else if j = 8 then it (i+1) 0 else (draw i j; it i (j+1)) in it 0 0
 (** draws a colored square around a board square, to indicate it *)
