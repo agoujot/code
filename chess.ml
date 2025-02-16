@@ -11,6 +11,7 @@ let piece p i j c b =
 	set_color c;
 	let k = if b then 2 else 1 in
 	set_line_width (k*3);
+	(* define shortcuts function to handle the data: move to (x, y); draw a line to (x, y); bezier curve from (x1, y1), by (x2, y2) to (x3, y3); circle of center (x, y) and radius r *)
 	let m x y = moveto ((i*z+x)*k) ((j*z+(z-y))*k)
 	and l x y = lineto ((i*z+x)*k) ((j*z+(z-y))*k)
 	and c x1 y1 x2 y2 x3 y3 = 
@@ -19,6 +20,7 @@ let piece p i j c b =
 		((i*z+x2)*k, (j*z+(z-y2))*k)
 		((i*z+x3)*k, (j*z+(z-y3))*k)
 	and r x y r = draw_circle ((i*z+x)*k) ((j*z+(z-y))*k) (r*k)
+	(* and then use the raw data, manually converted from an SVG: https://w.wiki/D6RN. attribution: jurgenwesterhof (adapted from work of Cburnett), CC-BY-SA 3.0, commons *)
 	in match p with
 	| 'K' | 'k' -> m 45 23; l 45 12; m 40 16; l 50 16; m 45 50; c 45 50 54 35 51 29; c 51 29 49 24 45 24; c 41 24 39 29 39 29; c 36 35 45 50 45 50; m 23 74; c 34 81 54 81 65 74; l 65 60; c 65 60 83 51 77 39; c 69 26 50 32 45 47; l 45 54; l 45 47; c 38 32 19 26 13 39; c 7 51 23 59 23 59; l 23 74; m 45 50; m 23 60; c 34 54 54 54 65 60; m 23 67; c 34 61 54 61 65 67; m 23 74; c 34 68 54 68 65 74
 	| 'Q' | 'q' -> r 12 22 5; r 28 16 5; r 45 14 5; r 62 16 5; r 78 22 5; m 18 52; c 35 49 60 49 72 52; l 76 28; l 62 50; l 62 22; l 51 49; l 45 19; l 39 49; l 28 21; l 28 50; l 14 28; l 18 52; m 18 52; c 18 56 21 56 23 60; c 25 63 25 62 24 67; c 21 69 21 72 21 72; c 18 75 22 77 22 77; c 35 79 55 79 68 77; c 68 77 71 75 68 72; c 68 72 69 69 66 67; c 65 62 65 63 67 60; c 69 56 72 56 72 52; c 55 49 35 49 18 52; m 23 60; c 30 58 60 58 67 60; m 24 67; c 36 65 54 65 66 67
@@ -30,10 +32,12 @@ m 24 72; l 24 64; l 66 64; l 66 72; l 24 72; m 22 28; l 22 18; l 30 18; l 30 22;
 	| _ -> ()
 (** exploding strings to array of their characters *)
 let rec explode s = if s = "" then [||] else Array.append [|s.[0]|] (explode(String.sub s 1 (String.length s-1)))
-(** dobot t decides whether a bot should play player t *)
+(** dobot t decides whether a bot should play player t (setup is done in the creation of this function) *)
 let dobot =
+	(* window setup *)
 	open_graph (" "^string_of_int (si+if Sys.win32 then 16 else 0)^"x"^string_of_int (si+if Sys.win32 then 41 else 0)); resize_window si si; set_window_title "Chess";
 	set_color black; fill_rect 0 0 1000 1000; set_color white; set_line_width 4;
+	(* drawing CHESS *)
 	moveto (3*z/2) (15*z/2); rlineto ~-z 0; rlineto 0 ~-z; rlineto z 0; (* C *)
 	rmoveto (z/2) z; rlineto 0 ~-z ; rmoveto z z; rlineto 0 ~-z; rmoveto 0 (z/2); rlineto ~-z 0; (* H *)
 	rmoveto (5*z/2) (z/2); rlineto ~-z 0; rlineto 0 (-z/2); rlineto z 0; rmoveto ~-z 0; rlineto 0 (-z/2); rlineto z 0; (* E *)
@@ -50,11 +54,11 @@ let dobot =
 	| 'w' -> (fun t -> t = 1) (* white is bot *)
 	| 'a' -> (fun _ -> true) (* all are bots *)
 	| 'n' | _ -> (fun _ -> false) (* none are bots *)
-(** if is false then we're testing bots by playing one another and we don't care much about the interface *)
-let interf = false
+(** if is false then we're testing bots by playing one another and we don't care much about the interface. only now accessible for debugging, mind you. might want to give it interface one of these days *)
+let interf = true
 (** whether it's all bots, in which case we ought to wait for the user to trigger each move *)
 let slow = dobot 3 && interf
-(** the board *)
+(** the board. modify this in source if you want, but please leave one king of each. an invalid board is an undefined behaviour *)
 let g = Array.map explode @@ [|
 	"RNBQKBNR";
 	"PPPPPPPP";
@@ -91,12 +95,12 @@ let nv = [(-2,-1);(-2,1);(-1,-2);(-1,2);(1,-2);(1,2);(2,-1);(2,1)]
 let cc c t = (if t = 1 then 'A' else 'a') <= c && c <= (if t = 1 then 'Z' else 'z')
 (** draw i j draws the board square (i, j) (and any piece on it) *)
 let draw i_ j_ =
-	if i_ < 0 then () else
+	if i_ < 0 then () else (* somehow we're trying to draw ft *)
 	let c = g.(i_).(j_)
-	and i = j_
+	and i = j_ (* need to swap as my array is not in the natural way *)
 	and j = i_ in
 	moveto (i*z) (j*z);
-	set_color (if (i+j) mod 2 = 1 then rgb 227 193 111 else rgb 184 139 74);
+	set_color (if (i+j) mod 2 = 1 then rgb 227 193 111 else rgb 184 139 74); (* board color *)
 	let z_ = if Sys.win32 then z else z-1 in
 	fill_rect (i*z) (j*z) z_ z_;
 	if c <> ' ' then (piece c i j (if 'A' <= c && c <= 'Z' then white else black) false);
@@ -138,14 +142,14 @@ let ft = (-1,-1)
 let (|||) a b = if a = ft then b else a
 (** check t i j ex gives a square controlled by player t that is threatening square i j and is not in list ex, or ft if there are none *)
 let check t i j ex =
-	let ne x y = not (List.mem (x, y) ex) in
-	let line p fl =
+	let ne x y = not (List.mem (x, y) ex) in (* Not Excluded? *)
+	let line p fl = (* get the first piece p's that could go to (i, j) by one of the semi-lines of directing vectors in fl *)
 		let rec it x y fx fy =
 			if x < 0 || y < 0 || x > 7 || y > 7 then ft else
 			if g.(x).(y) = p && ne x y then (x, y) else
 			if g.(x).(y) = ' ' then it (x+fx) (y+fy) fx fy else ft in
 		List.fold_right (|||) (List.map (fun (fx, fy) -> it (i+fx) (j+fy) fx fy) fl) ft in
-	if cc g.(i).(j) t then ft else
+	if cc g.(i).(j) t then ft else (* it's ours, we can't go here *)
 	(* pawns *) (
 		let p = if t = 1 then 'P' else 'p' in
 		let f = if t = 1 then 1 else -1 in
@@ -215,7 +219,7 @@ let effect t a b c d =
 		if ep then draw a d; (* erase what was enpassant'd *)
 		if ca then draw a (fst f); draw a (snd f); (* the tower's move in castling *)
 	)))
-(** te t a b c d f tests the effect of move (a, b) -> (c, d) (by player t), returning the result f() in these conditions *)
+(** te t a b c d f tests the effect of move (a, b) -> (c, d) (by player t), returning the result of f() in these conditions *)
 let te t a b c d f =
 	let bad, good = effect t a b c d in
 	let va = f() in
@@ -230,8 +234,8 @@ let cango t i j =
 			(a, b, c, d)::(if g.(c).(d) <> ' ' then [] else it (c+fx) (d+fy)) in
 		it (a+fx) (b+fy) in
 	let c = g.(i).(j) in
-	(if cc c t then (
-	match c with
+	if not @@ cc c t then [] else
+	(match c with
 	| 'p' | 'P' ->
 		let f = if t = 1 then 1 else -1 in
 		mbpp (0 <= i+f && i+f < 8 && g.(i+f).(j) = ' ') (i, j, i+f, j) @@ (* forward *)
@@ -261,8 +265,7 @@ let cango t i j =
 			if (x = 0 && y = 0) || x+i < 0 || y+j < 0 || x+i >= 8 || y+j >= 8 || cc g.(x+i).(y+j) t then it x (y+1) else
 			(i, j, i+x, j+y)::it x (y+1) in
 		it ~-1 ~-1
-	| _ -> []
-	) else []) |>
+	| _ -> []) |>
 	List.filter (fun (a, b, c, d) -> (* filter all the above by "we're not in check if we do that, are we?" *)
 		te t a b c d (fun () ->
 			let k = kingco t in
@@ -329,14 +332,14 @@ let goodtrade i j t =
 		if safe ot_ i j then n > -5 else (* not even threatened, time to drop stick *)
 		let a, b = whonext ot_ in
 		let va = (if t = t_ then -1 else 1)*v g.(i).(j) in (* neg because t_ loses here, if t = t_ then t loses it and it's a bad move for t *)
-		(t_ = t || n > -5) && (* we only want to check intermediate trades if t_ = ot, so n is after one of our moves *)
+		(t_ = t || n > -5) && (* check intermediate trades if t_ = ot, so that the n is after one of our moves *)
 		(te ot_ a b i j (fun () -> it ot_ (n+va))) (* and rinse and repeat inside a test move *)
 		in
 	it t 0
 (** auto t h decides which move the bot should do, with h history for triple repetition *)
 let auto t h =
 	let ot = (t+1) mod 2 in
-	let vthreat () = (* total value of t's and ot's threatened pieces, plus some oddities for endgames *)
+	let vthreat () = (* total value of t's and ot's threatened pieces, plus feching the endgames *)
 		let danger i j t_ = (* decide for square i j whether it's in danger of being taken by ot, give its value if in danger else 0 *)
 			let ot_ = (t_+1) mod 2 in
 			if safe ot_ i j || (goodtrade i j t_) then 0 (* not threatened at all, or we got to gain from trading *)
@@ -345,8 +348,8 @@ let auto t h =
 			let c = g.(i).(j) in (* current piece *)
 			let k, l = it i (j+1) in (* values of t and ot's pieces for the rest of the board *)
 			(if c = ' ' then (k, l) else (* same, this is empty *)
-			if cc c t then (k+danger i j t, l) else
-			(k, l+danger i j ot)
+			if cc c t then (k+danger i j t, l)
+			else (k, l+danger i j ot)
 			)
 		) in
 		let ml = movelist ot in
@@ -363,7 +366,7 @@ let auto t h =
 			List.exists (fun (a, b, c, d) -> te ot a b c d (fun () -> movelist t = [] && not (safe ot kx ky))) ml (* might be cm for him *)
 		) in
 	(* this below is where we build the actual heuristic, for both players:
-	value of what we're gaining - value of threatened stuff we have + value of stuff we threaten/20 (else it gets absurdly aggressive. might want to revisit, as bot gotten defensive), and absolutely like it if we're checkmating, absolutely hate it if we're checkmated *)
+	value of what we're gaining - value of threatened stuff we have + value of stuff we threaten/20 (else it gets absurdly aggressive. might want to revisit, as bot gotten defensive), and absolutely like it if we're checkmating, absolutely hate it if we're checkmated or drawed *)
 	let eval (_, v, (vt, vto, dr, cm, cmo)) = v-vt+vto/20-(if cmo then 10000 else if cm then -10000 else if dr then 10000 else 0) in
 	let rec getbest = function (* get the best of the list according to eval *)
 		| x::[] -> x
@@ -377,8 +380,8 @@ let auto t h =
 		if Random.bool() then x else y in
 	movelist t |> (* what is available? *)
 	List.map (fun (a, b, c, d) -> ((a, b, c, d), v g.(c).(d)+(if g.(a).(b) = 'p' || g.(a).(b) = 'P' then 1 else 0), te t a b c d vthreat)) |> (* get for each move also the value of what we're eating +1 if we're moving a pawn, and the valuation of the board after the move *)
-	getbest |>
-	fun (x,_,_) -> x (* and strip the data *)
+	getbest |> (* sift *)
+	fun (x,_,_) -> x (* and strip *)
 (** wai ev waits for mouse event ev in the window and returns the coordinates *)
 let rec wai evc = let ev = wait_next_event [ evc ] in let x, y = (ev.mouse_y/z, ev.mouse_x/z) in if x < 0 || x >= 8 || y < 0 || y >= 8 then wai evc else (x, y)
 (** legal t a b c d l h checks if t can do a,b -> c,d, and if so, does the move, also checks for endgame (using l & h) *)
@@ -450,8 +453,8 @@ let legal t a b c d l h =
 			draw a b; draw c d;
 			false
 		) else ( (* else show our changes *)
-			square green a b; square green c d; p();
-			if (s = 'p' || s = 'P') && c = (if t = 1 then 7 else 0) && not (dobot t) then ( promote t c d );
+			square green a b; square green c d;
+			if (s = 'p' || s = 'P') && c = (if t = 1 then 7 else 0) && not (dobot t) then (promote t c d);
 			good();
 			draw a b; draw c d;
 			moved.(c).(d) <- if moved.(a).(b) = 0 then 3 else moved.(a).(b); (* log who moved & how *)
@@ -470,8 +473,8 @@ let rec di t h l xy1 td =
 	set_window_title titl;
 	List.iter (fun tup -> square blue (fst tup) (snd tup)) td;
 	if slow then (
-		set_window_title @@ titl ^ " (press any key for next move)";
-		ignore(wait_next_event[Key_pressed; Button_down]);
+		set_window_title @@ titl ^ " (bot only, click for next move)";
+		ignore(wait_next_event[Button_down]);
 	);
 	let botmove = if dobot t then auto t h else (-1, -1, -1, -1) in
 	let mx1, my1 = if dobot t then (
@@ -481,8 +484,10 @@ let rec di t h l xy1 td =
 		let ev = wait_next_event [ Button_down ] in (ev.mouse_y/z, ev.mouse_x/z)
 	) in
 	if not (cc g.(mx1).(my1) t) then ( (* it's not one of ours *)
-		square red mx1 my1; p(); 
-		draw mx1 my1; 
+		if g.(mx1).(my1) <> ' ' then (
+			square red mx1 my1; p(); 
+			draw mx1 my1;
+		);
 		di t h l ft td
 	) else (
 		square green mx1 my1;
@@ -502,7 +507,7 @@ let rec di t h l xy1 td =
 		let ot = (t+1) mod 2 in
 		let a, b, c, d = mx1, my1, mx2, my2 in
 		let s = g.(a).(b) and e = g.(c).(d) in
-		let nt = if (legal t a b c d l h) then ot else t in
+		let nt = if (legal t a b c d l h) then ot else t in (* here remember that legal is not pure and already does some of the job right here *)
 		List.iter (fun tup -> draw (fst tup) (snd tup)) td;
 		if nt <> t then (
 			let rec it i j = if i = 8 then () else if j = 8 then it (i+1) 0 else (moved.(i).(j) <- (match moved.(i).(j) with | 1 -> 2 | 2 -> 3 | x -> x); it i (j+1)) in it 0 0); (* update moved *)
@@ -513,4 +518,4 @@ let rec di t h l xy1 td =
 			ft
 			(if nt <> t then [(a, b);(c, d)] else td)
 		)
-let () = drawall(); Unix.sleep 1; di 1 [] 0 ft []
+let () = drawall(); di 1 [] 0 ft []
