@@ -35,8 +35,7 @@ let rec explode s = if s = "" then [||] else Array.append [|s.[0]|] (explode(Str
 (** [dobot t] decides whether a bot should play player [t] (setup is done in the creation of this function) *)
 let dobot =
 	(* window setup *)
-	open_graph (" "^string_of_int (si+if Sys.win32 then 16 else 0)^"x"^string_of_int (si+if Sys.win32 then 41 else 0)); resize_window si si; set_window_title "Chess";
-	set_color black; fill_rect 0 0 1000 1000; set_color white; set_line_width 4;
+	open_graph (" "^string_of_int (si+if Sys.win32 then 16 else 0)^"x"^string_of_int (si+if Sys.win32 then 101 else 60)); resize_window si (si+60); set_window_title "Chess"; set_color black; fill_rect 0 0 1000 1000; set_color white; set_line_width 4;
 	(* drawing CHESS *)
 	moveto (3*z/2) (15*z/2); rlineto ~-z 0; rlineto 0 ~-z; rlineto z 0; (* C *)
 	rmoveto (z/2) z; rlineto 0 ~-z ; rmoveto z z; rlineto 0 ~-z; rmoveto 0 (z/2); rlineto ~-z 0; (* H *)
@@ -123,17 +122,21 @@ let square c i j = if interf then (set_color c; draw_rect (z*j+3) (z*i+3) (z-7) 
 (** draws a darkening round on a board square *)
 let point i j = set_color (if (i+j) mod 2 = 1 then rgb 207 173 91 else rgb 164 119 54); fill_circle (z*j+z/2) (z*i+z/2) 15
 (** get a number from a piece character *)
-let piecechar = function | 'p' -> 1 | 'P' -> 2 | 'r' -> 3 | 'R' -> 4 | 'b' -> 5 | 'B' -> 6 | 'q' -> 7 | 'Q' -> 8 | 'k' -> 9 | 'K' -> 10 | 'n' -> 11 | 'N' -> 12 | _ -> 0
-(** compress a board into a number *)
+let numofpiece = function | 'p' -> 1 | 'P' -> 2 | 'r' -> 3 | 'R' -> 4 | 'b' -> 5 | 'B' -> 6 | 'q' -> 7 | 'Q' -> 8 | 'k' -> 9 | 'K' -> 10 | 'n' -> 11 | 'N' -> 12 | _ -> 0
+(** get a piece character of a number. [pieceofnum.(numofpiece p) = p] *)
+let pieceofnum = [| ' '; 'p'; 'P'; 'r'; 'R'; 'b'; 'B'; 'q'; 'Q'; 'k'; 'K'; 'n'; 'N' |]
+(** compress a board into the 64 characters *)
 let compress a =
-	let rec it = function
-		| x::s -> x+13*(it s)
-		| [] -> 0 in
 	Array.to_list a |>
 	Array.concat |>
-	Array.to_list |>
-	List.map piecechar |>
-	it
+	(fun x -> String.init 64 (fun i -> x.(i)))
+(** decompress the characters into a board *)
+let decompress s =
+	let res = Array.make_matrix 8 8 ' ' in
+	let rec it i j k =
+		if i = 8 then () else if j = 8 then it (i+1) 0 k else
+		(res.(i).(j) <- s.[k]; it i (j+1) (k+1)) in
+	it 0 0 0; res
 (** [mbpp b x s] gives [s] with [x] maybe prepended if [b] *)
 let mbpp b x s = if b then x::s else s
 (** false tuplet, [(-1, -1)] *)
@@ -311,8 +314,8 @@ let endgame s n =
 		set_color (if t = 1 then white else black);
 		let jz = if t = 1 then 2*z else 6*z (* column *)
 		and z2 = 2*z in
-		if t = n then (moveto jz z2; lineto jz (6*z); lineto (jz-z) (5*z))
-		else (draw_ellipse jz (4*z) z z2) in
+		if t = n then (moveto jz z2; lineto jz (6*z); lineto (jz-z) (5*z)) (* 1 *)
+		else (draw_ellipse jz (4*z) z z2) in (* 0 *)
 	score 1; 
 	set_color @@ rgb 128 128 128; moveto (7*z/2) (4*z); lineto (9*z/2) (4*z); (* make the dash *)
 	score 0;
@@ -467,28 +470,52 @@ let legal t a b c d l h =
 		true
 		)
 	)
-(** [di] for Do It, does main loop. Arguments: the turn, the (compressed) history of the game, the number of moves since a pawn was moved or a piece was taken, possible preloaded coordinates of the start of the move (or ft), and the last move, to be squared in blue *)
-let rec di t h l xy1 td =
+(** [di] for Do It, does main loop. Arguments: the turn, the (compressed) history of the game, the number of moves since a pawn was moved or a piece was taken, possible preloaded coordinates of the start of the move (or ft), squares to be squared in blue, and where we stand in the history *)
+let rec di t h l xy1 td hi =
+	let playback y = match y with
+		| 0 | 1 ->
+		let hist = Array.of_list h in
+		let hi_ = if y = 0 then hi+1 else hi-1 in
+		if hi_ < 0 || hi_ >= Array.length hist then di t h l ft td hi else
+		let (comp, _, _) = hist.(hi_) in
+		let g_ = decompress comp in
+		let (shown, _, _) = hist.(hi) in
+		let g__ = decompress shown in
+		let rec it i j =
+			if i = 8 then () else if j = 8 then it (i+1) 0 else
+			(if g_.(i).(j) <> g__.(i).(j) then (
+				let v = g.(i).(j) in 
+				g.(i).(j) <- g_.(i).(j);
+				draw i j;
+				g.(i).(j) <- v
+			);
+			it i (j+1)) in
+		it 0 0;p();di t h l ft [] hi_
+		| _ -> di t h l ft td 0 in
 	let titl = "Chess ("^(if t = 0 then "Black" else "White")^"'s turn)" in
 	set_window_title titl;
 	List.iter (fun tup -> square blue (fst tup) (snd tup)) td;
-	if slow then (
-		set_window_title @@ titl ^ " (bot only, click for next move)";
-		ignore(wait_next_event[Button_down]);
-	);
+	if slow && (wait_next_event[Button_down]).mouse_y >= si then (
+		let x = (wait_next_event[Button_up]).mouse_x in (* it's the same click *)
+		playback (x/z);
+	) else (
 	let botmove = if dobot t then auto t h else (-1, -1, -1, -1) in
 	let mx1, my1 = if dobot t then (
 		let a, b, _, _ = botmove in (a, b)
 	) else (
 		if xy1 <> ft then xy1 else
-		let ev = wait_next_event [ Button_down ] in (ev.mouse_y/z, ev.mouse_x/z)
+		let ev = wait_next_event[Button_down] in (ev.mouse_y/z, ev.mouse_x/z)
 	) in
+	if mx1*z >= si then ( (* clicking on the commands *)
+		playback my1
+	) else (
+	if hi <> 0 then drawall();
 	if not (cc g.(mx1).(my1) t) then ( (* it's not one of ours *)
 		if g.(mx1).(my1) <> ' ' then (
 			square red mx1 my1; p(); 
 			draw mx1 my1;
 		);
-		di t h l ft td
+		di t h l ft td 0
 	) else (
 		square green mx1 my1;
 		let xy2s = cango t mx1 my1 |> List.map (fun (a, b, c, d) -> (c, d)) in
@@ -503,7 +530,7 @@ let rec di t h l xy1 td =
 			wai Button_down
 			else x2, y2
 		) in
-		if cc g.(mx2).(my2) t then (draw mx1 my1;hcg();di t h l (mx2, my2) td) else
+		if cc g.(mx2).(my2) t then (draw mx1 my1;hcg();di t h l (mx2, my2) td 0) else
 		let ot = (t+1) mod 2 in
 		let a, b, c, d = mx1, my1, mx2, my2 in
 		let s = g.(a).(b) and e = g.(c).(d) in
@@ -517,5 +544,26 @@ let rec di t h l xy1 td =
 			(if nt <> t && s <> 'P' && s <> 'p' && e = ' ' then l+1 else 0)
 			ft
 			(if nt <> t then [(a, b);(c, d)] else td)
+			0
 		)
-let () = drawall(); di 1 [] 0 ft []
+		)
+		)
+let () =
+	(* drawing the commands *)
+	set_color white; set_line_width 2;
+	moveto 65 (si+10);
+	lineto 25 (si+30);
+	lineto 65 (si+50);
+	set_line_width 0;
+	moveto 90 si;
+	lineto 90 (si+90);
+	set_line_width 2;
+	moveto 115 (si+10);
+	lineto 155 (si+30);
+	lineto 115 (si+50);
+	set_line_width 0;
+	moveto 180 si;
+	lineto 180 (si+60);
+	drawall();
+	(* start it up *)
+	di 1 [(compress g, 3, false)] 0 ft [] 0
