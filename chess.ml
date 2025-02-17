@@ -495,7 +495,7 @@ let rec di t h l xy1 td hi =
 	let titl = "Chess ("^(if t = 0 then "Black" else "White")^"'s turn)" in
 	set_window_title titl;
 	List.iter (fun tup -> square blue (fst tup) (snd tup)) td;
-	if slow && (wait_next_event[Button_down]).mouse_y >= si then (
+	if slow && (set_window_title (titl^" (bots only, click for next move)"); (wait_next_event[Button_down]).mouse_y >= si) then (
 		let x = (wait_next_event[Button_up]).mouse_x in (* it's the same click *)
 		playback (x/z);
 	) else (
