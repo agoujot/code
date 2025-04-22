@@ -68,7 +68,7 @@ let regs = let open Str in
 	[|regexp ("^"^mo^{|\(\.|}^id^{|\)?$|}); 						(* 0 if a word looks like Module or Module.something *)
 	  regexp ("^"^id^{|*\.ml: No such file or directory$|});		(* 1 if a Sys_error message is for missing file *)
 	  regexp ("^ocamlfind: Package `"^id^"' not found$");			(* 2 if an ocamlfind error is for missing package *) 
-   	  regexp {|^{\([a-z_]*\)|.*|\1}$|}; 							(* 3 quoted strings *)
+	  regexp {|^{\([a-z_]*\)|.*|\1}$|}; 							(* 3 quoted strings *)
 	  regexp {|^File .*$|}; 										(* 4 indicator at the beginning of some error messages *)
 	  regexp {|^Error:.*$|}; 										(* 5 line starting with Error *)
 	  regexp {|[ 	]*\^[ 	]*|};											(* 6 pointer line *)
@@ -152,7 +152,8 @@ let rec comp l s i =
 	match l with
 	| [] -> clean(scan i)
 	| hd::tl ->
-	(match hd with
+	(
+	match hd with
 	| "-o" ->
 		(match tl with
 		| [] -> clean(scan i)
@@ -172,7 +173,7 @@ let rec comp l s i =
 				| x::s -> let p = extract_path x in if p = "" then getdir s else p::getdir s in
 			String.concat "," @@ uni @@ getdir @@ String.split_on_char ' ' @@ files in
 		let out = if s = "" then String.capitalize_ascii hd else s in
-		cmd ((if pkg = "" then "" else "ocamlfind ")^"ocamlopt "^(if List.mem "-g" arg then "-g " else "")^"-o "^out^" -I +unix,+str "^(if dirs = "" then "" else " -I "^dirs)^(if pkg = "" then "" else " -package "^pkg^" -linkpkg")^" "^files^" 2> __build_errors__.txt");
+		cmd ((if pkg = "" then "" else "ocamlfind ")^"ocamlopt "^(if List.mem "-g" arg then "-g " else "")^"-o "^out^" -I +unix -I +str "^(if dirs = "" then "" else " -I "^dirs)^(if pkg = "" then "" else " -package "^pkg^" -linkpkg")^" "^files^" 2> __build_errors__.txt");
 		if List.mem "-d" arg then 
 		cmd ((if pkg = "" then "" else "ocamlfind ")^"ocamldoc -html "^(if dirs = "" then "" else " -I /run/current-system/sw/lib/ocaml/5.1.1/site-lib/graphics/,+unix,+str"^dirs)^(if pkg = "" then "" else " -package unix,str,"^pkg)^" "^files^" 2> __build_errors__.txt");
 		let ic = open_in "__build_errors__.txt" in 
