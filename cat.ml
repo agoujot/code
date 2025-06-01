@@ -21,7 +21,6 @@ let info rs = write ([
 	" - an array of colors listing all colours existing in your system.";
 	" - a function for (re)initialization giving a color from an array of colors and unit. just put equ if you are fine with equal probabilities.";
 	" - a list containing lines of text you might want to display, will appear at the end.";
-	"(note: exit stops the CA but does not close the window; this is to give you the opportunity to close it or do something else)";
 	"";
 	"You will have the status in the top left.";
 	"When CAT is running and you click, it will stop and go to pause.";
@@ -35,7 +34,7 @@ let info rs = write ([
 	" - n (New)    : generates a new random grid using the element function above.";
 	" - d (Delete) : sets all the grid to black (it is therefore recommended that you have the state 'no life' and that it be black).";
 	" - i (Info)   : shows this. exit by pressing any key";
-	" - x (EXit)   : Does Exactly What It Says On The Tin. (Kills the CA, but does not in itself close the window. Can be used to restart another.)"]@rs) 10 980
+	" - x (EXit)   : Does Exactly What It Says On The Tin. (Kills the CA, but does not in itself close the window. Can be used to restart another or do stuff, after the go call; if the program ends the window is closed by graphics.)"]@rs) 10 980
 (** tob64 n compresses n in base 64, assuming it's smaller than 64**2 *)
 let rec tob64 n =
 	if n < 10 then string_of_int n else
@@ -135,7 +134,7 @@ let rec di g p f n col e rs h _g =
 	let si = Array.length g in
 	let z = 1000/si in (* the widh of a cell in pixels *)
 	let w k = if k >= si then k - si else if k < 0 then si + k else k in (* w for wrap around *)
-	let draw x y c = set_color c; fill_rect (x*z) (y*z) (z-1) (z-1) in (* draws a cell, aka a rectangle. c is the color *)
+	let draw x y c = set_color c; fill_rect (x*z) (y*z) (z-1) (z-1) in (* draws a cell, aka a square. c is the color *)
 	let fi co = (* Find the Index for a color in col *)
 		let rec fi' i = 
 			if i = Array.length col
@@ -199,9 +198,9 @@ let rec di g p f n col e rs h _g =
 	let rec wa() = (* for wait *)
 		match read_key() with
 		| ' ' -> (match p with 
-			| 'p' -> bl " - running - ";di g_ 'p' f n col e rs (change::h) g
-			| 'b' -> if h <> [] then (bl " - running - "; di (reverse g_ (if change = "" then List.hd h else change)) 'b' f n col e rs (if change = "" then List.tl h else h) (if change = "" then g else dcopy g_)) else (bl "ERROR: NO VISIBLE HISTORY"; wa())
-			| _ -> () )
+			| 'p' | 'o' | 's' -> bl " - running - "; di g_ 'p' f n col e rs (change::h) g
+			| 'b' | 'l' -> if h <> [] then (bl " - running - "; di (reverse g_ (if change = "" then List.hd h else change)) 'b' f n col e rs (if change = "" then List.tl h else h) (if change = "" then g else dcopy g_)) else (bl "ERROR: NO VISIBLE HISTORY"; wa())
+			| _ -> wa() )
 		| 'p' -> bl " - running - "; di g_ 'p' f n col e rs (change::h) g
 		| 'o' -> bl " - pause - "; di g_ 'o' f n col e rs (change::h) g
 		| 'e' -> bl " - editing - ";
