@@ -63,7 +63,8 @@ let find_path i f =
 let regs = let open Str in
 	let id = {|[a-z_][a-zA-Z0-9_']*|} and
 	mo = {|[A-Z][a-z_0-9A-Z']*|} in 
-	let fd = " *"^id^{| *[:=] *.+ *|} in
+	let ws = "[ \t\n\r]*" in
+	let fd = ws^{|\(mutable|}^ws^{|\)?|}^id^ws^{|[:=]|}^ws^{|.+|}^ws in
 	let a = 
 	[|regexp ("^"^mo^{|\(\.|}^id^{|\)?$|}); 						(* 0 if a word looks like Module or Module.something *)
 	  regexp ("^"^id^{|*\.ml: No such file or directory$|});		(* 1 if a Sys_error message is for missing file *)
@@ -74,7 +75,7 @@ let regs = let open Str in
 	  regexp {|[ 	]*\^[ 	]*|};											(* 6 pointer line *)
 	  regexp {|^[0-9]+ error(s) encountered$|}; 					(* 7 thank you, i can count *)
 	  regexp {|^[0-9]+ | .*$|};										(* 8 code snippet *)
-	  regexp ({|^{\(|}^id^" with "^{|\)?|}^fd^{|\(;|}^fd^{|\)*}$|});(* 9 a record *)
+	  regexp ({|^{\(|}^id^ws^"with"^ws^{|\)?|}^fd^{|\(;|}^fd^{|\)*}$|});(* 9 a record *)
 	  regexp ("stdlib__"^mo^{|\..*|})								(* 10 a stdlib package file *)
 	  |] in
 	(fun i s -> string_match a.(i) s 0)
@@ -145,7 +146,12 @@ let rec finddep n i =
 		let t_ = List.fold_left (fun l v -> let (a, b) = finddep_ v (n::p) in (fst l@a, snd l@b)) t (snd t) in
 		(uni (fst t_), uni (snd (t_)))
 	in let (a, b) = finddep_ n [] in
-	(String.concat "," a, String.concat " "  @@ List.map (fun s -> s ^ ".ml") @@ (b@[n]))
+	(
+		String.concat "," a,
+		(List.rev b @ [n])
+		|> List.map (fun s -> s ^ ".ml")
+		|> String.concat " "
+	)
 (** Compiles the list of files given (files are in this module always given without their extension, .ml is assumed) *)
 let rec comp l s i = 
 	try begin
