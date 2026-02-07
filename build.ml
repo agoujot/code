@@ -1,9 +1,13 @@
 (** Utility to compile files without having to bother about manually checking dependencies or making documentation *)
+(** for dependence loops in files *)
 exception Cyclical_dependence of string list
+(** for when ocamlfind reports missing package*)
 exception Missing_package of string
 (** Raised when there is an unfinished something at the end. *)
 exception Unfinished of string
 exception Missing_file of string
+(** ocamlopt failed *)
+exception Comp_fail
 (** Help message *)
 let info = 
 "This is a utility to compile .ml files to native.
@@ -141,7 +145,9 @@ let rec finddep n i =
 		uni |> 
 		List.map String.lowercase_ascii 
 		|> List.filter (fun s -> not (List.mem s stdlib)) |> 
-		List.partition (fun s -> not @@ List.mem s @@ List.map Filename.remove_extension @@ List.map remove_path @@ scan i) in
+		List.partition (fun s ->
+			not @@ List.mem s @@ List.map Filename.remove_extension @@ List.map remove_path @@ scan i
+		) in
 		(fst tmp, List.map (find_path i) @@ snd @@ tmp) in
 		let t_ = List.fold_left (fun l v -> let (a, b) = finddep_ v (n::p) in (fst l@a, snd l@b)) t (snd t) in
 		(uni (fst t_), uni (snd (t_)))
@@ -232,7 +238,10 @@ let rec comp l s i =
 				String.make (c * (tablength - 1)) ' ') else (
 			print_endline l; "")))))
 		"" result);
-		if result <> [] then print_endline "\x1b[34;1m.\x1b[0m"; (* to distinguish outputs from this from outputs from compiler. *)
+		if result <> [] then (
+			print_endline "\x1b[34;1m.\x1b[0m"; (* to distinguish outputs from this from outputs from compiler. *)
+			raise Comp_fail
+		);
 		comp tl "" i)
 	end with x -> (clean(scan i);
 	match x with 
@@ -241,5 +250,6 @@ let rec comp l s i =
 	| Missing_file y -> print_endline (y^" disappeared during compilation.\nProbably due to another program manipulating files at the same time.")
 	| Missing_package s -> print_endline ("Missing package: "^s)
 	| Unfinished y -> print_endline("There was an unfinished "^y^" at the end of the file."^if y = "character" then "\nIt might be due to your using apostrophes in identifiers.\nIt is allowed, but don't." else "")
+	| Comp_fail -> exit 1 (* just there so it doesn't register as exit 0 *)
 	| _ -> print_endline ("Other error : "^Printexc.to_string x))
 let () = comp arg "" ["./"]
