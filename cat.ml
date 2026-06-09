@@ -1,59 +1,706 @@
+(** Cellular Automata Terminal: simulator for outer-totalistic 2D automata, including interface and commands. Requires Graphics module, xclip, and generally expects to be on linux. *)
 open Graphics
-exception Incoherent_colors
-(** Library for useful functions to run 2D cellular automata, including interface and commands. requires Graphics module. *)
-let () = Random.self_init(); open_graph ""; resize_window 1000 1020; set_color black; fill_rect 0 0 1000 1020; set_window_title "Cellular Automata Terminal" (* initializes the graphics screen & the RNG *)
-let () = set_font "fixed"
-(** write l x y writes a list of strings one line each with the top one starting at x y *)
-let rec write l x y =
-	match l with
-	| [] -> ()
-	| h::t -> set_color black; fill_rect x y (6*String.length h) 19 (* to overlay the text on top of the CA, more pretty *); moveto x y; set_color white; draw_string h; write t x (y-20)
-(** Waits until user presses a key *)
-let rec wait() = if key_pressed() then () else wait()
-(** Displays information about CAT, argument is a list of strings you might want to display at the bottom *)
-let info rs = write ([
+
+(** list of lines to display for help *)
+let help = [
 	"Hello and welcome to my Cellular Automata Terminal (CAT).";
 	"";
-	"(To write a new CA, see the instructions below this line in cat.ml.)";
-	(* Do go with the following arguments (you'll want to open Cat and Graphics):
-	 - a function that given a list of the colors of the neighbours of a cell and the colour of that cell returns the color that cell should now take. (The classic birth/survival notation is accessible through the function bs. Takes birth string and survival string.)
-	 - a list of tuples telling which neighbours the above function should be given, with the tuples being relative coordinates to the cell. (The functions moore, neumann, cross and saltire exist for the neighbourhoods of the same name. All take one parameter, the range.)
-	 - the size in cells of the square grid.
-	 - an array of colors listing all colours existing in your system.
-	 - a function for (re)initialization giving a color from an array of colors and unit. just put equ if you are fine with equal probabilities.
-	 - a list containing lines of text you might want to display, will appear at the end.*)
-	"";
 	"You will have the status in the top left.";
-	"When CAT is running and you click, it will stop and go to pause.";
+	"When CAT is running and you press space, it will stop and go to pause.";
 	"When in pause, you can press keys to do things:";
-	" - spacebar   : play/pause dependign on status.";
-	" - o (One)    : goes one frame further and then back to pause.";
-	" - b (Back)   : play but in reverse, shows you the state of before. going backwards to a frame that has been edited will show you it with the edits";
-	" - l (Last)   : goes one frame backwards and back to pause.";
-	" - e (Edit)   : lets you manually change the state of cells by clicking on them. it changes to the next one in the color array given earlier";
-	"              (which means the order in that array counts). to exit editing mode, press o for Out.";
-	" - n (New)    : generates a new random grid using the element function above.";
-	" - d (Delete) : sets all the grid to black (it is therefore recommended that you have the state 'no life' and that it be black).";
-	" - i (Info)   : shows this. exit by pressing any key";
-	" - x (EXit)   : Does Exactly What It Says On The Tin. (Kills the CA, but does not in itself close the window. Can be used to restart another or do stuff, after the go call; if the program ends the window is closed by graphics.)"]@rs) 10 980
-(** tob64 n compresses n in base 64, assuming it's smaller than 64**2 *)
-let rec tob64 n =
-	if n < 10 then string_of_int n else
-	if n < 36 then String.make 1 @@ char_of_int @@ n-10+65 else
-	if n < 62 then String.make 1 @@ char_of_int @@ n-36+97 else
-	if n = 62 then "-" else
-	if n = 63 then "." else
-	"'"^tob64 (n/64)^tob64 (n mod 64)
-(** frb64 s gets a number out of a base 64 string *)
-let rec frb64 s =
-	if s.[0] = '\'' then let n, _ = frb64 @@ String.sub s 1 1 and m, _ = frb64 @@ String.sub s 2 1 in (n*64+m, 3) else
-	((if '0' <= s.[0] && s.[0] <= '9' then int_of_char s.[0]-48 else
-	if 'A' <= s.[0] && s.[0] <= 'Z' then int_of_char s.[0]-65+10 else
-	if 'a' <= s.[0] && s.[0] <= 'z' then int_of_char s.[0]-97+36 else
-	if '-' = s.[0] then 62 else
-	63), 1)
+	" - spacebar     : play/pause dependign on status.";
+	" - f (Forward)  : simulate new generations";
+	" - n (Next)     : goes one frame further and then back to pause.";
+	" - b (Backward) : play but in reverse, shows you the state of before.";
+	" - p (Previous) : goes one frame backwards and back to pause.";
+	" - e (Edit)     : lets you manually change the state of cells by clicking on them.";
+	"                To exit editing mode, press o (Out).";
+	" - r (Randomise): generates a new random grid.";
+	" - x (Cross)    : generates a new random grid symmetric in both directions";
+	" - d (Delete)   : sets all the grid to black.";
+	" - h, j, k, l   : left, down, up, right scroll (from the vim shortcuts)";
+	" - z, u (Zoom)  : makes cells biger (smaller for u)";
+	" - m (Move)     : try to follow an evolving area in the center (typically a ship).";
+	"                Stops whenever a cell on the edge of the screen is alive.";
+	" - g (Grid)     : toggle grid lines";
+	" - w (Wrap)     : toggle periodic boundary conditions (ie torus). This will reset the grid.";
+	"                Scroll and zoom are unavailable in torus mode.";
+	" - (drag-)click : drag-click over an area to select it.";
+	"                Selection is automatically trimmed to live cells if there are any.";
+	"                You can then:";
+	"                a (All)       select everything";
+	"                r (Randomize) its cells";
+	"                d (Delete)    ie set all cells to black (also copies)";
+	"                c (Copy)      the selection to clipboard as RLE";
+	"                s (Save)      the selection into an RLE file (also copies)";
+	"                You can exit selection at any point with o (Out).";
+	" - v (Paste)    : insert RLE from clipboard with the left corner at mouse position";
+	" - o (Open)     : load grid from an RLE file";
+	" - a (Add)      : insert RLE from file with lower left at mouse position";
+	" - i (Info)     : shows this. Go back to pause by pressing any key";
+	" - +/-          : go faster or slower. Speeds are (in FPS):";
+	"                1, 2, 4, 10, 20, 30, 60, (default), 120, unlimited";
+	" - q (Quit)     : Does Exactly What It Says On The Tin. (Goes back to the CA choice screen.)";
+	"                Put Q again while choosing CA to close CAT.";
+]
+
+(** a cell's state is identified to a positive integer *)
+type state = int
+
+(** a quadrant is a square matrix of states (here stored as a 1D array) *)
+type quadrant = state array
+
+(** we subdivide the state space into square quadrants of identical sizes,
+	and mark each active or inactive *)
+type grid = {
+	q: ((int * int, quadrant * bool * bool) Hashtbl.t); (** quadrant coordinates in the plane to (matrix, activeness, shared).
+		shared tells us if matrix is safe to modify or if it must first be copied. *)
+	si: int; (** each quadrant's width/height in cells *)
+	tor: (int * int) option; (** [None] if using unbounded grid, [Some (w, h)] if using bounded grid, where [w, h] are the height and width in quadrants *)
+}
+
+(** format used to record changes to the grid, where the snds are the absolute cell change location *)
+type change_list = (state * (int * int)) list
+
+(** a neighbourhood is a list of parts, each of which is a list of relative coordinates.
+	for most use cases, only one part will be needed *)
+type neighbourhood = (int * int) list list
+
+(** a transition function takes the list of the states of each neighbour, the current state, and returns the new state *)
+type transition_func = state list list -> state -> state
+
+(** record of parameters needed to describe an automaton *)
+type automaton = {
+	f: transition_func;
+	n: neighbourhood;
+	c: color array
+}
+
+(** record type for the internal state of the simulator, to make calls less annoying *)
+type params = {
+	g: grid;
+	f: transition_func;
+	n: neighbourhood;
+	col: color array;
+	rule: string; (** for rle *)
+	h: change_list list;
+	u: int; (** u, v are the cell offsets of the lower left corner *)
+	v: int;
+	z: int; (** the size of a cell in pixels *)
+	gl: bool; (** whether to draw the grid lines *)
+	sp: int; (** index in {!fps_speeds} *)
+	fo: bool; (** whether to try and follow the living blob *)
+}
+
+(** {1 Grids} *)
+
+(** we don't simulate anything this far from the origin *)
+let max_coord = 5_000
+
+(** implement actual euclidian integer division, where the rest is positive and we have:
+	[p = (divi p q)*q + modu p q]. *)
+let divi p q =
+	if p >= 0 then p/q
+	else ((p-(q-1))/q)
+
+(** see {!divi} *)
+let modu p q = p-q*(divi p q)
+
+(** [grid_new si tor] creates a new {!grid} with no quadrants, quad size set to [si] and toroidal settings [tor] *)
+let grid_new si tor = {q = Hashtbl.create 1; tor = tor; si = si}
+
+(** [grid_copy g] returns a {!grid} with the internal hashtable copied *)
+let grid_copy g =
+	let h = Hashtbl.copy g.q in
+	(* mark all quadrants as shared *)
+	Hashtbl.filter_map_inplace (fun (_, _) (q, t, _) -> Some (q, t, true)) h;
+	{g with q = h}
+
+(** [grid_wrap g (a, b)] wraps around the quadrants numbers if out of window and [g.tor] is not [None] *)
+let grid_wrap g (a, b) = match g.tor with
+	| None -> a, b
+	| Some (da, db) -> modu a da, modu b db
+
+(** [grid_get g i j] gets the value of cell [i, j] in [g] *)
+let grid_get g i j =
+	if abs i > max_coord || abs j > max_coord
+	then 0
+	else
+	match Hashtbl.find_opt g.q (grid_wrap g (divi i g.si, divi j g.si)) with
+	| None -> 0
+	| Some (q, _, _) -> q.((modu i g.si)*g.si+modu j g.si)
+
+(** [grid_quad g a b] gets the matrix of quadrant [a, b] in [g] *)
+let grid_quad g a b =
+	match Hashtbl.find_opt g.q (grid_wrap g (a, b)) with
+	| None -> Array.make (g.si*g.si) 0
+	| Some (q, _, _) -> q
+
+(** [grid_is_shared g a b] gives if quadrant [a, b]'s matrix is shared with another grid *)
+let grid_is_shared g a b =
+	match Hashtbl.find_opt g.q (grid_wrap g (a, b)) with
+	| None -> false
+	| Some (_, _, sh) -> sh
+
+(** [grid_set g i j k] sets [i, j]'s state to [k] in [g]. *)
+let grid_set g i j k =
+	if abs i > max_coord || abs j > max_coord then () else
+	(* we need to copy else quadrants are shared between generations *)
+	let a = divi i g.si 
+	and b = divi j g.si
+	and x = modu i g.si
+	and y = modu j g.si in
+	let m = (if grid_is_shared g a b then Array.copy else Fun.id) (grid_quad g a b) in
+	m.(x*g.si+y) <- k;
+	Hashtbl.replace g.q (grid_wrap g (a, b)) (m, true, false)
+
+(** [grid_remove quad g a b] removes the quad [a, b] of [g] *)
+let grid_remove_quad g a b =
+	Hashtbl.remove g.q (grid_wrap g (a, b))
+
+(** [grid_mark_active g (a, b) bo] sets the activity of quad [a, b] in [g] to [bo] *)
+let grid_mark_active g (a, b) bo =
+	Hashtbl.replace g.q (grid_wrap g (a, b)) (grid_quad g a b, bo, grid_is_shared g a b)
+
+(** [grid_activate_adjacent g (a, b)] marks the quads within a moore distance of 1 of [a, b] active in g*)
+let grid_activate_adjacent g (a, b) =
+	for da = -1 to 1 do
+		for db = -1 to 1 do
+			grid_mark_active g (a+da, b+db) true
+		done
+	done
+
+(** [grid_activate_cell_rect g x y dx dy] marks the cells of the rectangle
+	with lower left at [x, y] and upper right at [x+dx, y+dy] as active.
+	Only marks the borders of the rectangle. *)
+let grid_activate_cell_rect g x y dx dy =
+	(* mark the quads that overlap or border the [x, x+dx] [y, y+dy] cell rectangle
+	 considering strictly the rectangle borders, not its inside *)
+	for a = divi x g.si - 1 to divi (x+dx) g.si + 1 do
+		grid_mark_active g (a, divi y g.si - 1) true;
+		grid_mark_active g (a, divi (y+dy) g.si + 1) true
+	done;
+	for b = divi y g.si - 1 to divi (y+dy) g.si + 1 do
+		grid_mark_active g (divi x g.si - 1, b) true;
+		grid_mark_active g (divi (x+dx) g.si + 1, b) true
+	done
+
+(** [grid_trim g x y dx dy] returns [i, j, di, dj] such that
+	the [i, j] to [i+di, j+dj] rectangle is the smallest subrectangle
+	containing all live cells in [x, y] to [x+dx, y+dy] in g.
+	if there are no live cells returns x, y, 0, 0 *)
+let grid_trim g x y dx dy =
+	let test r r_lim s ds pa mo =
+		(* does mo r where mo is incr/decr and r is a ref,
+		 as long as the cells pa s, ..., pa s+ds are all black
+		 and !r <> r_lim *)
+		while (
+			let check = ref true in
+			for k = s to s+ds do
+				let (n, m) = pa k in
+				if grid_get g n m <> 0
+				then check := false
+			done;
+			!check && !r <> r_lim) do
+			mo r
+		done
+	in
+	(* first decrease width & height *)
+	let dx_ = ref dx in
+	test dx_ 0 y dy (fun j -> x + !dx_, j) decr;
+	let dy_ = ref dy in
+	test dy_ 0 x dx (fun i -> i, y + !dy_) decr;
+	(* then increase left & bottom *)
+	let x_ = ref x in
+	test x_ (x + !dx_) y dy (fun j -> !x_, j) incr;
+	dx_ := !dx_ - (!x_ - x);
+	let y_ = ref y in
+	test y_ (y + !dy_) x dx (fun i -> i, !y_) incr;
+	dy_ := !dy_ - (!y_ - y);
+	!x_, !y_, !dx_, !dy_
+
+(** {1 Interface} *)
+
+(** height of the bar for status etc, in pixels *)
+let text_height = 20
+
+(** Array of fps speeds, where 0 stands for "unlimited" *)
+let fps_speeds =
+	[| 0; 1; 2; 4; 10; 20; 30; 60; 120 |]
+
+(** actual y size, excluding status bar *)
+let height () = size_y () - text_height
+
+(** for consistency with {!height} *)
+let width () = size_x ()
+
+(** [write l x y] writes a list of strings one line each with the top one starting at [x, y],
+	in color [co] (and black bg) *)
+let rec write l x y co =
+	match l with
+	| [] -> ()
+	| h::t ->
+		set_color black;
+		fill_rect x y (6*String.length h) 19 (* to overlay the text on top of the CA, more pretty *);
+		moveto x y; set_color co; draw_string h;
+		write t x (y-text_height) co
+
+(** [top_left s co] erases the {!text_height} top pixels and writes [s] with color [co] at the top left *)
+let top_left s co =
+	set_color black; fill_rect 0 (height ()) (width ()) text_height;
+	write [s] 10 (height ()) co
+
+(** [status s] {!top_left}s text with dashes on the side *)
+let status s = top_left (" - "^s^" - ") white
+
+(** [error s] {!top_left}s text in red and all-caps with [ERROR:] in front *)
+let error s = top_left ("ERROR: "^(String.uppercase_ascii s)) red
+
+(** [input autoc] reads text from the homemade input field,
+	where autoc is an array of possibilities *)
+let input autoc = 
+	(* s is the fields contents *)
+	let rec input_aux s =
+		let st = wait_next_event [Key_pressed] in
+		let c = st.key in 
+		if c = '\013' then s (* enter *)
+		else if c = '\008' then ( (* backspace *)
+			let ns = if s = "" then s else (String.sub s 0 (String.length s - 1)) in
+			Unix.sleepf 0.1;
+			top_left ns white; input_aux ns
+		) else if c = '\009' then ( (* tab *)
+			(* take the first value in autoc that starts by s *)
+			match Array.find_opt (String.starts_with ~prefix:s) autoc with
+			| None -> input_aux s
+			| Some t ->
+				Unix.sleepf 0.1;
+				top_left t white;
+				input_aux t
+		) else (
+			Unix.sleepf 0.1;
+			top_left (s^(String.make 1 c)) white;
+			input_aux (s^(String.make 1 c))
+		)
+	in input_aux ""
+
+(** fill the cell space with black *)
+let erase_all () = set_color black; fill_rect 0 0 (width ()) (height ())
+
+
+(** [small_zoom s] gives whether the z is small enough for us to change behaviour *)
+let small_zoom s = s.z < 4
+
+(** width of visible cells (in cells). for torus is smaller *)
+let cells_width s =
+	match s.g.tor with
+	| None -> width ()/s.z
+	| Some (da, _) -> s.g.si*da
+(** height of visible cells (in cells). for torus is smaller *)
+and cells_height s =
+	match s.g.tor with
+	| None -> height ()/s.z
+	| Some (_, db) -> s.g.si*db
+
+(** [draw i j c s] draws a cell, aka a square. [c] is the color, [s] is the state (for some params) *)
+let draw i j c s =
+	if abs i > max_coord || abs j > max_coord then ()
+	else
+	let x = (i-s.u)
+	and y = (j-s.v) in
+	if 0 <= y && y < cells_height s && 0 <= x && x < cells_width s then (
+		set_color s.col.(c);
+		let o = if s.gl && not (small_zoom s) then 1 else 0 in
+		fill_rect (x*s.z+o) (y*s.z+o) (s.z-1-o) (s.z-1-o);
+	)
+
+(** draws the grid lines, not at very low zoom *)
+let draw_grid s =
+	if s.gl && not (small_zoom s) then begin
+		set_color (rgb 32 32 32);
+		for x = 0 to cells_width s do
+			if modu (x+s.u) 10 = 0 then set_color (rgb 64 64 64);
+			if modu (x+s.u) 10 = 1 then set_color (rgb 32 32 32);
+			moveto (x*s.z) 0;
+			lineto (x*s.z) (height ());
+		done;
+		set_color (rgb 32 32 32);
+		for y = 0 to cells_height s do
+			if modu (y+s.v) 10 = 0 then set_color (rgb 64 64 64);
+			if modu (y+s.v) 10 = 1 then set_color (rgb 32 32 32);
+			moveto 0 (y*s.z);
+			lineto (width ()) (y*s.z)
+		done
+	end
+
+(** [redraw_all s] redraws all cells in [s.g] and the grid lines where applicable *)
+let redraw_all s =
+	auto_synchronize false;
+	erase_all ();
+	let si = s.g.si in
+	Hashtbl.iter (fun (a, b) (q, _, _) ->
+		for x = 0 to si - 1 do
+			for y = 0 to si - 1 do
+				draw (a*si+x) (b*si+y) q.(x*si+y) s
+			done;
+		done;
+	) s.g.q;
+	draw_grid s; (* drawing the grid is actually really expensive *)
+	auto_synchronize true
+
+let char_to_delta = function
+	| 'h' -> (-1, 0)
+	| 'j' -> (0, -1)
+	| 'k' -> (0, 1)
+	| 'l' -> (1, 0)
+	| _ -> (0, 0)
+
+(** {1 Pattern saving/loading} *)
+
+(** [to_rle g x y dx dy r] makes an RLE string for the cells [x, y] to [x+dx, y+dy] of [g], with [r] the rulestring *)
+let to_rle g x y dx dy r =
+	let rec string_of_state k =
+		(* character choice taken from golly for interoperability *)
+		if k = 0 then "b"
+		else if k = 1 then "o"
+		else if k <= 24 then String.make 1 (char_of_int (65 + k - 1))
+		else let hi = (k-24)/24 in (String.make 1 (char_of_int (112 + hi)))^string_of_state (k - (hi+1)*24)
+	in
+	let b = Buffer.create (dx*dy) in
+	let cur = ref "!"
+	and ti = ref 0 in
+	let add_token () =
+		if !ti <= 0 then () else
+		let o = if !ti = 1
+		then !cur
+		else (string_of_int (!ti)) ^ (!cur)
+		in
+		Buffer.add_string b o
+	in
+	let line_end () =
+		if !cur = "$"
+		then incr ti
+		else (
+			if !cur <> "!" && !cur <> string_of_state 0
+			then add_token ();
+			cur := "$"; ti := 1
+		)
+	in
+	let use_new k =
+		let z = string_of_state k in
+		if !cur = z
+		then incr ti
+		else (
+			if !cur <> "!"
+			then add_token ();
+			cur := z; ti := 1
+		)
+	in
+	(* we have two algorithms, which can be more or less effective depending on the grid.
+	   Either we iterate over all the cells in the rectangle: O(dx*dy),
+	   or we iterate over all the active cells: O(#g.q) (plus some other stuff but negligible.) *)
+	if dx*dy < Hashtbl.length g.q || true then (
+		for j = y + dy -1 downto y do
+			let empty = Array.for_all (fun i -> grid_get g i j = 0) (Array.init dx (fun k -> k+x)) in
+			if not empty then (
+				for i = x to x + dx - 1 do
+					(* we function on columns but rle functions on lines (plus our lines start from bottom) *)
+					(* this is the costy part, because we're requesting a lot of cells which,
+					   as it happens, may have no remote possibility of being alive *)
+					use_new (grid_get g i j);
+				done;
+			);
+			line_end ()
+		done;
+	) else (
+		Hashtbl.to_seq g.q
+		(* filter out chunks which surely can't be it, but this may keep a few redundant ones on the edges.
+		 this is the costy part of this algorithm: iterating over the whole of g *)
+		|> Seq.filter (fun ((a, b), _) ->
+			x/g.si <= a && a <= (x+dx)/g.si &&
+			y/g.si <= b && b <= (y+dy)/g.si
+		)
+		|> List.of_seq
+		(* sort by decreasing b, then decreasing a. the way group is made will flip a's again to increasing *)
+		|> List.sort (fun ((a, b), _) ((c, d), _) -> -2*(compare b d) - compare a c)
+		(* to actually read a RLE line in a row (which is fixed j, increasing i),
+		   we need to read one line of each quadrant that has this b,
+		   then the next lines for those quadrants, etc
+		   so we group by b *)
+		|> (let rec group gr l =
+			match gr, l with
+			| [], [] -> []
+			| [], h::t -> group [h] t
+			| _, [] -> [gr]
+			| x::_, h::t ->
+				(* same b line *)
+				if snd (fst h) = snd (fst x)
+				then group (h::gr) t
+				else (gr :: group [h] t)
+			in group [])
+		|> (fun l -> List.fold_left (fun last_b gr ->
+			let b = snd (fst (List.hd gr)) in
+			(* add $s for empty lines *)
+			if !cur = "$"
+			then ti := !ti + (last_b - b - 1)*g.si
+			else (
+				add_token ();
+				cur := "$";
+				ti := (last_b - b - 1)*g.si
+			);
+			for j = g.si - 1 downto 0 do
+				ignore(List.fold_left (fun last_a ((a, _), (q, _, _)) ->
+					(* add bs for empty cells since the last quad*)
+					if last_a < a - 1 then (
+						if !cur = string_of_state 0
+						then ti := !ti + (a - 1 - last_a)*g.si
+						else (
+							add_token ();
+							cur := string_of_state 0;
+							ti := (a - 1 - last_a)*g.si
+						)
+					);
+					for i = 0 to g.si - 1 do
+						use_new q.(i*g.si+j)
+					done;
+					a
+				) (x/g.si - 1) gr);
+				line_end ();
+			done;
+			b
+		) (snd (fst (List.hd (List.hd l)))) l)
+		|> ignore;
+	);
+	if !cur <> "!" && !cur <> "$"
+	then add_token ();
+	"x = "^(string_of_int dx)^
+	", y = "^(string_of_int dy)^
+	", rule = "^r^"\n"^(Buffer.contents b)^"!"
+
+(** trying to parse as RLE something which isn't *)
+exception Not_rle
+
+(** [from_rle s g x y] interprets [s] as an RLE string,
+	and adds its contents in grid [g] with the left corner at [x, y]
+ 	@raise Not_rle if s can't be made sense of as an RLE string *)
+let from_rle s g x y =
+	try begin
+	let l = String.split_on_char '\n' s in
+	let md = List.hd l
+		|> String.split_on_char '='
+		|> List.map (fun s -> String.trim (if String.exists ((=) ',') s then String.sub s 0 (String.index s ',') else s))
+		|> List.tl
+		|> Array.of_list
+	in
+	let dx = int_of_string md.(0) 
+	and dy = int_of_string md.(1) in
+	let r = String.concat "" (List.tl l) in
+	let k = ref 0 in
+	let i = ref 0 in
+	let j = ref 0 in
+	let n = ref 0 in
+	let c = ref [] in
+	let toactivate = Hashtbl.create 1 in
+	while (!k < String.length r) do
+		(match r.[!k] with
+		| '0'..'9' -> n := !n*10 + (int_of_char r.[!k] - 48)
+		| '$' -> j := !j + (max !n 1); i := 0; n := 0
+		| 'b'  -> i := !i + (max !n 1); n := 0
+		(* character choice taken from golly for interoperability *)
+		| 'o'..'y' | 'A'..'X' ->
+			let co =
+				if r.[!k] = 'o' then 1
+				else if r.[!k] < 'o' then int_of_char r.[!k] - 65 + 1
+				else 24*(int_of_char r.[!k] - 112 + 1) + (
+					incr k;
+					assert ('A' <= r.[!k] && r.[!k] <= 'X');
+					int_of_char r.[!k] - 65 + 1
+				)
+			in
+			let i_lim = !i+(max !n 1) in
+			while !i < i_lim do
+				let i_ = x + !i
+				and j_ = y + dy - 1 - !j in
+				c := (grid_get g i_ j_, (i_, j_))::(!c);
+				grid_set g i_ j_ co;
+				Hashtbl.replace toactivate (divi i_ g.si, divi j_ g.si) true;
+				incr i
+			done;
+			n := 0
+		| '!' -> ()
+		| _ -> assert false);
+		incr k
+	done;
+	Hashtbl.iter (fun (a, b) _ -> grid_activate_adjacent g (a, b)) toactivate;
+	!c, dx, dy
+	end
+	with _ -> raise Not_rle
+
+(** [set_clipboard s] copies [s] to clipboard, using xclip. *)
+let set_clipboard s =
+	let oc = Unix.open_process_out "xclip -selection clipboard -in" in
+	output_string oc s; flush oc;
+	close_out oc
+
+(** get clipboard contents, using xclip *)
+let get_clipboard () =
+	try
+		let ic = Unix.open_process_in "xclip -selection clipboard -out" in
+		let s = In_channel.input_all ic in
+		close_in ic;
+		s
+	with _ -> ""
+
+(** gives the sorted list of the filenames (with extension) in cwd *)
+let get_rle_files () =
+	Sys.readdir "." |> Array.to_list |> List.filter (String.ends_with ~suffix:".rle") |> Array.of_list
+
+(** get a file name using {!input} and normalize it to .rle *)
+let get_file_name () = 
+	status "enter file name, put nothing to cancel";
+	let s = String.trim (input (get_rle_files ())) in
+	if s = "" then None else
+	if String.ends_with ~suffix:".rle" s
+	then Some s
+	else Some (s ^ ".rle")
+
+(** [save_to_file s name] saves string [s] to [.rle] file [name] *)
+let save_to_file s name =
+	let oc = open_out name in
+	output_string oc s;
+	close_out oc
+
+(** [read_from_file name] gets the contents of file [name] as a string. *)
+let read_from_file name =
+	let ic = open_in name in
+	let s = In_channel.input_all ic in
+	close_in ic;
+	s
+
+(** {1 Automata configurations} *)
+
+(** [frb64 c] gets a number out of a base 64 digit. <{i base64digit}> ::= [0]...[9] | [A]...[Z] | [a]...[z] | [+] | [_] *)
+let rec frb64 c =
+	match c with
+	| '0'..'9' -> int_of_char c - 48
+	| 'A'..'Z' ->int_of_char c - 65 + 10
+	| 'a'..'z' -> int_of_char c - 97 + 36
+	| '+' -> 62
+	| '_' -> 63
+	| _ -> raise (Invalid_argument "frb64")
+
+(** [explode s] gives the list of the characters of [s] *)
+let explode s =
+	let rec aux i =
+		if i = String.length s
+		then []
+		else s.[i]:: aux (i+1)
+	in aux 0
+
+(** [count l c] counts the number of occurrences of [c] in [l] *)
+let rec count l c = match l with 
+	| [] -> 0
+	| i::s -> if i = c then 1 + count s c else count s c
+
+(** [bs bi su] returns a function by a method adjacent to the Bbi/Ssu notation ({{:https://conwaylife.com/wiki/Life-like_cellular_automaton#Notation}on lifewiki}) *)
+let bs bi su : transition_func = 
+	let test s = (* returns function that tests whether a count matches s *)
+		if s = "" then (fun _ -> false) else
+		let parts = String.split_on_char ',' s in
+		(fun c -> List.exists 
+		(fun ss -> if String.contains ss '-' (* set *)
+			then (let bo = Array.of_list @@ List.map int_of_string @@ String.split_on_char '-' ss in bo.(0) <= c && c <= bo.(1))
+			else int_of_string ss = c) (* single value *)
+		parts) in
+	let bi_ = test bi and su_ = test su in
+	(fun l v ->
+		let c = count (List.hd l) 1 in
+		if v = 0 then
+			if bi_ c then 1 else 0
+		else
+			if su_ c then 1 else 0
+	)
+
+(** parse [s] as a rule string either with k states, and return a {!transition_func}. \n
+ 	if [s] contains a [/], then it is parsed by {!bs}. \\
+	else, it is parsed with the following format:
+
+	<{i number}> ::=
+
+		<{i base64digit}>
+
+		| ['] <{i base64digit}> <{i base64digit}> Two-digit base64 number
+
+	<{i function}> ::=
+
+		<{i number}> Constant function
+
+		| [!] Value of current cell
+		
+		| [#] <{i number}> Count of neighbours of given state
+
+		| [@] <{i number}> <{i number}> Count of neighbours of the state (second number) in neighbourhood section (first number)
+
+		| ( [|] | [&] ) <{i function}> <{i function}> Boolean or and and of functions returning 0 or 1
+
+		| ( [<] | [=] | [>] ) <{i function}> <{i function}> Comparison of the result of two functions (returns 0 or 1)
+	
+		| [?] <{i function}> <{i function}> <{i function}> If the first function returns 1, then return the result of the first, else return the result of the second.
+
+	All integers are supposed to be smaller than [64^2 = 4096].
+*)
+let parse_rule s k : transition_func =
+	(* int function of bool function of two variables*)
+	let iobf f = fun x y -> if f x y then 1 else 0 in
+	(* parses the first tokens of the list into
+		the function built by the first operator,
+		and the list of remaining tokens
+	the function built here takes as parameter not the actual states, but the counts (so that said counts don't get recounted) *)
+	let rec parse_aux = function
+		| [] -> raise (Invalid_argument "parse_rule")
+		| h::t -> (match h with
+			| '0'..'9' | 'a'..'z' | 'A'..'Z' | '+' | '_' -> (fun _ _ -> frb64 h), t
+			| '!' -> (fun _ v -> v), t
+			| '#' -> let f, r = parse_aux t in
+				(fun c v -> c.(0).(f c v)), r
+			| '>' | '<' | '=' | '|' | '&' | '\'' | '@' ->
+				let f, r = parse_aux t in
+				let g, s = parse_aux r in
+				(fun c v -> (match h with
+					| '>' -> iobf (>)
+					| '<' -> iobf (<)
+					| '=' -> iobf (=)
+					| '|' -> (lor)
+					| '&' -> (land)
+					| '\'' -> fun x y -> 64*x+y
+					| '@' -> (fun x y -> c.(x).(y))
+					| _ -> assert false
+				) (f c v) (g c v)), s
+			| '?' ->
+				let f, r = parse_aux t in
+				let g, s = parse_aux r in
+				let h, e = parse_aux s in
+				(fun c v -> if (f c v = 1) then (g c v) else (h c v)), e
+			(* skip (lets people put parentheses, spaces) *)
+			| _ -> parse_aux t
+		)
+	in 
+	if String.exists ((=) '/') s
+	then
+		let i = String.index s '/' in
+		bs (String.sub s 1 (i-1)) (String.sub s (i+2) (String.length s - i - 2))
+	else 
+		let get_counts l =
+			l
+			|> List.map (fun p ->
+				let a = Array.make k 0 in
+				List.iter (fun i -> a.(i) <- a.(i)+1) p;
+				a)
+			|> Array.of_list
+		in
+		fun l v -> (fst @@ parse_aux @@ explode s) (get_counts l) v
+
 (** Moore neighbourhood of range given *)
-let moore r = 
+let moore r : neighbourhood = 
 	let rec it i j = 
 		if i = r+1 then [[];[];[];[]] 
 		else if j = r+1 then it (i+1) 0
@@ -65,11 +712,19 @@ let moore r =
 			| 3 -> (j, -i)::v
 			| _ -> assert false)
 			(it i (j+1)) in
-	List.concat (it 1 0)
+	[List.concat (it 1 0)]
+
 (** Neumann neighbourhood of range given *)
-let neumann r = let rec it i j = if i = (r+1) then [] else if j = (r-(abs i)+1) then it (i+1) (-r+(abs (i+1))) else if i = 0 && j == 0 then it i (j+1) else (i, j)::it i (j+1) in it (-r) 0
+let neumann r : neighbourhood =
+	let rec it i j =
+		if i = (r+1) then [] else
+		if j = (r-(abs i)+1) then it (i+1) (-r+(abs (i+1))) else
+		if i = 0 && j == 0 then it i (j+1)
+		else (i, j)::it i (j+1)
+	in [it (-r) 0]
+
 (** Cross neighbourhood of range given *)
-let cross r = 
+let cross r : neighbourhood = 
 	let rec it i = 
 		if i = 0 then [[];[];[];[]] else
 		List.mapi (fun j v ->
@@ -80,197 +735,555 @@ let cross r =
 			| 3 -> (0, i)::v
 			| _ -> assert false)
 		(it (i-1)) in
-	List.concat (it r)
+	[List.concat (it r)]
+
 (** Saltire (diagonal cross) neighbourhood of range given *)
-let saltire r = (let rec it k = if k = 0 then [] else (-k, -k)::(-k, k)::(k, -k)::(k, k)::it (k-1) in it r)
-(** equ a returns a function that chooses a random element from a *)
-let equ a = (fun () -> let r = Random.int (Array.length a) in a.(r))
-(** count l c counts the number of occurrences of c in l *)
-let rec count l c = match l with 
-	| [] -> 0
-	| i::s -> if i = c then 1 + count s c else count s c
-(** bs bi su returns a function corresponding to the Bbi/Ssu notation see {{:https://conwaylife.com/wiki/Life-like_cellular_automaton#Notation}on lifewiki} *)
-let bs bi su = 
-	let test s = (* returns function that tests whether a count matches s *)
-		let parts = String.split_on_char ',' s in
-		(fun c -> List.exists 
-		(fun ss -> if String.contains ss '-' (* set *)
-			then (let bo = Array.of_list @@ List.map int_of_string @@ String.split_on_char '-' ss in bo.(0) <= c && c <= bo.(1))
-			else int_of_string ss = c) (* single value *)
-		parts) in
-	let bi_ = test bi and su_ = test su in
-	(fun l v ->
-		let c = count l white in
-		if v = black then
-			if bi_ c then white else black
-		else
-			if su_ c then white else black
-	)
-(** b e si builds an array array of size si filled with results of e() (to allow for different random results) *)
-let rec b e si = 
-	let rec itx x = 
-		let rec ity y =
-			if y = si
-			then [||]
-			else Array.append [|e()|] (ity (y+1))
-	    in if x = si
-		then [||]
-		else Array.append [|ity 0|] (itx (x+1))
-	in itx 0
-(** Deepcopy of an array array *)
-let rec dcopy a = let rec it i = if i = Array.length a then [||] else Array.append [|Array.copy a.(i)|] (it (i+1)) in it 0
-(** For bottom left (even though now it is in the top left), erases the top and displays the text given. for status *)
-let bl s = set_color black; fill_rect 0 1000 1000 20; write [s] 10 1000
-(** inp s reads text from the homemade input field, waiting for a line return (call with "") *)
-let rec inp s = 
-	if key_pressed() then 
-		(let c = read_key() in 
-		if c = char_of_int 13 then s else
-		if c = char_of_int 8 then (let ns = if s = "" then s else (String.sub s 0 (String.length s - 1)) in Unix.sleepf 0.1; bl ns; inp ns) else
-		(Unix.sleepf 0.1; bl (s^(String.make 1 c)); inp (s^(String.make 1 c))))
-	else inp s 
-(** di for do it, as it does most things. Arguments are : an array array of cells (Graphics.color's), a character for parameters (p to play, o to do one frame, b to go backwards, l to go to the last frame, and s to stop), a function that returns a new color from a list of colors and the old color, a list of the relative coordinates of neighbours, an array of the colors of the CA, a function returning a color from unit, a list of strings to display for information, a list of compressed changes, and the grid of before. you are not supposed to touch this, call go. *)
-let rec di g p f n col e rs h _g =
-	let g_ = dcopy g in (* new array in which modifications will be made *)
-	let si = Array.length g in
-	let z = 1000/si in (* the widh of a cell in pixels *)
-	let w k = if k >= si then k - si else if k < 0 then si + k else k in (* w for wrap around *)
-	let draw x y c = set_color c; fill_rect (x*z) (y*z) (z-1) (z-1) in (* draws a cell, aka a square. c is the color *)
-	let fi co = (* Find the Index for a color in col *)
-		let rec fi' i = 
-			if i = Array.length col
-			then raise Incoherent_colors
-			else
-			if col.(i) = co
-			then i
-			else fi' (i+1) in 
-		fi' 0 in
-	let reverse aa c =
-		let l = 
-			let rec def l =
-				match l with
-				| v1::v2::v3::t -> 
-					(if v1 = "" then -1 else int_of_string v1)::
-					(if v2 = "" then 0 else int_of_string v2)::
-					(if v3 = "" then 1 else int_of_string v3)::
-					def t
-				| _ -> []
-			in
-			def @@ List.tl @@ String.split_on_char ',' c 
-		in
-		let rec rev' l i j ls = 
-			match l with
-			| k::y::x::s -> 
-				(let r = if k <> -1 then k else ls in 
-				aa.(i+x).(j+y) <- col.(r); rev' s (i+x) (j+y) r)
-			| _ -> () in
-		rev' l 0 0 0; aa
-		in
-	let rec it i j c x y cc = (* it for iterate, as it does the main loop. c is a string describing changes, (x, y) is the position of the last change, and cc the color of that change *)
-		if i = si
-		then c
-		else
-			if j = si
-			then it (i+1) 0 c x y cc
-			else 
-				let rec ch l = (* ch for check, no ideas, applies the relatives coordinates in n to the coordinates of the current cell to get the colors of the cells to check.*)
-					match l with
-					| [] -> []
-					| hd::tl -> g.(w (i+fst(hd))).(w (j+snd(hd))):: ch tl in
-				(if p = 's' (* for stop *) 
-				then (draw i j (g_.(i).(j)); it i (j+1) c x y cc) 
-				else if p = 'b' || p = 'l' 
-				then (if g.(i).(j) <> _g.(i).(j) then draw i j (g.(i).(j)); it i (j+1) c x y cc) else
-				(let co = f (ch n) (g.(i).(j)) in
-				g_.(i).(j) <- co;
-				let changed = g.(i).(j) <> co in
-				(if changed then draw i j co);
-				it i (j+1) 
-					(if changed then c^","
-						^(if g.(i).(j) <> cc then string_of_int (fi g.(i).(j)) else "")^","
-						^(if j <> y then string_of_int (j-y) else "")^","
-						^(if i <> x+1 then string_of_int (i-x) else "")
-					else c)
-					(if changed then i else x)
-					(if changed then j else y)
-					(if changed then g.(i).(j) else cc))
-				) in
-	let change = it 0 0 "" 0 0 col.(0) in 
-	let rec wa() = (* for wait *)
-		match read_key() with
-		| ' ' -> (match p with 
-			| 'p' | 'o' | 's' -> bl " - running - "; di g_ 'p' f n col e rs (change::h) g
-			| 'b' | 'l' -> if h <> [] then (bl " - running - "; di (reverse g_ (if change = "" then List.hd h else change)) 'b' f n col e rs (if change = "" then List.tl h else h) (if change = "" then g else dcopy g_)) else (bl "ERROR: NO VISIBLE HISTORY"; wa())
-			| _ -> wa() )
-		| 'p' -> bl " - running - "; di g_ 'p' f n col e rs (change::h) g
-		| 'o' -> bl " - pause - "; di g_ 'o' f n col e rs (change::h) g
-		| 'e' -> bl " - editing - ";
-			let rec ed() = (* for editing *)
-			if key_pressed() 
-			then 
-				(if read_key() = 'o' 
-				then (Unix.sleepf 0.2; bl " - pause - "; wa()) 
-				else ed()) 
-			else 
-				(if (button_down())
-				then (let mx = fst(mouse_pos())/z and my = snd(mouse_pos())/z (* coordinates of the cell you clicked in g_ *) in 
-				let co c = col.(((fi c) + 1) mod (Array.length col)) in
-				g_.(mx).(my) <- co (g_.(mx).(my)); draw mx my (g_.(mx).(my)); Unix.sleepf 0.2 (* else you would always change it multiple times *); ed())
-				else ed()) in ed()
-		| 'x' -> ()
-		| 'd' -> di (b (fun _ -> black) si) 's' f n col e rs [] g
-		| 'n' -> di (b e si) 's' f n col e rs [] g
-		| 'i' -> info (rs); wait(); let rec show i j = if i = si then wa() else if j = si then show (i+1) 0 else (draw i j (g_.(i).(j)); show i (j+1)) (*need to redisplay after showing text*) in show 0 0
-		| 'b' -> if h <> [] then (bl " - running - "; di (reverse g_ (if change = "" then List.hd h else change)) 'b' (* use h to read the old ones *) f n col e rs (if change = "" then List.tl h else h) (if change = "" then g else dcopy g_)) else (bl "ERROR: NO VISIBLE HISTORY"; wa())
-		| 'l' -> if h <> [] then (bl " - pause - "; di (reverse g_ (if change = "" then List.hd h else change)) 'l' f n col e rs (if change = "" then List.tl h else h) (if change = "" then g else dcopy g_)) else (bl "ERROR: NO VISIBLE HISTORY"; wa())
-		| 's' ->
-			let compress a =
-				Array.map (Array.map fi) a |>
-				Array.map
-				(fun aa -> let rec it l la ti =
+let saltire r : neighbourhood =
+	let rec it k =
+		if k = 0 then [] else
+			(-k, -k)::(-k, k)::(k, -k)::(k, k)::it (k-1)
+	in [it r]
+
+(** default settings for an automatan *)
+let default_automata = {
+	f = (fun _ _ -> 0);
+	n = moore 1;
+	c = [|black; white|]
+}
+
+(** [radius n] gets the biggest offset in [n] *)
+let radius (n: neighbourhood) =
+	List.fold_left
+		(fun m (di, dj) -> max m (max (abs di) (abs dj)))
+		0
+		(List.concat n)
+
+(** automata name to automata config, read from [.cat_config] *)
+let config =
+	let this = Hashtbl.create 1 in
+	let tup_of_string s =
+		String.split_on_char ',' s
+		|> (fun l -> (int_of_string (List.hd l), int_of_string (List.nth l 1))) in
+	read_from_file ".cat_config"
+	|> String.split_on_char '*'
+	|> List.tl
+	|> List.iter (fun s ->
+		let l = String.split_on_char '\n' (String.trim s) in
+		let name = List.hd l in
+		List.fold_left
+			(fun (aut: automaton) s ->
+				let v = try String.sub s 3 (String.length s-3)
+						with _ -> raise (Invalid_argument "line too short in .cat_config")
+				in
+				match s.[0] with
+				| 'f' -> {aut with f = parse_rule v (Array.length aut.c)}
+				| 'n' -> let r = String.sub v 1 (String.length v - 1) in
+					{aut with n = match v.[0] with
+						| 'M' -> moore (int_of_string r)
+						| 'N' -> neumann (int_of_string r)
+						| '+' -> cross (int_of_string r)
+						| '*' -> saltire (int_of_string r)
+						| _ ->
+						v
+						|> String.split_on_char '@'
+						|> List.map (String.split_on_char ';')
+						|> List.map (List.map tup_of_string)
+					}
+				| 'c' ->
+						{aut with c = if v = "RGB" then [|black; red; green; blue|] else
+						v
+						|> String.split_on_char ';'
+						|> List.map int_of_string
+						|> Array.of_list
+					}
+				| _ -> raise (Invalid_argument "empty line in .cat_config")
+			)
+			default_automata
+			(List.tl l)
+		|> Hashtbl.add this name;
+	);
+	this
+
+(** Displays information about CAT *)
+let info () = write (help @
+	["";
+	"Available CA are:"
+	]@
+	[
+		Hashtbl.to_seq_keys config
+		|> List.of_seq
+		|> List.sort Stdlib.compare
+		|> String.concat ", "
+	]
+	@["Put Q while choosing CAs to close CAT."]) (width () / 3) (height () - 40) white
+
+(** {1 Simulation} *)
+
+(** factorises common logic to forward and backward *)
+let rec direction main err s once =
+	let start = Unix.gettimeofday() in
+	auto_synchronize false;
+	let g_ = grid_copy s.g in (* new grid in which modifications will be made *)
+	try begin
+		let ns = main s g_ in
+		(* time we should have taken but didn't *)
+		auto_synchronize true;
+		let dt = 1. /. (float_of_int fps_speeds.(s.sp)) +. start -. Unix.gettimeofday () in
+		if  s.sp > 0 && dt > 1e-4 then (* Unix.sleepf has a ~0.1ms overhead *)
+			Unix.sleepf dt;
+		if once || (key_pressed () && read_key () = ' ')
+		then (status "pause"; pause ns (direction main err))
+		else direction main err ns false
+	(* for backward *)
+	end with Failure _ -> err s
+
+(** [forward s once] moves one generation after state [s], then stops if [once] *)
+and forward s once =
+	direction (fun s g_ ->
+		let {g; f; n; col; rule; h; u; v; z; gl; sp; fo} = s in
+		let toactivate = Hashtbl.create 1 in
+		let change = Hashtbl.fold (fun (a, b) (q, t, _) c ->
+			let cc = ref [] in
+			if not t then () else
+			(* go apply rules and display if active *)
+			for x = 0 to g.si - 1 do
+				for y = 0 to g.si - 1 do
+					let k = q.(x*g.si+y) in
+					let i = a*g.si+x
+					and j = b*g.si+y in
+					let rec get_values l =
+						(* applies the relatives coordinates in l
+						   to the coordinates of the current cell to get the states.*)
 						match l with
-						| [] -> if la > -1 then tob64 la^tob64 ti else ""
-						| x::s -> if x = la then it s la (ti+1) else (if la > -1 then tob64 la^tob64 ti else "")^it s x 1 in
-				it (Array.to_list aa) (-1) (-1)) |>
-				Array.to_list |>
-				(fun l -> let rec it l la ti =
-					match l with
-					| [] -> if la = "" then "" else la^(if ti > 1 then "$"^tob64 (ti-1) else "")
-					| x::s -> if x = la then it s la (ti+1) else (if la = "" then "" else la^(if ti > 1 then "$"^tob64 (ti-1) else ""))^it s x 1 in
-				it l "" (-1))
-			in
-			let oc = open_out @@ "AC-"^(string_of_int @@ int_of_float @@ Unix.time())^".txt" in
-			output_string oc @@ compress g;
-			close_out oc;
-			wa();
-		| 'r' ->
-			bl "Enter the file name without the .txt, or - to get the latest file created by CAT.";
-			let fn = let fn_ = inp "" in 
-				if fn_ = "-" then 
-				(Sys.readdir "." |> Array.to_list |> List.filter (fun s -> Str.string_match (Str.regexp {|^AC-[0-9]+\.txt|}) s 0) |> List.sort (fun a b -> if a < b then 1 else if a > b then -1 else 0) |> List.hd)
-				else fn_^".txt" in
-			let decompress s =
-				let rec it i li a =
-					if Array.length li = si then (it i [||] (Array.append a [|li|])) else
-					if i >= String.length s then a else
-					if s.[i] = '$' then
-						let n, j = frb64 (String.sub s (i+1) (String.length s-i-1)) in 
-						it (i+1+j) [||] (Array.append a (Array.make n a.(Array.length a - 1)))
-					else
-					let n, j = frb64 (String.sub s i (String.length s-i)) in
-					let m, k = frb64 (String.sub s (i+j) (String.length s -i-j)) in
-					it (i+j+k) (Array.append li (Array.make m n)) a
+						| [] -> []
+						| hd::tl -> grid_get g (i+fst(hd)) (j+snd(hd)) :: get_values tl
 					in
-				it 0 [||] [||] |>
-				Array.map (fun l -> Array.map (fun i -> col.(i)) l)
+					let k_ = f (List.map get_values n) k in (* new cell state *)
+					if k <> k_ then begin
+						grid_set g_ i j k_;
+						draw i j k_ s; (* don't redraw if hasn't changed *)
+						cc := (k, (i, j))::!cc (* add this change to the changelist *)
+					end
+				done
+			done;
+			(* deal with quadrant activity *)
+			(match !cc with
+			| [] ->
+				(* this quad is inactive *)
+				if Array.exists ((<>) black) (grid_quad g_ a b)
+				then grid_mark_active g_ (a, b) false
+				else grid_remove_quad g_ a b
+			| _ -> Hashtbl.replace toactivate (a, b) true
+			);
+			(!cc) @ c
+		) g.q [] in
+		Hashtbl.iter (fun (a, b) _ -> grid_activate_adjacent g_ (a, b)) toactivate;
+		let ns = {s with g = g_; h = change::h} in
+		if fo && g.tor = None
+		then (
+			let w, h = cells_width s, cells_height s in
+			let x, y, dx, dy = grid_trim g_ u v w h in
+			if x = u || y = v || x + dx = u + w || y + dy = v + h (* touching the edge *)
+			then {ns with fo = false}
+			else (
+				let du = x - (w - dx)/2 - u
+ 				and dv = y - (h - dy)/2 - v in
+				if du = 0 && dv = 0
+				then ns
+				else (
+		let ns = {ns with u = u+du; v = v+dv} in
+		redraw_all ns;
+		ns
+				)
+			)
+		) else ns
+	) ignore s once
+
+(** [backwards s] sends us one generation before state [s], then stops if [once] *)
+and backward s once =
+	direction (fun s g_ ->
+		(* we're already going back, we should undo the top of history *)
+		List.iter (fun (k, (i, j)) -> 
+			grid_set g_ i j k;
+			draw i j k s;
+			grid_mark_active s.g (divi i s.g.si, divi j s.g.si) true
+		) (List.hd s.h);
+		{s with g = g_; h = List.tl s.h}
+	) (fun s -> error "no visible history"; pause s forward) s once (* and yes that's a derek walcott reference. BFI forever. *)
+
+(** [select (i1, j1) (i2, j2) s cb] selects the rectangle whose corners are the two tuples,
+ and waits for keyboard input to act on them. eventually gives the hand back to pause *)
+and select (i1, j1) (i2, j2) s cb =
+	let u, v, g, z, col = s.u, s.v, s.g, s.z, s.col in
+	let x = u+min i1 i2
+	and y = v+min j1 j2
+	and dx = abs(i2-i1)
+	and dy = abs(j2-j1)
+	in
+	(* first autotrim selection if it's not all black *)
+	let x_, y_, dx_, dy_ = grid_trim g x y dx dy in
+	if (dx_ < dx || dy_ < dy || x_ > x || y_ > y)
+		&& not (dx_ = 0 && dy_ = 0 && grid_get g (x_) (y_) = 0)
+	then select (x_ - u, y_ - v) (x_ + dx_ - u, y_ + dy_ - v) s cb
+	else begin
+		(* put a rectangle around selection*)
+		set_color magenta; (* hopefully won't be used in a CA *)
+		(* the +1 -2 is to stay well inside cell borders *)
+		draw_rect ((x-u)*z+1) ((y-v)*z+1) (max 0 ((dx+1)*z-2)) (max 0 ((dy+1)*z-2));
+		let erase_magenta_rect () = 
+			for i = x to x+dx do
+				draw i y (grid_get g i y) s;
+				draw i (y+dy) (grid_get g i (y+dy)) s
+			done;
+			for j = y to y+dy do
+				draw x j (grid_get g x j) s;
+				draw (x+dx) j (grid_get g (x+dx) j) s
+			done;
+			draw_grid s
+		in
+		(* wait for key and act *)
+		let rec act () =
+			let k = Char.lowercase_ascii(read_key ()) in
+			match k with
+			| 'o'->
+				(* erase magenta rect *)
+				erase_magenta_rect ();
+				status "pause";
+				pause s cb
+			| 'd' | 'r' ->
+				let ng = grid_copy g in
+				let c = ref [] in
+				(* replace all cells here *)
+				for i = x to x+dx do
+					for j = y to y+dy do
+						c := (grid_get g i j, (i, j))::!c;
+						grid_set ng i j (
+							if k = 'd'
+							then 0
+							else Random.int @@ Array.length col
+						)
+					done
+				done;
+				grid_activate_cell_rect ng x y dx dy;
+				let ns = {s with g = ng; h = (!c)::s.h} in
+				if k = 'd'
+				then set_clipboard (to_rle g x y (dx+1) (dy+1) s.rule);
+				redraw_all ns; (* we have to do this cuz we messed up the grid lines *)
+				status "pause";
+				pause ns cb
+			| 't' | 'h' | 'j' | 'k' | 'l' -> erase_magenta_rect ();
+				let ng = grid_copy g in
+				let c = ref [] in
+				let a, b = char_to_delta k in
+				let dx_, dy_ = (if k = 't' then dy, dx else dx, dy) in
+				let x_, y_ = (x+a, y+b) in
+				let transform (i, j) =
+					if k = 't' then
+					(* we rotate by bot right then translate dx to left *)
+					(x+dx+(j-y)-dx, y+(x+dx-i))
+					else (i+a, j+b)
+				in
+				let prev (i, j) =
+					if k = 't' then transform (transform (transform (i, j)))
+					else (i-a, j-b)
+				in
+				(* rotate all points (erasing those that won't get overwritten) *)
+				for i = x to x+dx do
+					for j = y to y+dy do
+						let i_, j_ = transform (i, j) in
+						grid_set ng i_ j_ (grid_get g i j);
+						draw i_ j_ (grid_get g i j) s;
+						c := (grid_get g i_ j_, (i_, j_))::!c;
+						let _i, _j = prev (i, j) in
+						(* erase *)
+						if _i < x || _i > x+dx || _j < y || _j > y+dy
+						then (
+							grid_set ng i j 0;
+							draw i j 0 s;
+							c := (grid_get g i j, (i, j))::!c;
+						)
+					done;
+				done;
+				grid_activate_cell_rect ng x_ y_ dx_ dy_;
+				let ns = {s with g = ng; h = (!c)::s.h} in
+				select (x_-u, y_-v) (x_+dx_-u, y_+dy_-v) ns cb
+			| 'c' | 's' ->
+				erase_magenta_rect();
+				let rle = to_rle g x y (dx+1) (dy+1) s.rule in
+				set_clipboard rle;
+				if k = 's' then (match get_file_name () with
+				| Some name -> save_to_file rle name
+				| None -> ());
+				status "pause";
+				pause s cb
+			| 'a' -> erase_magenta_rect();
+				let a_min, a_max, b_min, b_max =
+					Hashtbl.fold (fun (a, b) _ (a_min, a_max, b_min, b_max) -> 
+					(min a a_min, max a a_max, min b b_min, max b b_max)
+				) g.q (max_int, min_int, max_int, min_int)
+				in
+				let i = g.si*a_min-u
+				and j = g.si*b_min-v
+				in
+				let dx = (a_max-a_min+1)*g.si
+				and dy = (b_max-b_min+1)*g.si
+				in
+				select (i, j) (i+dx, j+dy) s cb
+			| _ -> act ()
+		in act ()
+	end
+
+(** [pause s cb] listens for keyboard input (or selection) and then acts upon it,
+   with [s] the next state and [cb] the callback for space bar, {!forward} or {!backward} *)
+and pause s cb =
+	let {g; f; n; col; rule; h; u; v; z; gl; sp; fo} = s in
+	(* scroll by du horizontally and dv vertically *)
+	let scroll (du, dv) =
+		let du = du*(if s.g.tor <> None then 0 else max 1 (30/z))
+		and dv = dv*(if s.g.tor <> None then 0 else max 1 (30/z)) in
+		let ns = {s with u = u+du; v = v+dv} in
+		redraw_all ns;
+		pause ns cb
+	and zoom dz =
+		let du, dv, dz =
+			if s.g.tor <> None
+			then 0, 0, 0
+			else (width ()) * dz / (2*z*(z+dz)), (height ()) * dz / (2*z*(z+dz)), dz
+		in
+		let ns = {s with u = u+du; v = v+dv; z = z+dz} in
+		redraw_all ns;
+		pause ns cb
+	in
+	let st = wait_next_event [Button_down; Key_pressed] in
+	let m =
+		if st.button
+		then '\005' (* ASCII "enquiry", hack(ish) for selection *)
+		else Char.lowercase_ascii st.key
+	in
+	match m with
+	| ' ' -> status "running"; cb s false
+	| 'f' -> status "running"; forward s false
+	| 'n' -> status "pause"; forward s true
+	| 'e' -> status "editing (o to get Out)";
+		let ct = Hashtbl.create 1 in
+		let ng = grid_copy g in
+		let rec ed () = (* for editing *)
+			let st = wait_next_event [Button_down; Key_pressed] in
+			if st.keypressed
+			then (
+				if st.key = 'o'
+				then ()
+				else ed ()
+			) else begin
+				let mx = fst(mouse_pos ())/z+u and my = snd(mouse_pos ())/z+v (* coordinates of the cell you clicked in g *) in 
+				grid_set ng mx my ((grid_get ng mx my + 1) mod (Array.length col));
+				grid_activate_adjacent ng (divi mx g.si, divi my g.si);
+				draw mx my (grid_get ng mx my) s;
+				if not (Hashtbl.mem ct (mx, my))
+				then Hashtbl.add ct (mx, my) (grid_get g mx my);
+				ed ()
+			end
+		in ed ();
+		status "pause";
+		if Hashtbl.length ct = 0
+		then pause s cb (* don't make an empty change, bad ui *)
+		else (
+			(* build the change list *)
+			let c = Hashtbl.fold
+				(fun (i, j) k cc -> (k, (i, j))::cc)
+				ct
+				[]
 			in
-			let ic = open_in fn in
-			let s = input_line ic in
-			close_in ic;
-			di (decompress s) 's' f n col e rs [] g_
-		| _ -> bl "ERROR: UNKNOWN COMMAND (PRESS i FOR INFO)"; wa() in
-	if (key_pressed() && read_key() == ' ') || p = 's' then (bl " - pause - " ; wa()) else
-	if p = 'p' then di g_ p f n col e rs (change::h) g (* standard path of continuing *) else
-	if p = 'b' then (if h = [] then (bl "ERROR: NO VISIBLE HISTORY"; wa()) else di (reverse g (List.hd h)) 'b' f n col e rs (List.tl h) g_) else wa()
-(** go f n si col e rs starts the CA using colors col, the neighbourhood n and the function f giving from the old state and the neighbours the new state in a square grid of size si that is initialized with results of (e col)(), also showing rs in info. *)
-let go f n si col e rs = bl " - pause - "; di (b (e col) si) 's' f n col (e col) rs [] [||]
+			pause {s with g = ng; h = c::s.h} cb
+		)
+	| 'q' -> erase_all () (* and purposefully do nothing next *)
+	| 'd' -> erase_all (); draw_grid s; pause {s with g = grid_new g.si g.tor; h = []} cb
+	| 'r' | 'x' ->
+		let sx, sy =
+			if g.tor <> None
+			then width ()/z, height ()/z
+			else 6*width ()/(10*z), 6*height ()/(10*z)
+		in
+		(* get a random grid that fills 60% of the screen *)
+		let ng = grid_new g.si g.tor in
+		if m = 'r' then
+			for i = 0 to sx - 1 do
+				for j = 0 to sy - 1 do
+					grid_set ng i j (Random.int (Array.length col))
+				done;
+			done
+		else
+			for i = 0 to sx/2 do
+				for j = 0 to sy/2 do
+					let co = (Random.int (Array.length col)) in
+					grid_set ng i j co;
+					grid_set ng (sx-i) j co;
+					grid_set ng i (sy-j) co;
+					grid_set ng (sx-i) (sy-j) co
+				done
+			done;
+		grid_activate_cell_rect ng 0 0 (sx-1) (sy-1);
+		(* and change the offset to put it in the center *)
+		let nu, nv =
+			if g.tor <> None
+			then 0, 0
+			else -2*width ()/(10*z), -2*height ()/(10*z)
+		in
+		let ns = {s with g = ng; h = []; u = nu; v = nv} in
+		redraw_all ns;
+		pause ns cb
+	| 'i' ->
+			info ();
+			ignore(wait_next_event [Key_pressed]);
+			redraw_all s;
+			pause s cb
+	| 'b' -> status "running"; backward s false
+	| 'p' -> status "pause"; backward s true
+	| 'h' | 'j' | 'k' | 'l' -> scroll (char_to_delta m)
+	| 'z' -> zoom 1
+	| 'u' -> if z > 1 then zoom (-1) else (error "already at minimum zoom"; pause s cb)
+	| 'g' -> erase_all (); pause {s with gl = not s.gl} cb
+	| '\005' -> status "selecting (o to get Out)";
+		(* now modify the grid *)
+		let rec get_snd_pos () =
+			(* the first one being in st all the way up wa *)
+			let stat = wait_next_event [Button_up; Key_pressed] in
+			if stat.keypressed then (
+				if stat.key = 'o' (* exit on o *)
+				then (status "pause"; pause s cb)
+				else get_snd_pos ()
+			) else (
+				if stat.mouse_x < 0 || stat.mouse_x >= width () || stat.mouse_y < 0 || stat.mouse_y >= height () (* out of screen *)
+				then (status "pause"; pause s cb)
+				else select (st.mouse_x/z, st.mouse_y/z) (stat.mouse_x/z, stat.mouse_y/z) s cb
+			)
+		in
+		get_snd_pos ()
+	| 'v' -> (
+		try begin
+			let rle = get_clipboard () in
+			(* this is the system clipboard, which might or might not be RLE.
+			   if we fail, from_rle raises an exception which we catch a bit further down *)
+			let ng = grid_copy g in
+			let px, py = mouse_pos () in
+			let x = px/z + u
+			and y = py/z + v in
+			let c, dx, dy = from_rle rle ng x y in
+			let ns = {s with g = ng; h = c::h} in
+			redraw_all ns;
+			pause ns cb
+		end with Not_rle -> (error "can't paste, clipboard is not RLE"; pause s cb)
+		)
+	| 'o' | 'a' ->
+		(try
+			match get_file_name () with
+			| Some name ->
+				let rle = read_from_file name in
+				set_clipboard rle;
+				let ng = if m = 'o' then grid_new g.si g.tor else grid_copy g in
+				let px, py = mouse_pos () in
+				let x, y = if m = 'o' then 0, 0 else px/z + u, py/z + v in
+				let c, dx, dy = from_rle rle ng x y in
+				(* calculated to put the pattern approx in the center *)
+				let u_, v_, h_ =
+					if m = 'o'
+					then (dx*z - width ())/(2*z), (dy*z - height ())/(2*z), []
+					else u, v, c::h in
+				let ns = {s with g = ng; h = h_; u = u_; v = v_} in
+				redraw_all ns;
+				status "pause"; pause ns cb
+			| None -> status "pause"; pause s cb
+		with
+			| Not_rle -> (error "file content is not RLE"; pause s cb)
+			| Sys_error _ -> (error "file does not exist"; pause s cb)
+		)
+	| 'w' ->
+		erase_all ();
+		let tor = match g.tor with
+			| None -> Some (width () / (z * g.si), height () / (z * g.si))
+			| Some _ -> None
+		in
+		let ns = {s with g = grid_new g.si tor; h = []; u = 0; v = 0} in
+		draw_grid ns;
+		pause ns cb
+	| '+' | '-' -> pause {s with sp = modu (s.sp+(if m = '+' then 1 else -1)) (Array.length fps_speeds)} cb
+	| 'm' -> pause {s with fo = not fo} cb
+	| _ -> error "unknown command (press i for info)"; pause s cb
+
+(** default internal simulator state *)
+let default_params = {
+	g = grid_new 1 None;
+	f = (fun _ _ -> 0);
+	n = moore 1;
+	col = [|black; white|];
+	rule = "none";
+	h = [];
+	u = 0;
+	v = 0;
+	z = 10;
+	gl = true;
+	sp = 7; (* that's 60 fps *)
+	fo = false;
+}
+
+(** automata selection menu *)
+let rec choose () =
+	status "choosing CA";
+	erase_all();
+	info ();
+	let m = input (Array.of_seq (Hashtbl.to_seq_keys config)) in
+	if m = "Q" then ()
+	else begin
+		(match Hashtbl.find_opt config m with
+		| Some aut ->
+			erase_all(); status "pause";
+			draw_grid default_params;
+			pause {default_params with f =
+				aut.f; n = aut.n;
+				col = aut.c; rule = m;
+				g = grid_new (radius aut.n) None;
+			} forward
+		| _ -> ());
+		choose ()
+	end
+
+let () =
+	(* initialize the graphics screen & the RNG *)
+	Random.self_init ();
+	open_graph "";
+	(* this is a ''very'' cheap way to deal with window resizes
+	essentially, we already request all the pixels we're gonna get
+	so it can only get smaller and we're fine lol *)
+	resize_window 2800 1500;
+	set_color black;
+	fill_rect 0 0 2800 1500;
+	set_window_title "Cellular Automata Terminal";
+	set_font "fixed";
+	(* welcome screen. am I indulging myself? yes *)
+	set_color white;
+	set_line_width 3;
+	Unix.sleepf 0.3; (* needed for the size to adjust *)
+	(* face *)
+	let mp = width()/2 in
+	draw_poly [|(mp, 200); (mp+450, 500); (mp, 800); (mp-450, 500)|];
+	(* ears *)
+	draw_poly [|(mp-240, 640); (mp-190, 900); (mp-140, 710)|];
+	draw_poly [|(mp+240, 640); (mp+190, 900); (mp+140, 710)|];
+	(* whiskers *)
+	draw_segments [|(mp-70, 420, mp-380, 370); (mp-70, 410, mp-370, 270); (mp-70, 400, mp-300, 200)|];
+	draw_segments [|(mp+70, 420, mp+380, 370); (mp+70, 410, mp+370, 270); (mp+70, 400, mp+300, 200)|];
+	Unix.sleepf 0.5;
+	(* eyes *)
+	set_color yellow;
+	fill_poly [|(mp-120, 530); (mp-50, 570); (mp-120, 610); (mp-190, 570)|];
+	fill_poly [|(mp+120, 530); (mp+50, 570); (mp+120, 610); (mp+190, 570)|];
+	(* C A T *)
+	draw_poly_line [|(mp-300, 950); (mp-400, 950); (mp-400, 850); (mp-300, 850)|];
+	draw_poly_line [|(mp-50, 850); (mp-50, 950); (mp+50, 950); (mp+50, 850)|]; moveto (mp-50) 900; lineto (mp+50) 900;
+	moveto (mp+300) 950; lineto (mp+400) 950; moveto (mp+350) 950; lineto (mp+350) 850;
+	write ["PRESS ANY KEY TO START"] (mp-60) 150 yellow;
+	ignore(read_key());
+	set_line_width 1;
+	try
+		choose ()
+	with Graphic_failure _-> ()
