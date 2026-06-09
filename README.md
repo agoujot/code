@@ -2,11 +2,13 @@ Various stuff over here:
 
 Good & ready to use:
 - `build.ml` is what I use to compile my ocaml code, look for dependencies, etc
-- `cat.ml` is a module to run cellular automata (Cellular Automata Terminal), and `use.ml` is an example use of it, with CAs I like and/or made
+- `cat.ml` is a module to run cellular automata (Cellular Automata Terminal), and `.cat_config` is the required config
 - `chess.ml` is chess and a bot for it (the bot's work-in-progress)
 - `go.ml` is the game of go
 - `sierpinski-code.py` and `sierpinski.ml` draw sierpinski triangles
 - `sorts.ml` is a demonstration of sorting algorithms
+- `perfect.ml` is the first perfect graphs
+- `spiral.ml` is fun stuff
 
 Other stuff, often superseded, in /old:
 - `echecc.py` is a python, much less advanced, version of `chess.ml`, without bot or actual graphic display
