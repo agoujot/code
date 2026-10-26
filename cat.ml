@@ -8,40 +8,47 @@ let help = [
 	"You will have the status in the top left.";
 	"When CAT is running and you press space, it will stop and go to pause.";
 	"When in pause, you can press keys to do things:";
-	" - spacebar     : play/pause dependign on status.";
+	" - spacebar     : play/pause depending on status.";
 	" - f (Forward)  : simulate new generations";
 	" - n (Next)     : goes one frame further and then back to pause.";
 	" - b (Backward) : play but in reverse, shows you the state of before.";
 	" - p (Previous) : goes one frame backwards and back to pause.";
 	" - e (Edit)     : lets you manually change the state of cells by clicking on them.";
-	"                To exit editing mode, press o (Out).";
+	"                 You can undo the last edit with p (Previous).";
+	"                 To exit editing mode, press o (Out).";
 	" - r (Randomise): generates a new random grid.";
 	" - x (Cross)    : generates a new random grid symmetric in both directions";
 	" - d (Delete)   : sets all the grid to black.";
 	" - h, j, k, l   : left, down, up, right scroll (from the vim shortcuts)";
 	" - z, u (Zoom)  : makes cells biger (smaller for u)";
+	"h, j, k, l, and z, u are also available when running or editing.";
 	" - m (Move)     : try to follow an evolving area in the center (typically a ship).";
-	"                Stops whenever a cell on the edge of the screen is alive.";
+	"                 Stops whenever a cell on the edge of the screen is alive.";
 	" - g (Grid)     : toggle grid lines";
 	" - w (Wrap)     : toggle periodic boundary conditions (ie torus). This will reset the grid.";
-	"                Scroll and zoom are unavailable in torus mode.";
+	"                 Scroll and zoom are unavailable in torus mode.";
+	" - s (Show)     : toggle display of cells. (No display is faster.)";
+	" - c (Cap)      : set max fps. 0 for unlimited. Default is 60.";
+	" - t (Ticks)    : set the number of ticks the simulator advances in each frame.";
+	"                 (So that many steps are computed before being displayed.)";
 	" - (drag-)click : drag-click over an area to select it.";
-	"                Selection is automatically trimmed to live cells if there are any.";
-	"                You can then:";
-	"                a (All)       select everything";
-	"                r (Randomize) its cells";
-	"                d (Delete)    ie set all cells to black (also copies)";
-	"                c (Copy)      the selection to clipboard as RLE";
-	"                s (Save)      the selection into an RLE file (also copies)";
-	"                You can exit selection at any point with o (Out).";
+	"                 Selection is automatically trimmed to live cells if there are any.";
+	"                 You can then:";
+	"                 a (All)       select everything";
+	"                 r (Randomize) its cells";
+	"                 d (Delete)    ie set all cells to black (also copies)";
+	"                 h, j, k, l    move the selection (overwriting what was where it's going)";
+	"                   (note: this is not the usual sense of h, j, k, l in other modes, sorry)";
+	"                 t (Turn)      rotate the selection by 90 degrees clockwise";
+	"                 c (Copy)      the selection to clipboard as RLE";
+	"                 s (Save)      the selection into an RLE file (also copies)";
+	"                 You can exit selection at any point with o (Out).";
 	" - v (Paste)    : insert RLE from clipboard with the left corner at mouse position";
 	" - o (Open)     : load grid from an RLE file";
 	" - a (Add)      : insert RLE from file with lower left at mouse position";
 	" - i (Info)     : shows this. Go back to pause by pressing any key";
-	" - +/-          : go faster or slower. Speeds are (in FPS):";
-	"                1, 2, 4, 10, 20, 30, 60, (default), 120, unlimited";
 	" - q (Quit)     : Does Exactly What It Says On The Tin. (Goes back to the CA choice screen.)";
-	"                Put Q again while choosing CA to close CAT.";
+	"                 Put Q again while choosing CA to close CAT.";
 ]
 
 (** a cell's state is identified to a positive integer *)
@@ -88,8 +95,12 @@ type params = {
 	v: int;
 	z: int; (** the size of a cell in pixels *)
 	gl: bool; (** whether to draw the grid lines *)
-	sp: int; (** index in {!fps_speeds} *)
+	sp: int; (** speed cap in fps *)
 	fo: bool; (** whether to try and follow the living blob *)
+	t: int; (** simulation time (since origin) *)
+	sh: bool; (** whether to draw cells *)
+	inc: int; (** increment, number of steps we advance by *)
+	b: bool; (** going backwards? *)
 }
 
 (** {1 Grids} *)
@@ -224,10 +235,6 @@ let grid_trim g x y dx dy =
 (** height of the bar for status etc, in pixels *)
 let text_height = 20
 
-(** Array of fps speeds, where 0 stands for "unlimited" *)
-let fps_speeds =
-	[| 0; 1; 2; 4; 10; 20; 30; 60; 120 |]
-
 (** actual y size, excluding status bar *)
 let height () = size_y () - text_height
 
@@ -245,9 +252,9 @@ let rec write l x y co =
 		moveto x y; set_color co; draw_string h;
 		write t x (y-text_height) co
 
-(** [top_left s co] erases the {!text_height} top pixels and writes [s] with color [co] at the top left *)
+(** [top_left s co] erases the first (horizontal) half of the {!text_height} top pixels and writes [s] with color [co] at the top left *)
 let top_left s co =
-	set_color black; fill_rect 0 (height ()) (width ()) text_height;
+	set_color black; fill_rect 0 (height ()) (width () / 2) text_height;
 	write [s] 10 (height ()) co
 
 (** [status s] {!top_left}s text with dashes on the side *)
@@ -256,46 +263,62 @@ let status s = top_left (" - "^s^" - ") white
 (** [error s] {!top_left}s text in red and all-caps with [ERROR:] in front *)
 let error s = top_left ("ERROR: "^(String.uppercase_ascii s)) red
 
-(** [input autoc] reads text from the homemade input field,
-	where autoc is an array of possibilities *)
-let input autoc = 
+(** same but for the second half, and texts start at middle of screen *)
+let top_right s co =
+	set_color black; fill_rect (width () / 2) (height ()) (width () / 2) text_height;
+	write [s] (width () / 2 + 10) (height ()) co
+
+(** [show_state s] {!top_right}s the current generation, max speed and torus *)
+let show_state s =
+	top_right (String.concat " -- "
+		["time : " ^ string_of_int s.t;
+		"max speed : " ^ (if s.sp = 0 then "unlimited" else string_of_int s.sp ^ "fps");
+		"torus : " ^ (if s.g.tor = None then "no" else "yes");
+		"display : " ^ (if s.sh then "yes" else "no");
+		"tick increment : " ^ (string_of_int s.inc)]
+	) white
+
+(** [input autoc mess] reads text from the homemade input field,
+	where autoc is an array of possibilities, and mess is the prompt displayed to the user *)
+let input autoc mess = 
 	(* s is the fields contents *)
+	top_left "Awaiting input..." yellow;
+	top_right mess white;
 	let rec input_aux s =
 		let st = wait_next_event [Key_pressed] in
 		let c = st.key in 
-		if c = '\013' then s (* enter *)
+		if c = '\013' then (top_right "" white; top_left "" white; s) (* enter *)
 		else if c = '\008' then ( (* backspace *)
 			let ns = if s = "" then s else (String.sub s 0 (String.length s - 1)) in
 			Unix.sleepf 0.1;
-			top_left ns white; input_aux ns
+			top_left ns yellow; input_aux ns
 		) else if c = '\009' then ( (* tab *)
 			(* take the first value in autoc that starts by s *)
 			match Array.find_opt (String.starts_with ~prefix:s) autoc with
 			| None -> input_aux s
 			| Some t ->
 				Unix.sleepf 0.1;
-				top_left t white;
+				top_left t yellow;
 				input_aux t
 		) else (
 			Unix.sleepf 0.1;
-			top_left (s^(String.make 1 c)) white;
+			top_left (s^(String.make 1 c)) yellow;
 			input_aux (s^(String.make 1 c))
 		)
-	in input_aux ""
+	in String.trim (input_aux "")
 
 (** fill the cell space with black *)
 let erase_all () = set_color black; fill_rect 0 0 (width ()) (height ())
 
-
 (** [small_zoom s] gives whether the z is small enough for us to change behaviour *)
 let small_zoom s = s.z < 4
 
-(** width of visible cells (in cells). for torus is smaller *)
+(** width of visible space (in cells). for torus is smaller *)
 let cells_width s =
 	match s.g.tor with
 	| None -> width ()/s.z
 	| Some (da, _) -> s.g.si*da
-(** height of visible cells (in cells). for torus is smaller *)
+(** height of visible space (in cells). for torus is smaller *)
 and cells_height s =
 	match s.g.tor with
 	| None -> height ()/s.z
@@ -346,13 +369,6 @@ let redraw_all s =
 	) s.g.q;
 	draw_grid s; (* drawing the grid is actually really expensive *)
 	auto_synchronize true
-
-let char_to_delta = function
-	| 'h' -> (-1, 0)
-	| 'j' -> (0, -1)
-	| 'k' -> (0, 1)
-	| 'l' -> (1, 0)
-	| _ -> (0, 0)
 
 (** {1 Pattern saving/loading} *)
 
@@ -449,7 +465,7 @@ let to_rle g x y dx dy r =
 			);
 			for j = g.si - 1 downto 0 do
 				ignore(List.fold_left (fun last_a ((a, _), (q, _, _)) ->
-					(* add bs for empty cells since the last quad*)
+					(* add bs for empty cells since the last quad *)
 					if last_a < a - 1 then (
 						if !cur = string_of_state 0
 						then ti := !ti + (a - 1 - last_a)*g.si
@@ -556,8 +572,7 @@ let get_rle_files () =
 
 (** get a file name using {!input} and normalize it to .rle *)
 let get_file_name () = 
-	status "enter file name, put nothing to cancel";
-	let s = String.trim (input (get_rle_files ())) in
+	let s = String.trim (input (get_rle_files ()) "enter file name, put nothing to cancel") in
 	if s = "" then None else
 	if String.ends_with ~suffix:".rle" s
 	then Some s
@@ -608,7 +623,9 @@ let bs bi su : transition_func =
 		let parts = String.split_on_char ',' s in
 		(fun c -> List.exists 
 		(fun ss -> if String.contains ss '-' (* set *)
-			then (let bo = Array.of_list @@ List.map int_of_string @@ String.split_on_char '-' ss in bo.(0) <= c && c <= bo.(1))
+			then (
+				let bo = Array.of_list @@ List.map int_of_string @@ String.split_on_char '-' ss
+				in bo.(0) <= c && c <= bo.(1))
 			else int_of_string ss = c) (* single value *)
 		parts) in
 	let bi_ = test bi and su_ = test su in
@@ -644,7 +661,7 @@ let bs bi su : transition_func =
 
 		| ( [<] | [=] | [>] ) <{i function}> <{i function}> Comparison of the result of two functions (returns 0 or 1)
 	
-		| [?] <{i function}> <{i function}> <{i function}> If the first function returns 1, then return the result of the first, else return the result of the second.
+		| [?] <{i function}> <{i function}> <{i function}> If the first function returns 1, then return the result of the second, else return the result of the third.
 
 	All integers are supposed to be smaller than [64^2 = 4096].
 *)
@@ -719,7 +736,7 @@ let neumann r : neighbourhood =
 	let rec it i j =
 		if i = (r+1) then [] else
 		if j = (r-(abs i)+1) then it (i+1) (-r+(abs (i+1))) else
-		if i = 0 && j == 0 then it i (j+1)
+		if i = 0 && j = 0 then it i (j+1)
 		else (i, j)::it i (j+1)
 	in [it (-r) 0]
 
@@ -815,32 +832,78 @@ let info () = write (help @
 		|> List.sort Stdlib.compare
 		|> String.concat ", "
 	]
-	@["Put Q while choosing CAs to close CAT."]) (width () / 3) (height () - 40) white
+	@["Put Q while choosing CAs to close CAT."]) (2 * width () / 5) (height () - 30) white
 
 (** {1 Simulation} *)
 
+let char_to_delta = function
+	| 'h' -> (-1, 0)
+	| 'j' -> (0, -1)
+	| 'k' -> (0, 1)
+	| 'l' -> (1, 0)
+	| _ -> (0, 0)
+
+let scroll s m =
+	let (du, dv) = char_to_delta m in
+	if s.g.tor <> None then error "un(zoom) and scroll not available on a torus";
+	let du = du*(if s.g.tor <> None then 0 else max 1 (30/s.z))
+	and dv = dv*(if s.g.tor <> None then 0 else max 1 (30/s.z)) in
+	let ns = {s with u = s.u+du; v = s.v+dv} in
+	redraw_all ns;
+	ns
+
+let zoom s m =
+	let dz = match m with
+		| 'u' -> -1
+		| 'z' -> 1
+		| _ -> 0
+	in
+	if s.g.tor <> None then error "un(zoom) and scroll not available on a torus";
+	if s.z <= 1 then (error "already at minimum zoom"; s)
+	else (
+		let du, dv, dz =
+			if s.g.tor <> None
+			then 0, 0, 0
+			else (width ()) * dz / (2*s.z*(s.z+dz)), (height ()) * dz / (2*s.z*(s.z+dz)), dz
+		in
+		let ns = {s with u = s.u+du; v = s.v+dv; z = s.z+dz} in
+		redraw_all ns;
+		ns
+	)
+
 (** factorises common logic to forward and backward *)
-let rec direction main err s once =
+let rec direction main b err s once =
 	let start = Unix.gettimeofday() in
-	auto_synchronize false;
-	let g_ = grid_copy s.g in (* new grid in which modifications will be made *)
+	if s.sh then auto_synchronize false;
 	try begin
-		let ns = main s g_ in
+		let ns = ref s in
+		for i = 1 to s.inc do
+			let g_ = grid_copy !ns.g in (* new grid in which modifications will be made *)
+			ns := main (!ns) g_;
+			show_state (!ns)
+		done;
+		let ns = !ns in
+		if s.sh then auto_synchronize true;
 		(* time we should have taken but didn't *)
-		auto_synchronize true;
-		let dt = 1. /. (float_of_int fps_speeds.(s.sp)) +. start -. Unix.gettimeofday () in
-		if  s.sp > 0 && dt > 1e-4 then (* Unix.sleepf has a ~0.1ms overhead *)
-			Unix.sleepf dt;
-		if once || (key_pressed () && read_key () = ' ')
-		then (status "pause"; pause ns (direction main err))
-		else direction main err ns false
+		if  s.sp > 0 then
+			let dt = 1. /. (float_of_int s.sp) +. start -. Unix.gettimeofday () in
+			(if dt > 1e-4 then (* Unix.sleepf has a ~0.1ms overhead *)
+				Unix.sleepf dt);
+		let m = if key_pressed () then read_key() else '\005' in
+		if once || m = ' '
+		then (status "pause"; pause {ns with b = b})
+		else
+		direction main b err (match m with
+		| 'h' | 'j' | 'k' | 'l' -> scroll ns m
+		| 'u' | 'z' -> zoom ns m
+		| _ -> ns) false
 	(* for backward *)
 	end with Failure _ -> err s
 
-(** [forward s once] moves one generation after state [s], then stops if [once] *)
+(** [forward s once] moves [s.inc] generation after state [s], then stops if [once] *)
 and forward s once =
 	direction (fun s g_ ->
-		let {g; f; n; col; rule; h; u; v; z; gl; sp; fo} = s in
+		let {g; f; n; col; rule; h; u; v; z; gl; sp; fo; t; sh} = s in
 		let toactivate = Hashtbl.create 1 in
 		let change = Hashtbl.fold (fun (a, b) (q, t, _) c ->
 			let cc = ref [] in
@@ -859,9 +922,9 @@ and forward s once =
 						| hd::tl -> grid_get g (i+fst(hd)) (j+snd(hd)) :: get_values tl
 					in
 					let k_ = f (List.map get_values n) k in (* new cell state *)
-					if k <> k_ then begin
+					if k <> k_ then begin (* do nothing if unchanged *)
 						grid_set g_ i j k_;
-						draw i j k_ s; (* don't redraw if hasn't changed *)
+						if sh then draw i j k_ s;
 						cc := (k, (i, j))::!cc (* add this change to the changelist *)
 					end
 				done
@@ -878,7 +941,7 @@ and forward s once =
 			(!cc) @ c
 		) g.q [] in
 		Hashtbl.iter (fun (a, b) _ -> grid_activate_adjacent g_ (a, b)) toactivate;
-		let ns = {s with g = g_; h = change::h} in
+		let ns = {s with g = g_; h = change::h; t = t+1} in
 		if fo && g.tor = None
 		then (
 			let w, h = cells_width s, cells_height s in
@@ -887,19 +950,19 @@ and forward s once =
 			then {ns with fo = false}
 			else (
 				let du = x - (w - dx)/2 - u
- 				and dv = y - (h - dy)/2 - v in
+				and dv = y - (h - dy)/2 - v in
 				if du = 0 && dv = 0
 				then ns
 				else (
-		let ns = {ns with u = u+du; v = v+dv} in
-		redraw_all ns;
-		ns
+					let ns = {ns with u = u+du; v = v+dv} in
+					redraw_all ns;
+					ns
 				)
 			)
 		) else ns
-	) ignore s once
+	) false ignore s once
 
-(** [backwards s] sends us one generation before state [s], then stops if [once] *)
+(** [backwards s once] sends us [s.inc] generations before state [s], then stops if [once] *)
 and backward s once =
 	direction (fun s g_ ->
 		(* we're already going back, we should undo the top of history *)
@@ -908,12 +971,13 @@ and backward s once =
 			draw i j k s;
 			grid_mark_active s.g (divi i s.g.si, divi j s.g.si) true
 		) (List.hd s.h);
-		{s with g = g_; h = List.tl s.h}
-	) (fun s -> error "no visible history"; pause s forward) s once (* and yes that's a derek walcott reference. BFI forever. *)
+		{s with g = g_; h = List.tl s.h; t = s.t - 1}
+	) true (fun s -> auto_synchronize true; error "no visible history"; pause {s with b = false}) s once
+	(* and yes that's a derek walcott reference. BFI forever. *)
 
-(** [select (i1, j1) (i2, j2) s cb] selects the rectangle whose corners are the two tuples,
+(** [select (i1, j1) (i2, j2) s] selects the rectangle whose corners are the two tuples,
  and waits for keyboard input to act on them. eventually gives the hand back to pause *)
-and select (i1, j1) (i2, j2) s cb =
+and select (i1, j1) (i2, j2) s =
 	let u, v, g, z, col = s.u, s.v, s.g, s.z, s.col in
 	let x = u+min i1 i2
 	and y = v+min j1 j2
@@ -924,7 +988,7 @@ and select (i1, j1) (i2, j2) s cb =
 	let x_, y_, dx_, dy_ = grid_trim g x y dx dy in
 	if (dx_ < dx || dy_ < dy || x_ > x || y_ > y)
 		&& not (dx_ = 0 && dy_ = 0 && grid_get g (x_) (y_) = 0)
-	then select (x_ - u, y_ - v) (x_ + dx_ - u, y_ + dy_ - v) s cb
+	then select (x_ - u, y_ - v) (x_ + dx_ - u, y_ + dy_ - v) s
 	else begin
 		(* put a rectangle around selection*)
 		set_color magenta; (* hopefully won't be used in a CA *)
@@ -943,13 +1007,13 @@ and select (i1, j1) (i2, j2) s cb =
 		in
 		(* wait for key and act *)
 		let rec act () =
-			let k = Char.lowercase_ascii(read_key ()) in
+			let k = Char.lowercase_ascii (read_key ()) in
 			match k with
 			| 'o'->
 				(* erase magenta rect *)
 				erase_magenta_rect ();
 				status "pause";
-				pause s cb
+				pause s
 			| 'd' | 'r' ->
 				let ng = grid_copy g in
 				let c = ref [] in
@@ -970,22 +1034,22 @@ and select (i1, j1) (i2, j2) s cb =
 				then set_clipboard (to_rle g x y (dx+1) (dy+1) s.rule);
 				redraw_all ns; (* we have to do this cuz we messed up the grid lines *)
 				status "pause";
-				pause ns cb
+				pause ns
 			| 't' | 'h' | 'j' | 'k' | 'l' -> erase_magenta_rect ();
 				let ng = grid_copy g in
 				let c = ref [] in
-				let a, b = char_to_delta k in
+				let kx, ky = char_to_delta k in
 				let dx_, dy_ = (if k = 't' then dy, dx else dx, dy) in
-				let x_, y_ = (x+a, y+b) in
+				let x_, y_ = (x+kx, y+ky) in
 				let transform (i, j) =
 					if k = 't' then
 					(* we rotate by bot right then translate dx to left *)
 					(x+dx+(j-y)-dx, y+(x+dx-i))
-					else (i+a, j+b)
+					else (i+kx, j+ky)
 				in
 				let prev (i, j) =
 					if k = 't' then transform (transform (transform (i, j)))
-					else (i-a, j-b)
+					else (i-kx, j-ky)
 				in
 				(* rotate all points (erasing those that won't get overwritten) *)
 				for i = x to x+dx do
@@ -1006,7 +1070,7 @@ and select (i1, j1) (i2, j2) s cb =
 				done;
 				grid_activate_cell_rect ng x_ y_ dx_ dy_;
 				let ns = {s with g = ng; h = (!c)::s.h} in
-				select (x_-u, y_-v) (x_+dx_-u, y_+dy_-v) ns cb
+				select (x_-u, y_-v) (x_+dx_-u, y_+dy_-v) ns
 			| 'c' | 's' ->
 				erase_magenta_rect();
 				let rle = to_rle g x y (dx+1) (dy+1) s.rule in
@@ -1015,7 +1079,7 @@ and select (i1, j1) (i2, j2) s cb =
 				| Some name -> save_to_file rle name
 				| None -> ());
 				status "pause";
-				pause s cb
+				pause s
 			| 'a' -> erase_magenta_rect();
 				let a_min, a_max, b_min, b_max =
 					Hashtbl.fold (fun (a, b) _ (a_min, a_max, b_min, b_max) -> 
@@ -1028,32 +1092,69 @@ and select (i1, j1) (i2, j2) s cb =
 				let dx = (a_max-a_min+1)*g.si
 				and dy = (b_max-b_min+1)*g.si
 				in
-				select (i, j) (i+dx, j+dy) s cb
+				select (i, j) (i+dx, j+dy) s
 			| _ -> act ()
 		in act ()
 	end
 
-(** [pause s cb] listens for keyboard input (or selection) and then acts upon it,
-   with [s] the next state and [cb] the callback for space bar, {!forward} or {!backward} *)
-and pause s cb =
-	let {g; f; n; col; rule; h; u; v; z; gl; sp; fo} = s in
-	(* scroll by du horizontally and dv vertically *)
-	let scroll (du, dv) =
-		let du = du*(if s.g.tor <> None then 0 else max 1 (30/z))
-		and dv = dv*(if s.g.tor <> None then 0 else max 1 (30/z)) in
-		let ns = {s with u = u+du; v = v+dv} in
-		redraw_all ns;
-		pause ns cb
-	and zoom dz =
-		let du, dv, dz =
-			if s.g.tor <> None
-			then 0, 0, 0
-			else (width ()) * dz / (2*z*(z+dz)), (height ()) * dz / (2*z*(z+dz)), dz
-		in
-		let ns = {s with u = u+du; v = v+dv; z = z+dz} in
-		redraw_all ns;
-		pause ns cb
+(** [edit s] lets the user manually edit cells, then sends back to pause,
+   with a modified grid and history. *)
+and edit s =
+	status "editing (o to get Out)";
+	let ng = grid_copy s.g in
+	let ns = ref {s with g = ng} in
+	let c = ref [] in
+	let released = ref false in
+	let rec ed () =
+		let st = wait_next_event [Button_down; Key_pressed; Mouse_motion; Button_up] in
+		if st.keypressed
+		then (
+			match st.key with
+			| 'o' -> ()
+			| 'h' | 'j' | 'k' | 'l' -> ns := scroll (!ns) st.key; ed ()
+			| 'u' | 'z' -> ns := zoom (!ns) st.key; ed ()
+			| 'p' -> (match !c with
+				| [] -> ed ()
+				| (k, (x, y))::t ->
+					c := t;
+					grid_set ng x y k;
+					draw x y k !ns;
+					ed ()
+			)
+			| _ -> ed ()
+		) else if not st.button
+		then (released := true; ed())
+		else begin
+			(* coordinates of the cell you clicked in g *)
+			let mx = fst(mouse_pos ())/ !ns.z + !ns.u
+			and my = snd(mouse_pos ())/ !ns.z + !ns.v
+			in 
+			if !released || (!c = [] || (mx, my) <> snd (List.hd !c)) then (
+				released := false;
+				let k = grid_get ng mx my in
+				grid_set ng mx my ((grid_get ng mx my + 1) mod (Array.length s.col));
+				grid_activate_adjacent ng (divi mx ng.si, divi my ng.si);
+				draw mx my (grid_get ng mx my) !ns;
+				c := (k, (mx, my)) :: !c);
+			ed ()
+		end
 	in
+	ed ();
+	status "pause";
+	if !c = []
+	then pause !ns (* don't make an empty change, bad ui *)
+	else (
+		(* reverse because we want the eldest change of a given cell first,
+		   the one that has the value it had originally *)
+		pause {!ns with h = (List.rev !c)::s.h}
+	)
+
+(** [pause s] listens for keyboard input (or selection) and then acts upon it,
+   with [s] the next state *)
+and pause s =
+	let {g; f; n; col; rule; h; u; v; z; gl; sp; fo; t; sh; inc; b} = s in
+	show_state s;
+	(* scroll by du horizontally and dv vertically *)
 	let st = wait_next_event [Button_down; Key_pressed] in
 	let m =
 		if st.button
@@ -1061,43 +1162,16 @@ and pause s cb =
 		else Char.lowercase_ascii st.key
 	in
 	match m with
-	| ' ' -> status "running"; cb s false
-	| 'f' -> status "running"; forward s false
+	| ' ' ->
+		status ("running ("^(if b then "backward)" else "forward)"));
+		(if b then backward else forward) s false
+	| 'f' -> status "running (forward)"; forward s false
 	| 'n' -> status "pause"; forward s true
-	| 'e' -> status "editing (o to get Out)";
-		let ct = Hashtbl.create 1 in
-		let ng = grid_copy g in
-		let rec ed () = (* for editing *)
-			let st = wait_next_event [Button_down; Key_pressed] in
-			if st.keypressed
-			then (
-				if st.key = 'o'
-				then ()
-				else ed ()
-			) else begin
-				let mx = fst(mouse_pos ())/z+u and my = snd(mouse_pos ())/z+v (* coordinates of the cell you clicked in g *) in 
-				grid_set ng mx my ((grid_get ng mx my + 1) mod (Array.length col));
-				grid_activate_adjacent ng (divi mx g.si, divi my g.si);
-				draw mx my (grid_get ng mx my) s;
-				if not (Hashtbl.mem ct (mx, my))
-				then Hashtbl.add ct (mx, my) (grid_get g mx my);
-				ed ()
-			end
-		in ed ();
-		status "pause";
-		if Hashtbl.length ct = 0
-		then pause s cb (* don't make an empty change, bad ui *)
-		else (
-			(* build the change list *)
-			let c = Hashtbl.fold
-				(fun (i, j) k cc -> (k, (i, j))::cc)
-				ct
-				[]
-			in
-			pause {s with g = ng; h = c::s.h} cb
-		)
+	| 'b' -> status "running (backward)"; backward s false
+	| 'p' -> status "pause"; backward s true
+	| 'e' -> edit s
 	| 'q' -> erase_all () (* and purposefully do nothing next *)
-	| 'd' -> erase_all (); draw_grid s; pause {s with g = grid_new g.si g.tor; h = []} cb
+	| 'd' -> erase_all (); draw_grid s; pause {s with g = grid_new g.si g.tor; h = []; t = 0}
 	| 'r' | 'x' ->
 		let sx, sy =
 			if g.tor <> None
@@ -1129,20 +1203,17 @@ and pause s cb =
 			then 0, 0
 			else -2*width ()/(10*z), -2*height ()/(10*z)
 		in
-		let ns = {s with g = ng; h = []; u = nu; v = nv} in
+		let ns = {s with g = ng; h = []; u = nu; v = nv; t = 0} in
 		redraw_all ns;
-		pause ns cb
+		pause ns
 	| 'i' ->
 			info ();
 			ignore(wait_next_event [Key_pressed]);
 			redraw_all s;
-			pause s cb
-	| 'b' -> status "running"; backward s false
-	| 'p' -> status "pause"; backward s true
-	| 'h' | 'j' | 'k' | 'l' -> scroll (char_to_delta m)
-	| 'z' -> zoom 1
-	| 'u' -> if z > 1 then zoom (-1) else (error "already at minimum zoom"; pause s cb)
-	| 'g' -> erase_all (); pause {s with gl = not s.gl} cb
+			pause s
+	| 'h' | 'j' | 'k' | 'l' -> pause (scroll s m)
+	| 'z' | 'u' -> pause (zoom s m)
+	| 'g' -> erase_all (); pause {s with gl = not s.gl}
 	| '\005' -> status "selecting (o to get Out)";
 		(* now modify the grid *)
 		let rec get_snd_pos () =
@@ -1150,12 +1221,12 @@ and pause s cb =
 			let stat = wait_next_event [Button_up; Key_pressed] in
 			if stat.keypressed then (
 				if stat.key = 'o' (* exit on o *)
-				then (status "pause"; pause s cb)
+				then (status "pause"; pause s)
 				else get_snd_pos ()
 			) else (
 				if stat.mouse_x < 0 || stat.mouse_x >= width () || stat.mouse_y < 0 || stat.mouse_y >= height () (* out of screen *)
-				then (status "pause"; pause s cb)
-				else select (st.mouse_x/z, st.mouse_y/z) (stat.mouse_x/z, stat.mouse_y/z) s cb
+				then (status "pause"; pause s)
+				else select (st.mouse_x/z, st.mouse_y/z) (stat.mouse_x/z, stat.mouse_y/z) s
 			)
 		in
 		get_snd_pos ()
@@ -1171,8 +1242,8 @@ and pause s cb =
 			let c, dx, dy = from_rle rle ng x y in
 			let ns = {s with g = ng; h = c::h} in
 			redraw_all ns;
-			pause ns cb
-		end with Not_rle -> (error "can't paste, clipboard is not RLE"; pause s cb)
+			pause ns
+		end with Not_rle -> (error "can't paste, clipboard is not RLE"; pause s)
 		)
 	| 'o' | 'a' ->
 		(try
@@ -1189,13 +1260,13 @@ and pause s cb =
 					if m = 'o'
 					then (dx*z - width ())/(2*z), (dy*z - height ())/(2*z), []
 					else u, v, c::h in
-				let ns = {s with g = ng; h = h_; u = u_; v = v_} in
+				let ns = {s with g = ng; h = h_; u = u_; v = v_; t = if m = 'o' then 0 else t} in
 				redraw_all ns;
-				status "pause"; pause ns cb
-			| None -> status "pause"; pause s cb
+				status "pause"; pause ns
+			| None -> status "pause"; pause s
 		with
-			| Not_rle -> (error "file content is not RLE"; pause s cb)
-			| Sys_error _ -> (error "file does not exist"; pause s cb)
+			| Not_rle -> (error "file content is not RLE"; pause s)
+			| Sys_error _ -> (error "file does not exist"; pause s)
 		)
 	| 'w' ->
 		erase_all ();
@@ -1205,10 +1276,33 @@ and pause s cb =
 		in
 		let ns = {s with g = grid_new g.si tor; h = []; u = 0; v = 0} in
 		draw_grid ns;
-		pause ns cb
-	| '+' | '-' -> pause {s with sp = modu (s.sp+(if m = '+' then 1 else -1)) (Array.length fps_speeds)} cb
-	| 'm' -> pause {s with fo = not fo} cb
-	| _ -> error "unknown command (press i for info)"; pause s cb
+		pause ns
+	| 'c' -> let st = input [||] "Max fps (integer, >= 0), 0 means unlimited" in
+		(try
+			let sp = int_of_string st in
+			assert (sp >= 0);
+			status "pause";
+			pause {s with sp = sp}
+		with _ -> error "not a positive integer")
+	| 'm' -> pause {s with fo = not fo}
+	| 's' ->
+		if sh
+		then (
+			set_color black;
+			fill_rect 0 0 (width ()) (height ());
+			pause {s with sh = not sh; fo = false} (* don't follow if nothing's onscreen *)
+		) else (
+			redraw_all s;
+			pause {s with sh = not sh}
+		)
+	| 't' -> let st = input [||] "Number of ticks (integer, > 0)." in
+		(try
+			let inc = int_of_string st in
+			assert (inc > 0);
+			status "pause";
+			pause {s with inc = inc}
+		with _ -> error "not a positive integer"; pause s)
+	| _ -> error "unknown command (press i for info)"; pause s
 
 (** default internal simulator state *)
 let default_params = {
@@ -1222,16 +1316,19 @@ let default_params = {
 	v = 0;
 	z = 10;
 	gl = true;
-	sp = 7; (* that's 60 fps *)
+	sp = 60;
 	fo = false;
+	t = 0;
+	sh = true;
+	inc = 1;
+	b = false;
 }
 
 (** automata selection menu *)
 let rec choose () =
-	status "choosing CA";
 	erase_all();
 	info ();
-	let m = input (Array.of_seq (Hashtbl.to_seq_keys config)) in
+	let m = input (Array.of_seq (Hashtbl.to_seq_keys config)) "choosing CA" in
 	if m = "Q" then ()
 	else begin
 		(match Hashtbl.find_opt config m with
@@ -1242,7 +1339,7 @@ let rec choose () =
 				aut.f; n = aut.n;
 				col = aut.c; rule = m;
 				g = grid_new (radius aut.n) None;
-			} forward
+			}
 		| _ -> ());
 		choose ()
 	end
