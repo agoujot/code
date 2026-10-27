@@ -50,7 +50,7 @@ let scan nas =
 	let rec scan_ l p =
 		match l with
 		| [] -> [] 
-		| h::t when Sys.is_directory (p^h) -> (if List.mem "-r" arg then [] else (scan_ (dir (p^h)) (p^h^"/")))@scan_ t p
+		| h::t when Sys.is_directory (p^h) -> (if not (List.mem "-r" arg) then [] else (scan_ (dir (p^h)) (p^h^"/")))@scan_ t p
 		| h::t -> (p^h)::scan_ t p
 	in uni @@ List.concat @@ List.map (fun s -> scan_ (dir s) s) @@ nas
 (** Gives a filename without its path *)
@@ -67,8 +67,6 @@ let find_path i f =
 let regs = let open Str in
 	let id = {|[a-z_][a-zA-Z0-9_']*|} and
 	mo = {|[A-Z][a-z_0-9A-Z']*|} in 
-	let ws = "[ \t\n\r]*" in
-	let fd = ws^{|\(mutable|}^ws^{|\)?|}^id^ws^{|[:=]|}^ws^{|.+|}^ws in
 	let a = 
 	[|regexp ("^"^mo^{|\(\.|}^id^{|\)?$|}); 						(* 0 if a word looks like Module or Module.something *)
 	  regexp ("^"^id^{|*\.ml: No such file or directory$|});		(* 1 if a Sys_error message is for missing file *)
@@ -76,11 +74,10 @@ let regs = let open Str in
 	  regexp {|^{\([a-z_]*\)|.*|\1}$|}; 							(* 3 quoted strings *)
 	  regexp {|^File .*$|}; 										(* 4 indicator at the beginning of some error messages *)
 	  regexp {|^Error:.*$|}; 										(* 5 line starting with Error *)
-	  regexp {|[ 	]*\^[ 	]*|};											(* 6 pointer line *)
+	  regexp {|[ 	]*\^[ 	]*|};									(* 6 pointer line *)
 	  regexp {|^[0-9]+ error(s) encountered$|}; 					(* 7 thank you, i can count *)
 	  regexp {|^[0-9]+ | .*$|};										(* 8 code snippet *)
-	  regexp ({|^{\(|}^id^ws^"with"^ws^{|\)?|}^fd^{|\(;|}^fd^{|\)*}$|});(* 9 a record *)
-	  regexp ("stdlib__"^mo^{|\..*|})								(* 10 a stdlib package file *)
+	  regexp ("stdlib__"^mo^{|\..*|})								(* 9 a stdlib package file *)
 	  |] in
 	(fun i s -> string_match a.(i) s 0)
 (** List of stdlib packages (should adapt to installation, though expect NixOS) *)
@@ -89,7 +86,7 @@ let stdlib =
 	List.map (fun s -> String.sub s 8 (String.length s - 8)) @@
 	uni @@
 	List.map Filename.remove_extension @@
-	List.filter (regs 10) @@ 
+	List.filter (regs 9) @@ 
 	dir "/run/current-system/sw/lib/ocaml"
 (** Removes leftovers from compilation from the working directory (takes a list of names, to be called with {!scan}()) *)
 let rec clean =
@@ -111,6 +108,14 @@ let rec filtmod =
 		| "open" -> (match r with | [] -> [] | hd::tl -> if regs 0 hd then hd::filtmod tl else filtmod tl)
 		| s when regs 0 s -> let li = String.split_on_char '.' s in if li = [s] then filtmod r else List.hd li :: filtmod r
 	| _ -> filtmod r)
+(** modules declared in a list of words *)
+let rec heremod =
+	function
+	| [] -> []
+	| w::r -> (match w with
+		| "module" -> (match r with [] -> [] | hd::tl -> if regs 0 hd then hd::heremod tl else heremod tl)
+		| _ -> heremod r
+	)
 (** Removes special charcters (or characters inside strings, comments, characters, or quoted strings, but not records) from a string *)
 let rec empty s =
 	let rec it l state qs =
@@ -119,12 +124,11 @@ let rec empty s =
 		| '\\'::_::t -> ' '::it t state qs
 		| '"'::t when state = 0 ->  ' '::it t 1 ""
   		| '"'::t when state = 1 -> ' '::it t 0 ""
-		| '\''::t when state = 0 -> ' '::it t 2 ""
-  		| '\''::t when state = 2 -> ' '::it t 0 ""
+		| '\''::_::'\''::t when state = 0 -> ' '::it t 0 ""
 		| '('::'*'::t when state = 0 -> ' '::it t 3 ""
 		| '*'::')'::t when state = 3 -> ' '::it t 0 ""
 		| '{'::t when state = 0 -> it t 4 "{"
-		| '}'::t when state = 4 -> if regs 3 (qs^"}") then ' '::it t 0 "" else if regs 9 (qs^"}") then it ([' ']@explode (String.sub qs 1 (String.length qs - 1))@[' ']@t) 0 "" else it t 4 (qs^"}")
+		| '}'::t when state = 4 -> if regs 3 (qs^"}") then ' '::it t 0 "" else if regs 9 (qs^"}") || true then it ([' ']@explode (String.sub qs 1 (String.length qs - 1))@[' ']@t) 0 "" else it t 4 (qs^"}")
 		| c::t when state = 4 -> it t 4 (qs^String.make 1 c)
 		| 'A'..'Z'::t | 'a'..'z'::t | '0'..'9'::t | '.'::t | '_'::t when state=0 -> (List.hd l)::it t 0 ""
 		| _::t -> ' '::it t state qs
@@ -137,18 +141,31 @@ let rec finddep n i =
 		let ic = open_in f in
 		let rec read() = try let l = input_line ic in l::read() with End_of_file -> (close_in ic; []) in
 		let words = 
-		List.filter (fun s -> s <> "") @@ String.split_on_char ' ' @@ empty @@ String.concat " " @@ read() in
+			List.filter (fun s -> s <> "") @@
+			String.split_on_char ' ' @@
+			empty @@
+			String.concat " " @@
+			read()
+		in
+		let modhere = List.map String.lowercase_ascii (heremod words) in
+		let filhere = 
+			List.map Filename.remove_extension @@
+			List.map remove_path @@
+			scan i
+		in
 		let t = 
-		let tmp =
-		words |> 
-		filtmod |> 
-		uni |> 
-		List.map String.lowercase_ascii 
-		|> List.filter (fun s -> not (List.mem s stdlib)) |> 
-		List.partition (fun s ->
-			not @@ List.mem s @@ List.map Filename.remove_extension @@ List.map remove_path @@ scan i
-		) in
-		(fst tmp, List.map (find_path i) @@ snd @@ tmp) in
+			let tmp =
+				words |> 
+				filtmod |> 
+				uni |> 
+				List.map String.lowercase_ascii 
+				|> List.filter (fun s -> not (List.mem s stdlib)) |> 
+				List.partition (fun s ->
+					not (List.mem s filhere || List.mem s modhere)
+				)
+			in
+			let files_to_check = List.filter (fun s -> List.mem s filhere) @@ snd tmp in
+			(fst tmp, List.map (find_path i) @@ files_to_check) in
 		let t_ = List.fold_left (fun l v -> let (a, b) = finddep_ v (n::p) in (fst l@a, snd l@b)) t (snd t) in
 		(uni (fst t_), uni (snd (t_)))
 	in let (a, b) = finddep_ n [] in
