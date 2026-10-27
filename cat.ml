@@ -30,7 +30,6 @@ let help_first_half = [
 	" - s (Show)     : toggle display of cells. (No display is faster.)";
 	" - c (Cap)      : set max fps. 0 for unlimited. Default is 60.";
 	" - t (Ticks)    : set the number of ticks the simulator advances in each frame.";
-	"                 (So that many steps are computed before being displayed.)";
 	" - (drag-)click : drag-click over an area to select it.";
 	"                 Selection is automatically trimmed to live cells if there are any.";
 	"                 You can then:";
@@ -38,7 +37,6 @@ let help_first_half = [
 	"                 r (Randomize) its cells";
 	"                 d (Delete)    ie set all cells to black (also copies)";
 	"                 h, j, k, l    move the selection (overwriting what was where it's going)";
-	"                   (note: this is not the usual sense of h, j, k, l in other modes, sorry)";
 	"                 t (Turn)      rotate the selection by 90 degrees clockwise";
 	"                 c (Copy)      the selection to clipboard as RLE";
 	"                 s (Save)      the selection into an RLE file (also copies)";
