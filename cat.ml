@@ -40,7 +40,8 @@ let help_first_half = [
 	"                 t (Turn)      rotate the selection by 90 degrees clockwise";
 	"                 c (Copy)      the selection to clipboard as RLE";
 	"                 s (Save)      the selection into an RLE file (also copies)";
-	"                 You can exit selection at any point with o (Out)."]
+	"                 You can exit selection at any point with o (Out)."
+]
 let help_second_half = [
 	" - v (Paste)    : insert RLE from clipboard with the left corner at mouse position";
 	" - o (Open)     : load grid from an RLE file";
@@ -53,7 +54,7 @@ let help_second_half = [
 (** a cell's state is identified to a positive integer *)
 type state = int
 
-(** a quadrant is a square matrix of states (here stored as a 1D array) *)
+(** a quadrant is a square matrix of states (here stored as a 1D array) (immutable ideally but not on 5.4 yet) *)
 type quadrant = state array
 
 (** we subdivide the state space into square quadrants of identical sizes,
@@ -321,7 +322,10 @@ and cells_height s =
 let draw i j c s =
 	let x = (i-s.u)
 	and y = (j-s.v) in
-	if s.sh && 0 <= y && y < cells_height s && 0 <= x && x < cells_width s then (
+	if s.sh && (
+		s.g.tor <> None
+		|| (0 <= y && y < cells_height s && 0 <= x && x < cells_width s)
+	) then (
 		set_color s.col.(c);
 		let o = if s.gl && not (small_zoom s) then 1 else 0 in
 		fill_rect (x*s.z+o) (y*s.z+o) (s.z-1-o) (s.z-1-o);
@@ -332,6 +336,7 @@ let draw_grid s =
 	if s.sh && s.gl && not (small_zoom s) then begin
 		set_color (rgb 32 32 32);
 		for x = 0 to cells_width s do
+			let x = if s.g.tor <> None then x + 100/s.z else x in
 			if modu (x+s.u) 10 = 0 then set_color (rgb 64 64 64);
 			if modu (x+s.u) 10 = 1 then set_color (rgb 32 32 32);
 			moveto (x*s.z) 0;
@@ -339,6 +344,7 @@ let draw_grid s =
 		done;
 		set_color (rgb 32 32 32);
 		for y = 0 to cells_height s do
+			let y = if s.g.tor <> None then y + 100/s.z else y in
 			if modu (y+s.v) 10 = 0 then set_color (rgb 64 64 64);
 			if modu (y+s.v) 10 = 1 then set_color (rgb 32 32 32);
 			moveto 0 (y*s.z);
@@ -1191,9 +1197,9 @@ and pause s =
 	| 'd' -> erase_all (); draw_grid s; pause {s with g = grid_new g.si g.tor; h = []; t = 0}
 	| 'r' | 'x' ->
 		let sx, sy =
-			if g.tor <> None
-			then width ()/z, height ()/z
-			else 6*width ()/(10*z), 6*height ()/(10*z)
+			match g.tor with
+			| Some (_, _) -> cells_width s, cells_height s
+			| None -> 6*width ()/(10*z), 6*height ()/(10*z)
 		in
 		(* get a random grid that fills 60% of the screen *)
 		let ng = grid_new g.si g.tor in
@@ -1217,7 +1223,7 @@ and pause s =
 		(* and change the offset to put it in the center *)
 		let nu, nv =
 			if g.tor <> None
-			then 0, 0
+			then -100/z, -100/z
 			else -2*width ()/(10*z), -2*height ()/(10*z)
 		in
 		let ns = {s with g = ng; h = []; u = nu; v = nv; t = 0} in
@@ -1288,10 +1294,10 @@ and pause s =
 	| 'w' ->
 		erase_all ();
 		let tor = match g.tor with
-			| None -> Some (width () / (z * g.si), height () / (z * g.si))
+			| None -> Some ((width () - 200) / (z * g.si), (height () - 200) / (z * g.si))
 			| Some _ -> None
 		in
-		let ns = {s with g = grid_new g.si tor; h = []; u = 0; v = 0} in
+		let ns = {s with g = grid_new g.si tor; h = []; u = -100/z; v = -100/z} in
 		draw_grid ns;
 		pause ns
 	| 'c' -> let st = input [||] "Max fps (integer, >= 0), 0 means unlimited" in
