@@ -2,7 +2,7 @@
 open Graphics
 
 (** list of lines to display for help *)
-let help = [
+let help_first_half = [
 	"Hello and welcome to my Cellular Automata Terminal (CAT).";
 	"";
 	"You will have the status in the top left.";
@@ -42,7 +42,8 @@ let help = [
 	"                 t (Turn)      rotate the selection by 90 degrees clockwise";
 	"                 c (Copy)      the selection to clipboard as RLE";
 	"                 s (Save)      the selection into an RLE file (also copies)";
-	"                 You can exit selection at any point with o (Out).";
+	"                 You can exit selection at any point with o (Out)."]
+let help_second_half = [
 	" - v (Paste)    : insert RLE from clipboard with the left corner at mouse position";
 	" - o (Open)     : load grid from an RLE file";
 	" - a (Add)      : insert RLE from file with lower left at mouse position";
@@ -252,7 +253,7 @@ let top_left s co =
 	write [s] 10 (height ()) co
 
 (** [status s] {!top_left}s text with dashes on the side *)
-let status s = top_left (" - "^s^" - ") white
+let status s = top_left (" - "^s^" - ") cyan
 
 (** [error s] {!top_left}s text in red and all-caps with [ERROR:] in front *)
 let error s = top_left ("ERROR: "^(String.uppercase_ascii s)) red
@@ -270,14 +271,14 @@ let show_state s =
 		"torus : " ^ (if s.g.tor = None then "no" else "yes");
 		"display : " ^ (if s.sh then "yes" else "no");
 		"tick increment : " ^ (string_of_int s.inc)]
-	) white
+	) cyan
 
 (** [input autoc mess] reads text from the homemade input field,
 	where autoc is an array of possibilities, and mess is the prompt displayed to the user *)
 let input autoc mess = 
 	(* s is the fields contents *)
 	top_left "Awaiting input..." yellow;
-	top_right mess white;
+	top_right mess cyan;
 	let rec input_aux s =
 		let st = wait_next_event [Key_pressed] in
 		let c = st.key in 
@@ -817,7 +818,8 @@ let config =
 	this
 
 (** Displays information about CAT *)
-let info () = write (help @
+let info () = write help_first_half 50 (height () - 50) white;
+	write (help_second_half @
 	["";
 	"Available CA are:"
 	]@
@@ -827,7 +829,8 @@ let info () = write (help @
 		|> List.sort Stdlib.compare
 		|> String.concat ", "
 	]
-	@["Put Q while choosing CAs to close CAT."]) (2 * width () / 5) (height () - 30) white
+	@["Put Q while choosing CAs to close CAT."])
+	(width () / 2 + 50) (height () - 50) white
 
 (** {1 Simulation} *)
 
@@ -1379,23 +1382,26 @@ let () =
 	Unix.sleepf 0.3; (* needed for the size to adjust *)
 	(* face *)
 	let mp = width()/2 in
-	draw_poly [|(mp, 200); (mp+450, 500); (mp, 800); (mp-450, 500)|];
+	let h y = height()*y / 1000 in
+	let a = Array.map (fun (x, y) -> (mp+x, h y))
+	and b = Array.map (fun (x, y, i, j) -> (mp+x, h y, mp+i, h j)) in
+	draw_poly (a[|(0, 200); (450, 500); (0, 800); (-450, 500)|]);
 	(* ears *)
-	draw_poly [|(mp-240, 640); (mp-190, 900); (mp-140, 710)|];
-	draw_poly [|(mp+240, 640); (mp+190, 900); (mp+140, 710)|];
+	draw_poly (a[|(-240, 640); (-190, 900); (-140, 710)|]);
+	draw_poly (a[|(240, 640); (190, 900); (140, 710)|]);
 	(* whiskers *)
-	draw_segments [|(mp-70, 420, mp-380, 370); (mp-70, 410, mp-370, 270); (mp-70, 400, mp-300, 200)|];
-	draw_segments [|(mp+70, 420, mp+380, 370); (mp+70, 410, mp+370, 270); (mp+70, 400, mp+300, 200)|];
+	draw_segments (b[|(-70, 420, -380, 370); (-70, 410, -370, 270); (-70, 400, -300, 200)|]);
+	draw_segments (b[|(70, 420, 380, 370); (70, 410, 370, 270); (70, 400, 300, 200)|]);
 	Unix.sleepf 0.5;
 	(* eyes *)
 	set_color yellow;
-	fill_poly [|(mp-120, 530); (mp-50, 570); (mp-120, 610); (mp-190, 570)|];
-	fill_poly [|(mp+120, 530); (mp+50, 570); (mp+120, 610); (mp+190, 570)|];
+	fill_poly (a[|(-120, 530); (-50, 570); (-120, 610); (-190, 570)|]);
+	fill_poly (a[|(120, 530); (50, 570); (120, 610); (190, 570)|]);
 	(* C A T *)
-	draw_poly_line [|(mp-300, 950); (mp-400, 950); (mp-400, 850); (mp-300, 850)|];
-	draw_poly_line [|(mp-50, 850); (mp-50, 950); (mp+50, 950); (mp+50, 850)|]; moveto (mp-50) 900; lineto (mp+50) 900;
-	moveto (mp+300) 950; lineto (mp+400) 950; moveto (mp+350) 950; lineto (mp+350) 850;
-	write ["PRESS ANY KEY TO START"] (mp-60) 150 yellow;
+	draw_poly_line (a[|(-300, 950); (-400, 950); (-400, 850); (-300, 850)|]);
+	draw_poly_line (a[|(-50, 850); (-50, 950); (50, 950); (50, 850)|]); moveto (mp-50) (h 900); lineto (mp+50) (h 900);
+	moveto (mp+300) (h 950); lineto (mp+400) (h 950); moveto (mp+350) (h 950); lineto (mp+350) (h 850);
+	write ["PRESS ANY KEY TO START"] (mp-60) (h 150) yellow;
 	ignore(read_key());
 	set_line_width 1;
 	try
