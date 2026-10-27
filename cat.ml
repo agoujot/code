@@ -60,14 +60,17 @@ type quadrant = state array
 (** we subdivide the state space into square quadrants of identical sizes,
 	and mark each active or inactive *)
 type grid = {
-	q: ((int * int, quadrant * bool * bool) Hashtbl.t); (** quadrant coordinates in the plane to (matrix, activeness, shared).
-		shared tells us if matrix is safe to modify or if it must first be copied. *)
+	q: ((int * int, quadrant * bool) Hashtbl.t); (** quadrant coordinates in the plane to (matrix, activeness). *)
 	si: int; (** each quadrant's width/height in cells *)
 	tor: (int * int) option; (** [None] if using unbounded grid, [Some (w, h)] if using bounded grid, where [w, h] are the height and width in quadrants *)
 }
 
-(** format used to record changes to the grid, where the snds are the absolute cell change location *)
+(** format used to record changes to the grid, where the snds are the absolute cell change location,
+	and the fsts are the {i previous} state. *)
 type change_list = (state * (int * int)) list
+
+(** a history of changes. the fsts are the number of steps to be counted back *)
+type history = (int * change_list) list
 
 (** a neighbourhood is a list of parts, each of which is a list of relative coordinates.
 	for most use cases, only one part will be needed *)
@@ -90,7 +93,7 @@ type params = {
 	n: neighbourhood;
 	col: color array;
 	rule: string; (** for rle *)
-	h: change_list list;
+	h: history;
 	u: int; (** u, v are the cell offsets of the lower left corner *)
 	v: int;
 	z: int; (** the size of a cell in pixels *)
@@ -104,9 +107,6 @@ type params = {
 }
 
 (** {1 Grids} *)
-
-(** we don't simulate anything this far from the origin *)
-let max_coord = 5_000
 
 (** implement actual euclidian integer division, where the rest is positive and we have:
 	[p = (divi p q)*q + modu p q]. *)
@@ -123,8 +123,6 @@ let grid_new si tor = {q = Hashtbl.create 1; tor = tor; si = si}
 (** [grid_copy g] returns a {!grid} with the internal hashtable copied *)
 let grid_copy g =
 	let h = Hashtbl.copy g.q in
-	(* mark all quadrants as shared *)
-	Hashtbl.filter_map_inplace (fun (_, _) (q, t, _) -> Some (q, t, true)) h;
 	{g with q = h}
 
 (** [grid_wrap g (a, b)] wraps around the quadrants numbers if out of window and [g.tor] is not [None] *)
@@ -134,36 +132,32 @@ let grid_wrap g (a, b) = match g.tor with
 
 (** [grid_get g i j] gets the value of cell [i, j] in [g] *)
 let grid_get g i j =
-	if abs i > max_coord || abs j > max_coord
-	then 0
-	else
 	match Hashtbl.find_opt g.q (grid_wrap g (divi i g.si, divi j g.si)) with
 	| None -> 0
-	| Some (q, _, _) -> q.((modu i g.si)*g.si+modu j g.si)
+	| Some (q, _) -> q.((modu i g.si)*g.si+modu j g.si)
 
 (** [grid_quad g a b] gets the matrix of quadrant [a, b] in [g] *)
 let grid_quad g a b =
 	match Hashtbl.find_opt g.q (grid_wrap g (a, b)) with
 	| None -> Array.make (g.si*g.si) 0
-	| Some (q, _, _) -> q
+	| Some (q, _) -> q
 
-(** [grid_is_shared g a b] gives if quadrant [a, b]'s matrix is shared with another grid *)
-let grid_is_shared g a b =
+(** [grid_is_active g a b] gets the activity boolean *)
+let grid_is_active g a b =
 	match Hashtbl.find_opt g.q (grid_wrap g (a, b)) with
 	| None -> false
-	| Some (_, _, sh) -> sh
+	| Some (_, b) -> b
 
 (** [grid_set g i j k] sets [i, j]'s state to [k] in [g]. *)
 let grid_set g i j k =
-	if abs i > max_coord || abs j > max_coord then () else
 	(* we need to copy else quadrants are shared between generations *)
 	let a = divi i g.si 
 	and b = divi j g.si
 	and x = modu i g.si
 	and y = modu j g.si in
-	let m = (if grid_is_shared g a b then Array.copy else Fun.id) (grid_quad g a b) in
+	let m = Array.copy (grid_quad g a b) in
 	m.(x*g.si+y) <- k;
-	Hashtbl.replace g.q (grid_wrap g (a, b)) (m, true, false)
+	Hashtbl.replace g.q (grid_wrap g (a, b)) (m, true)
 
 (** [grid_remove quad g a b] removes the quad [a, b] of [g] *)
 let grid_remove_quad g a b =
@@ -171,9 +165,9 @@ let grid_remove_quad g a b =
 
 (** [grid_mark_active g (a, b) bo] sets the activity of quad [a, b] in [g] to [bo] *)
 let grid_mark_active g (a, b) bo =
-	Hashtbl.replace g.q (grid_wrap g (a, b)) (grid_quad g a b, bo, grid_is_shared g a b)
+	Hashtbl.replace g.q (grid_wrap g (a, b)) (grid_quad g a b, bo)
 
-(** [grid_activate_adjacent g (a, b)] marks the quads within a moore distance of 1 of [a, b] active in g*)
+(** [grid_activate_adjacent g (a, b)] marks the quads within a moore distance of 1 of [a, b] active in g *)
 let grid_activate_adjacent g (a, b) =
 	for da = -1 to 1 do
 		for db = -1 to 1 do
@@ -326,11 +320,9 @@ and cells_height s =
 
 (** [draw i j c s] draws a cell, aka a square. [c] is the color, [s] is the state (for some params) *)
 let draw i j c s =
-	if abs i > max_coord || abs j > max_coord then ()
-	else
 	let x = (i-s.u)
 	and y = (j-s.v) in
-	if 0 <= y && y < cells_height s && 0 <= x && x < cells_width s then (
+	if s.sh && 0 <= y && y < cells_height s && 0 <= x && x < cells_width s then (
 		set_color s.col.(c);
 		let o = if s.gl && not (small_zoom s) then 1 else 0 in
 		fill_rect (x*s.z+o) (y*s.z+o) (s.z-1-o) (s.z-1-o);
@@ -338,7 +330,7 @@ let draw i j c s =
 
 (** draws the grid lines, not at very low zoom *)
 let draw_grid s =
-	if s.gl && not (small_zoom s) then begin
+	if s.sh && s.gl && not (small_zoom s) then begin
 		set_color (rgb 32 32 32);
 		for x = 0 to cells_width s do
 			if modu (x+s.u) 10 = 0 then set_color (rgb 64 64 64);
@@ -360,7 +352,7 @@ let redraw_all s =
 	auto_synchronize false;
 	erase_all ();
 	let si = s.g.si in
-	Hashtbl.iter (fun (a, b) (q, _, _) ->
+	Hashtbl.iter (fun (a, b) (q, _) ->
 		for x = 0 to si - 1 do
 			for y = 0 to si - 1 do
 				draw (a*si+x) (b*si+y) q.(x*si+y) s
@@ -464,7 +456,7 @@ let to_rle g x y dx dy r =
 				ti := (last_b - b - 1)*g.si
 			);
 			for j = g.si - 1 downto 0 do
-				ignore(List.fold_left (fun last_a ((a, _), (q, _, _)) ->
+				ignore(List.fold_left (fun last_a ((a, _), (q, _)) ->
 					(* add bs for empty cells since the last quad *)
 					if last_a < a - 1 then (
 						if !cur = string_of_state 0
@@ -568,7 +560,10 @@ let get_clipboard () =
 
 (** gives the sorted list of the filenames (with extension) in cwd *)
 let get_rle_files () =
-	Sys.readdir "." |> Array.to_list |> List.filter (String.ends_with ~suffix:".rle") |> Array.of_list
+	Sys.readdir "."
+	|> Array.to_list
+	|> List.filter (String.ends_with ~suffix:".rle")
+	|> Array.of_list
 
 (** get a file name using {!input} and normalize it to .rle *)
 let get_file_name () = 
@@ -836,6 +831,7 @@ let info () = write (help @
 
 (** {1 Simulation} *)
 
+(** associates to a character the displacement (from vim shortcuts) *)
 let char_to_delta = function
 	| 'h' -> (-1, 0)
 	| 'j' -> (0, -1)
@@ -843,32 +839,37 @@ let char_to_delta = function
 	| 'l' -> (1, 0)
 	| _ -> (0, 0)
 
+(** [scroll s m] translates s with input m *)
 let scroll s m =
 	let (du, dv) = char_to_delta m in
-	if s.g.tor <> None then error "un(zoom) and scroll not available on a torus";
-	let du = du*(if s.g.tor <> None then 0 else max 1 (30/s.z))
-	and dv = dv*(if s.g.tor <> None then 0 else max 1 (30/s.z)) in
-	let ns = {s with u = s.u+du; v = s.v+dv} in
-	redraw_all ns;
-	ns
+	if s.g.tor <> None then (error "un(zoom) and scroll not available on a torus"; s)
+	else (
+		let du = du*(max 1 (30/s.z))
+		and dv = dv*(max 1 (30/s.z)) in
+		let ns = {s with u = s.u+du; v = s.v+dv} in
+		redraw_all ns;
+		ns
+	)
 
+(** [zoom s m] (un)zooms s with input m *)
 let zoom s m =
 	let dz = match m with
 		| 'u' -> -1
 		| 'z' -> 1
 		| _ -> 0
 	in
-	if s.g.tor <> None then error "un(zoom) and scroll not available on a torus";
-	if s.z <= 1 then (error "already at minimum zoom"; s)
+	if s.g.tor <> None then (error "un(zoom) and scroll not available on a torus"; s)
 	else (
-		let du, dv, dz =
-			if s.g.tor <> None
-			then 0, 0, 0
-			else (width ()) * dz / (2*s.z*(s.z+dz)), (height ()) * dz / (2*s.z*(s.z+dz)), dz
-		in
-		let ns = {s with u = s.u+du; v = s.v+dv; z = s.z+dz} in
-		redraw_all ns;
-		ns
+		if s.z <= 1 then (error "already at minimum zoom"; s)
+		else (
+			let du, dv =
+				(width ()) * dz / (2*s.z*(s.z+dz)),
+				(height ()) * dz / (2*s.z*(s.z+dz))
+			in
+			let ns = {s with u = s.u+du; v = s.v+dv; z = s.z+dz} in
+			redraw_all ns;
+			ns
+		)
 	)
 
 (** factorises common logic to forward and backward *)
@@ -876,19 +877,16 @@ let rec direction main b err s once =
 	let start = Unix.gettimeofday() in
 	if s.sh then auto_synchronize false;
 	try begin
-		let ns = ref s in
-		for i = 1 to s.inc do
-			let g_ = grid_copy !ns.g in (* new grid in which modifications will be made *)
-			ns := main (!ns) g_;
-			show_state (!ns)
-		done;
-		let ns = !ns in
-		if s.sh then auto_synchronize true;
+		let g_ = grid_copy s.g in
+		let ns = main s g_ in
+		show_state ns;
+		if ns.sh then auto_synchronize true;
 		(* time we should have taken but didn't *)
-		if  s.sp > 0 then
-			let dt = 1. /. (float_of_int s.sp) +. start -. Unix.gettimeofday () in
-			(if dt > 1e-4 then (* Unix.sleepf has a ~0.1ms overhead *)
-				Unix.sleepf dt);
+		if ns.sp > 0 then (
+			let dt = 1. /. (float_of_int ns.sp) +. start -. Unix.gettimeofday () in
+			if dt > 1e-4 then (* Unix.sleepf has a ~0.1ms overhead *)
+				Unix.sleepf dt
+		);
 		let m = if key_pressed () then read_key() else '\005' in
 		if once || m = ' '
 		then (status "pause"; pause {ns with b = b})
@@ -902,46 +900,47 @@ let rec direction main b err s once =
 
 (** [forward s once] moves [s.inc] generation after state [s], then stops if [once] *)
 and forward s once =
-	direction (fun s g_ ->
+	let real_main s g_ =
 		let {g; f; n; col; rule; h; u; v; z; gl; sp; fo; t; sh} = s in
 		let toactivate = Hashtbl.create 1 in
-		let change = Hashtbl.fold (fun (a, b) (q, t, _) c ->
-			let cc = ref [] in
+		let change = ref [] in
+		Hashtbl.iter (fun (a, b) (q, t) ->
+			let changed = ref false in
 			if not t then () else
 			(* go apply rules and display if active *)
-			for x = 0 to g.si - 1 do
-				for y = 0 to g.si - 1 do
-					let k = q.(x*g.si+y) in
-					let i = a*g.si+x
-					and j = b*g.si+y in
-					let rec get_values l =
-						(* applies the relatives coordinates in l
-						   to the coordinates of the current cell to get the states.*)
-						match l with
-						| [] -> []
-						| hd::tl -> grid_get g (i+fst(hd)) (j+snd(hd)) :: get_values tl
-					in
-					let k_ = f (List.map get_values n) k in (* new cell state *)
-					if k <> k_ then begin (* do nothing if unchanged *)
-						grid_set g_ i j k_;
-						if sh then draw i j k_ s;
-						cc := (k, (i, j))::!cc (* add this change to the changelist *)
-					end
-				done
-			done;
+			let q_ = Array.mapi (fun p k ->
+				let x = divi p g.si
+				and y = modu p g.si in
+				let i = a*g.si+x
+				and j = b*g.si+y in
+				let rec get_values l =
+					(* applies the relatives coordinates in l
+					   to the coordinates of the current cell to get the states.*)
+					match l with
+					| [] -> []
+					| hd::tl -> grid_get g (i+fst(hd)) (j+snd(hd)) :: get_values tl
+				in
+				let k_ = f (List.map get_values n) k in (* new cell state *)
+				if k <> k_ then begin (* do nothing if unchanged *)
+					changed := true;
+					draw i j k_ s;
+					change := (k, (i, j))::!change (* add this change to the changelist *)
+				end;
+				k_
+			) q in
 			(* deal with quadrant activity *)
-			(match !cc with
-			| [] ->
+			if !changed
+			then (
+				Hashtbl.replace g_.q (a, b) (q_, grid_is_active g a b);
+				Hashtbl.replace toactivate (a, b) true
+			) else
 				(* this quad is inactive *)
 				if Array.exists ((<>) black) (grid_quad g_ a b)
 				then grid_mark_active g_ (a, b) false
 				else grid_remove_quad g_ a b
-			| _ -> Hashtbl.replace toactivate (a, b) true
-			);
-			(!cc) @ c
-		) g.q [] in
+		) g.q;
 		Hashtbl.iter (fun (a, b) _ -> grid_activate_adjacent g_ (a, b)) toactivate;
-		let ns = {s with g = g_; h = change::h; t = t+1} in
+		let ns = {s with g = g_; h = (1, !change)::h; t = t+1} in
 		if fo && g.tor = None
 		then (
 			let w, h = cells_width s, cells_height s in
@@ -960,18 +959,35 @@ and forward s once =
 				)
 			)
 		) else ns
+	in
+	direction (fun s _ ->
+		let ns = ref s in
+		for i = 1 to s.inc do
+			let g_ = grid_copy !ns.g in
+			ns := real_main !ns g_;
+		done;
+		!ns
 	) false ignore s once
 
 (** [backwards s once] sends us [s.inc] generations before state [s], then stops if [once] *)
 and backward s once =
-	direction (fun s g_ ->
+	let real_main s g_ = 
 		(* we're already going back, we should undo the top of history *)
 		List.iter (fun (k, (i, j)) -> 
 			grid_set g_ i j k;
 			draw i j k s;
 			grid_mark_active s.g (divi i s.g.si, divi j s.g.si) true
-		) (List.hd s.h);
-		{s with g = g_; h = List.tl s.h; t = s.t - 1}
+		) (snd (List.hd s.h));
+		{s with g = g_; h = List.tl s.h; t = s.t - fst (List.hd s.h)}
+	in
+	direction (fun s _ ->
+		(* we use abs and not just a for loop to account for weird stuff *)
+		let ns = ref s in
+		while abs (s.t - !ns.t) < s.inc do
+			let g_ = grid_copy !ns.g in
+			ns := real_main !ns g_;
+		done;
+		!ns
 	) true (fun s -> auto_synchronize true; error "no visible history"; pause {s with b = false}) s once
 	(* and yes that's a derek walcott reference. BFI forever. *)
 
@@ -1029,7 +1045,7 @@ and select (i1, j1) (i2, j2) s =
 					done
 				done;
 				grid_activate_cell_rect ng x y dx dy;
-				let ns = {s with g = ng; h = (!c)::s.h} in
+				let ns = {s with g = ng; h = (0, !c)::s.h} in
 				if k = 'd'
 				then set_clipboard (to_rle g x y (dx+1) (dy+1) s.rule);
 				redraw_all ns; (* we have to do this cuz we messed up the grid lines *)
@@ -1069,7 +1085,7 @@ and select (i1, j1) (i2, j2) s =
 					done;
 				done;
 				grid_activate_cell_rect ng x_ y_ dx_ dy_;
-				let ns = {s with g = ng; h = (!c)::s.h} in
+				let ns = {s with g = ng; h = (0, !c)::s.h} in
 				select (x_-u, y_-v) (x_+dx_-u, y_+dy_-v) ns
 			| 'c' | 's' ->
 				erase_magenta_rect();
@@ -1146,7 +1162,7 @@ and edit s =
 	else (
 		(* reverse because we want the eldest change of a given cell first,
 		   the one that has the value it had originally *)
-		pause {!ns with h = (List.rev !c)::s.h}
+		pause {!ns with h = (0, List.rev !c)::s.h}
 	)
 
 (** [pause s] listens for keyboard input (or selection) and then acts upon it,
@@ -1240,7 +1256,7 @@ and pause s =
 			let x = px/z + u
 			and y = py/z + v in
 			let c, dx, dy = from_rle rle ng x y in
-			let ns = {s with g = ng; h = c::h} in
+			let ns = {s with g = ng; h = (0, c)::h} in
 			redraw_all ns;
 			pause ns
 		end with Not_rle -> (error "can't paste, clipboard is not RLE"; pause s)
@@ -1259,7 +1275,7 @@ and pause s =
 				let u_, v_, h_ =
 					if m = 'o'
 					then (dx*z - width ())/(2*z), (dy*z - height ())/(2*z), []
-					else u, v, c::h in
+					else u, v, (0, c)::h in
 				let ns = {s with g = ng; h = h_; u = u_; v = v_; t = if m = 'o' then 0 else t} in
 				redraw_all ns;
 				status "pause"; pause ns
@@ -1283,7 +1299,7 @@ and pause s =
 			assert (sp >= 0);
 			status "pause";
 			pause {s with sp = sp}
-		with _ -> error "not a positive integer")
+		with _ -> error "not a positive integer"; pause s)
 	| 'm' -> pause {s with fo = not fo}
 	| 's' ->
 		if sh
@@ -1292,8 +1308,9 @@ and pause s =
 			fill_rect 0 0 (width ()) (height ());
 			pause {s with sh = not sh; fo = false} (* don't follow if nothing's onscreen *)
 		) else (
-			redraw_all s;
-			pause {s with sh = not sh}
+			let ns = {s with sh = not sh} in
+			redraw_all ns;
+			pause ns
 		)
 	| 't' -> let st = input [||] "Number of ticks (integer, > 0)." in
 		(try
