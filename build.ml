@@ -77,17 +77,20 @@ let regs = let open Str in
 	  regexp {|[ 	]*\^[ 	]*|};									(* 6 pointer line *)
 	  regexp {|^[0-9]+ error(s) encountered$|}; 					(* 7 thank you, i can count *)
 	  regexp {|^[0-9]+ | .*$|};										(* 8 code snippet *)
-	  regexp ("stdlib__"^mo^{|\..*|})								(* 9 a stdlib package file *)
+	  regexp ("^"^id^{|*\.ml|});									(* 9 a stdlib package file *)
+	  regexp {|\(.*\/\)[^\/]*\/[^\/]*|}								(* 10 things before the last two slashes *)
 	  |] in
 	(fun i s -> string_match a.(i) s 0)
 (** List of stdlib packages (should adapt to installation, though expect NixOS) *)
 let stdlib = 
-	List.map String.lowercase_ascii @@
-	List.map (fun s -> String.sub s 8 (String.length s - 8)) @@
-	uni @@
-	List.map Filename.remove_extension @@
-	List.filter (regs 9) @@ 
-	dir "/run/current-system/sw/lib/ocaml"
+	let ic = Unix.open_process_args_in "which" [|"which"; "ocamlopt"|] in
+	let p = input_line ic in
+	close_in ic;
+	assert(regs 10 p);
+	let oc = Str.matched_group 1 p in
+	dir (oc^"lib/ocaml/")
+	|> List.filter (regs 9)
+	|> List.map Filename.remove_extension
 (** Removes leftovers from compilation from the working directory (takes a list of names, to be called with {!scan}()) *)
 let rec clean =
 	function
